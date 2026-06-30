@@ -19,19 +19,19 @@ Do not merely polish wording. Reduce execution ambiguity.
 
 ## Required References
 
-Before optimizing, read:
+Before optimizing, read the reference files bundled with this skill:
 
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\METHODOLOGY.md`
+- `METHODOLOGY.md`
 
 Use templates only when they match the task:
 
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\templates\AGENT-BRIEF.md`
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\templates\CLARIFY.md`
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\templates\PROJECT-CONTEXT.md`
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\templates\CODE.md`
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\templates\ANALYZE.md`
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\templates\WRITE.md`
-- `C:\Users\FUTIAN\Desktop\prompt-optimizer\templates\META.md`
+- `templates/AGENT-BRIEF.md`
+- `templates/CLARIFY.md`
+- `templates/PROJECT-CONTEXT.md`
+- `templates/CODE.md`
+- `templates/ANALYZE.md`
+- `templates/WRITE.md`
+- `templates/META.md`
 
 ## Process
 
