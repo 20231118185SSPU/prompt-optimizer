@@ -1,6 +1,6 @@
 ---
 name: optimize-prompt
-description: Optimize vague user instructions into precise Agent Briefs. Use when the user asks to improve, rewrite, refine, clarify, or structure a prompt, or when they want an AI agent to understand and execute an idea accurately.
+description: Optimize vague user instructions into precise Agent Briefs. Use when the user asks to improve, rewrite, refine, clarify, or structure a prompt; says "优化:"/"优化一下"/"改成给 AI agent 用"; or wants an AI agent to understand and execute an idea accurately.
 ---
 
 # Optimize Prompt
@@ -10,6 +10,7 @@ Transform rough user instructions into prompts that an AI agent can understand, 
 ## Inputs
 
 - If the user provided text after `$optimize-prompt`, `/optimize-prompt`, or the skill invocation, use it as the raw instruction.
+- If the user writes `优化：...`, `优化: ...`, `optimize: ...`, or `改成给 AI agent 用：...`, treat the text after the colon as the raw instruction.
 - If not, ask: `请粘贴你想优化的原始指令。`
 - If the user uses `[直出]`, output only the optimized prompt.
 - If the user uses `[访谈]`, run one-question-at-a-time clarification before producing a final prompt.
@@ -30,6 +31,10 @@ Read `references/methodology.md` before optimizing. Load templates only when use
 - Negative constraints: `references/anti-patterns-reference.md`
 
 ## Process
+
+## Simple Default
+
+For ordinary requests, do not make the user choose a mode. Output the optimized prompt first. Keep diagnosis and change notes short. Only run a clarification interview when a missing answer would change the goal, deliverable, permission, safety, or acceptance criteria.
 
 ### 1. Decompose
 

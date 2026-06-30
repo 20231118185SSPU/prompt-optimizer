@@ -2,11 +2,17 @@
 
 > 本项目没有运行时依赖。所谓“安装”，本质是把这套意图对齐协议接入你正在使用的 AI 工具。
 
-你可以按使用场景选择一种接入方式。推荐优先使用“通用 Agent Skill 一键安装”。
+推荐只看第一种方式。其他方式是为不支持 skills 的工具准备的。
 
 ## 方式 1：通用 Agent Skill 一键安装
 
-适用于支持 `skills/` 目录的 agent 工具。安装后可以用 `$optimize-prompt` 或 `/optimize-prompt` 调用，具体取决于你的工具。
+适用于支持 `skills/` 目录的 agent 工具。默认会同时安装到常见目录：
+
+- Codex / OpenAI Agents：`~/.codex/skills` 或 `$CODEX_HOME/skills`
+- Claude Code：`~/.claude/skills`
+- agents-style 工具：`~/.agents/skills`
+
+安装后可以用 `$optimize-prompt` 或 `/optimize-prompt` 调用，具体取决于你的工具。
 
 ### Windows PowerShell
 
@@ -16,14 +22,14 @@
 iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -UseB | iex
 ```
 
-指定安装目标：
+只安装到某一个工具：
 
 ```powershell
-# Codex / OpenAI Agents: $env:CODEX_HOME\skills 或 ~/.codex/skills
-iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -UseB | iex
-
 # Claude Code: ~/.claude/skills
 powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -OutFile install-skill.ps1; .\install-skill.ps1 -Target claude; Remove-Item .\install-skill.ps1"
+
+# Codex / OpenAI Agents: $env:CODEX_HOME\skills 或 ~/.codex/skills
+powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -OutFile install-skill.ps1; .\install-skill.ps1 -Target codex; Remove-Item .\install-skill.ps1"
 
 # Agent Reach / agents-style: ~/.agents/skills
 powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -OutFile install-skill.ps1; .\install-skill.ps1 -Target agents; Remove-Item .\install-skill.ps1"
@@ -51,6 +57,18 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 ```
 
 安装内容来自 [agent-skills/optimize-prompt](agent-skills/optimize-prompt)，是自包含 skill 包，内置方法论和模板引用。
+
+安装后最简单的用法：
+
+```text
+$optimize-prompt 优化：你的原始想法
+```
+
+Claude Code：
+
+```text
+/optimize-prompt 优化：你的原始想法
+```
 
 ## 方式 2：通用 System Prompt
 

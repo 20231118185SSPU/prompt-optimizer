@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET="${1:-auto}"
+TARGET="${1:-all}"
 REPO_ZIP="${PROMPT_OPTIMIZER_ZIP:-https://github.com/20231118185SSPU/prompt-optimizer/archive/refs/heads/main.zip}"
 
-resolve_skills_dir() {
+resolve_skills_dirs() {
   case "$TARGET" in
     claude)
       printf '%s\n' "$HOME/.claude/skills"
@@ -15,6 +15,16 @@ resolve_skills_dir() {
       return
       ;;
     agents)
+      printf '%s\n' "$HOME/.agents/skills"
+      return
+      ;;
+    all)
+      if [ -n "${CODEX_HOME:-}" ]; then
+        printf '%s\n' "$CODEX_HOME/skills"
+      else
+        printf '%s\n' "$HOME/.codex/skills"
+      fi
+      printf '%s\n' "$HOME/.claude/skills"
       printf '%s\n' "$HOME/.agents/skills"
       return
       ;;
@@ -33,16 +43,17 @@ resolve_skills_dir() {
   fi
 }
 
-SKILLS_DIR="${PROMPT_OPTIMIZER_SKILLS_DIR:-$(resolve_skills_dir)}"
-INSTALL_DIR="$SKILLS_DIR/optimize-prompt"
+if [ -n "${PROMPT_OPTIMIZER_SKILLS_DIR:-}" ]; then
+  SKILLS_DIRS="$PROMPT_OPTIMIZER_SKILLS_DIR"
+else
+  SKILLS_DIRS="$(resolve_skills_dirs)"
+fi
 TMP_DIR="$(mktemp -d)"
 
 cleanup() {
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
-
-mkdir -p "$SKILLS_DIR"
 
 if [ -d "$REPO_ZIP" ]; then
   SKILL_SOURCE="$REPO_ZIP/agent-skills/optimize-prompt"
@@ -72,8 +83,18 @@ if [ ! -f "$SKILL_SOURCE/SKILL.md" ]; then
   exit 1
 fi
 
-rm -rf "$INSTALL_DIR"
-cp -R "$SKILL_SOURCE" "$INSTALL_DIR"
+while IFS= read -r SKILLS_DIR; do
+  [ -n "$SKILLS_DIR" ] || continue
+  INSTALL_DIR="$SKILLS_DIR/optimize-prompt"
+  mkdir -p "$SKILLS_DIR"
+  rm -rf "$INSTALL_DIR"
+  cp -R "$SKILL_SOURCE" "$INSTALL_DIR"
+  echo "Installed optimize-prompt skill to: $INSTALL_DIR"
+done <<EOF
+$SKILLS_DIRS
+EOF
 
-echo "Installed optimize-prompt skill to: $INSTALL_DIR"
-echo 'Invoke it with: $optimize-prompt or /optimize-prompt, depending on your agent.'
+echo
+echo 'Use it with: $optimize-prompt optimize: your rough idea'
+echo 'Claude Code also supports: /optimize-prompt optimize: your rough idea'
+
