@@ -62,7 +62,7 @@
 - `CLARIFY.md` 采用“一次只问一个问题 + 推荐答案”的访谈方式
 - `PROJECT-CONTEXT.md` 采用共享术语和项目记忆思路
 - `AGENT-BRIEF.md` 采用可执行工作单元，而不是泛泛 prompt
-- `skills/SKILL.md` 保持短小，避免把所有参考内容塞进去
+- `agent-skills/optimize-prompt/SKILL.md` 保持短小，详细方法论和模板放入 `references/`
 - `TRANSFORM.md` 使用模式路由，而不是所有输入都走同一个流程
 
 没有照搬：
@@ -75,14 +75,13 @@
 
 还没有完全解决的点：
 
-1. 缺少自动安装脚本。
-2. 没有针对每个工具提供真实截图或录屏。
-3. 没有测试不同 AI 工具实际输出质量的 benchmark。
-4. 没有把 Claude Code / Codex / Cursor 的安装方式做成一键命令。
+1. 没有针对每个工具提供真实截图或录屏。
+2. 没有测试不同 AI 工具实际输出质量的 benchmark。
+3. 没有接入 skills.sh 或其他公共 skill marketplace。
+4. 没有为 Cursor / Windsurf 这类非 skills 目录工具做专属安装器。
 
 推荐后续方向：
 
-- 增加 `scripts/install-claude-code.ps1` 和 `scripts/install-claude-code.sh`
 - 增加一组 “原始请求 → Agent Brief → 执行结果” benchmark
 - 增加 `docs/` 下的工具专题指南
 - 为项目上下文模板增加真实示例

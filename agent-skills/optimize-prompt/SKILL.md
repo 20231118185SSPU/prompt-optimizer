@@ -3,35 +3,31 @@ name: optimize-prompt
 description: Optimize vague user instructions into precise Agent Briefs. Use when the user asks to improve, rewrite, refine, clarify, or structure a prompt, or when they want an AI agent to understand and execute an idea accurately.
 ---
 
-# Optimize Prompt Skill
+# Optimize Prompt
 
-You are an Agent intent alignment specialist. Your job is to transform rough user instructions into prompts that an AI agent can understand, execute, verify, and, when useful, learn from.
-
-Do not merely polish wording. Reduce execution ambiguity.
+Transform rough user instructions into prompts that an AI agent can understand, execute, verify, and learn from. Do not merely polish wording; reduce execution ambiguity.
 
 ## Inputs
 
-- If the user provided text after `/optimize-prompt`, use it as the raw instruction.
+- If the user provided text after `$optimize-prompt`, `/optimize-prompt`, or the skill invocation, use it as the raw instruction.
 - If not, ask: `请粘贴你想优化的原始指令。`
 - If the user uses `[直出]`, output only the optimized prompt.
 - If the user uses `[访谈]`, run one-question-at-a-time clarification before producing a final prompt.
 - If the user uses `[Agent Brief]`, produce the full Agent Brief structure.
+- If the user uses `[项目上下文]`, produce a project context memory draft.
 
-## Required References
+## References
 
-Before optimizing, read the reference files bundled with this skill:
+Read `references/methodology.md` before optimizing. Load templates only when useful:
 
-- `METHODOLOGY.md`
-
-Use templates only when they match the task:
-
-- `templates/AGENT-BRIEF.md`
-- `templates/CLARIFY.md`
-- `templates/PROJECT-CONTEXT.md`
-- `templates/CODE.md`
-- `templates/ANALYZE.md`
-- `templates/WRITE.md`
-- `templates/META.md`
+- Agent Brief tasks: `references/agent-brief.md`
+- Clarification interview: `references/clarify.md`
+- Project memory: `references/project-context.md`
+- Code tasks: `references/code.md`
+- Analysis/research tasks: `references/analyze.md`
+- Writing tasks: `references/write.md`
+- Summary/explain/teach tasks: `references/meta.md`
+- Negative constraints: `references/anti-patterns-reference.md`
 
 ## Process
 
@@ -61,9 +57,9 @@ Score each dimension 0/1/2:
 
 Be strict. A natural-language instruction rarely deserves 9-10.
 
-### 3. Decide Whether To Clarify
+### 3. Clarify Only When It Matters
 
-Ask one question before optimizing if the missing information would change:
+Ask one question before optimizing if missing information would change:
 
 - the goal
 - the deliverable
@@ -71,9 +67,7 @@ Ask one question before optimizing if the missing information would change:
 - safety, data, permissions, cost, or irreversible actions
 - acceptance criteria
 
-Ask only one question. Provide your recommended answer.
-
-Do not ask the user for information that can be discovered by reading local files, docs, logs, or referenced URLs.
+Ask only one question and provide your recommended answer. Do not ask for information that can be discovered by reading local files, docs, logs, or referenced URLs.
 
 ### 4. Transform
 
@@ -119,13 +113,7 @@ Use this format unless `[直出]` was requested:
 3. ...
 ```
 
-For complex agent tasks, the optimized prompt must include:
-
-- context-reading instructions
-- workflow routing
-- scope boundaries
-- acceptance criteria
-- reflection or memory output
+For complex agent tasks, include context-reading instructions, workflow routing, scope boundaries, acceptance criteria, and reflection or memory output.
 
 ## Quality Bar
 

@@ -2,9 +2,57 @@
 
 > 本项目没有运行时依赖。所谓“安装”，本质是把这套意图对齐协议接入你正在使用的 AI 工具。
 
-你可以按使用场景选择一种接入方式。
+你可以按使用场景选择一种接入方式。推荐优先使用“通用 Agent Skill 一键安装”。
 
-## 方式 1：通用 System Prompt
+## 方式 1：通用 Agent Skill 一键安装
+
+适用于支持 `skills/` 目录的 agent 工具。安装后可以用 `$optimize-prompt` 或 `/optimize-prompt` 调用，具体取决于你的工具。
+
+### Windows PowerShell
+
+自动安装到优先检测到的 skills 目录：
+
+```powershell
+iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -UseB | iex
+```
+
+指定安装目标：
+
+```powershell
+# Codex / OpenAI Agents: $env:CODEX_HOME\skills 或 ~/.codex/skills
+iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -UseB | iex
+
+# Claude Code: ~/.claude/skills
+powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -OutFile install-skill.ps1; .\install-skill.ps1 -Target claude; Remove-Item .\install-skill.ps1"
+
+# Agent Reach / agents-style: ~/.agents/skills
+powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -OutFile install-skill.ps1; .\install-skill.ps1 -Target agents; Remove-Item .\install-skill.ps1"
+```
+
+### macOS / Linux
+
+自动安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash
+```
+
+指定安装目标：
+
+```bash
+# Codex / OpenAI Agents
+curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s codex
+
+# Claude Code
+curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s claude
+
+# ~/.agents/skills
+curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s agents
+```
+
+安装内容来自 [agent-skills/optimize-prompt](agent-skills/optimize-prompt)，是自包含 skill 包，内置方法论和模板引用。
+
+## 方式 2：通用 System Prompt
 
 适用于 ChatGPT、Claude、Gemini、Poe、自建 agent、任何支持 System Prompt / Custom Instructions 的工具。
 
@@ -19,7 +67,7 @@
 
 5. AI 会输出可直接交给 agent 执行的 Agent Brief。
 
-## 方式 2：Claude Code Skill
+## 方式 3：手动安装 Claude Code Skill
 
 适用于 Claude Code 的 slash command / skill 工作流。
 
@@ -27,21 +75,16 @@
 
 ```bash
 git clone https://github.com/20231118185SSPU/prompt-optimizer.git
-mkdir -p ~/.claude/skills/optimize-prompt/templates
-cp prompt-optimizer/skills/SKILL.md ~/.claude/skills/optimize-prompt/SKILL.md
-cp prompt-optimizer/METHODOLOGY.md ~/.claude/skills/optimize-prompt/METHODOLOGY.md
-cp prompt-optimizer/templates/*.md ~/.claude/skills/optimize-prompt/templates/
+mkdir -p ~/.claude/skills
+cp -R prompt-optimizer/agent-skills/optimize-prompt ~/.claude/skills/
 ```
 
 ### Windows PowerShell
 
 ```powershell
 git clone https://github.com/20231118185SSPU/prompt-optimizer.git
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\optimize-prompt"
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\optimize-prompt\templates"
-Copy-Item ".\prompt-optimizer\skills\SKILL.md" "$env:USERPROFILE\.claude\skills\optimize-prompt\SKILL.md" -Force
-Copy-Item ".\prompt-optimizer\METHODOLOGY.md" "$env:USERPROFILE\.claude\skills\optimize-prompt\METHODOLOGY.md" -Force
-Copy-Item ".\prompt-optimizer\templates\*.md" "$env:USERPROFILE\.claude\skills\optimize-prompt\templates\" -Force
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills"
+Copy-Item ".\prompt-optimizer\agent-skills\optimize-prompt" "$env:USERPROFILE\.claude\skills\" -Recurse -Force
 ```
 
 使用：
@@ -51,7 +94,7 @@ Copy-Item ".\prompt-optimizer\templates\*.md" "$env:USERPROFILE\.claude\skills\o
 帮我重构这个项目，让 agent 不要理解偏
 ```
 
-## 方式 3：Codex / OpenAI Codex CLI
+## 方式 4：Codex / OpenAI Codex CLI
 
 适用于支持项目级规则文件的 coding agent。
 
@@ -76,7 +119,7 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 
 如果你不想把仓库放进项目，也可以只复制 [TRANSFORM.md](TRANSFORM.md) 的 System Prompt 到 Codex 的全局或项目指令里。
 
-## 方式 4：Cursor / Windsurf / Continue 等编辑器 Agent
+## 方式 5：Cursor / Windsurf / Continue 等编辑器 Agent
 
 适用于支持 Rules、Memories、Project Instructions 的编辑器。
 
@@ -93,7 +136,7 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 先把请求转换成 Agent Brief；如果关键决策缺失，一次只问一个问题，并给出推荐答案。
 ```
 
-## 方式 5：只使用模板
+## 方式 6：只使用模板
 
 如果你不想配置任何工具，可以直接打开 `templates/`：
 

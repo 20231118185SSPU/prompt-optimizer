@@ -1,0 +1,6 @@
+interface:
+  display_name: "Optimize Prompt"
+  short_description: "Turn rough ideas into executable Agent Briefs"
+  default_prompt: "Use $optimize-prompt to convert my rough instruction into an executable Agent Brief."
+policy:
+  allow_implicit_invocation: true
