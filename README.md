@@ -1,0 +1,100 @@
+# Prompt Optimizer / Agent 意图对齐器
+
+> 把用户脑中的粗糙想法，转换成 AI agent 能准确执行、能自检、能沉淀的任务契约。
+
+这个项目不只是“润色提示词”。它的目标是解决 AI agent 最大的失败来源：用户以为自己说清楚了，agent 以为自己听懂了，最后做出来的东西偏了。
+
+## 项目介绍
+
+Prompt Optimizer 是一个面向 AI agent 的意图对齐工具包。它通过五维诊断、澄清访谈、Agent Brief、项目上下文沉淀和验收门，把一句模糊的自然语言请求转换成一份可执行的任务说明。
+
+它适合经常使用 Codex、Claude Code、Cursor、ChatGPT、Claude、Gemini 等 AI 工具的人，用来减少误解、跑偏、过度发挥、提前完成和缺少验证的问题。
+
+本项目提供一套 **Agent Intent Alignment Protocol**：
+
+1. 识别用户真实意图，而不只改写表面文字
+2. 把模糊需求拆成可执行的 Agent Brief
+3. 在信息不足时触发澄清访谈，而不是让 agent 猜
+4. 为复杂任务加入感知、自设计、深度思考、执行、反思、沉淀
+5. 让每次任务都留下可复用的上下文、验收标准和经验规则
+
+## 快速开始
+
+### 方式 1：通用 System Prompt
+
+1. 打开 [TRANSFORM.md](TRANSFORM.md)
+2. 复制 `---` 分隔线之间的 System Prompt
+3. 粘贴到 ChatGPT / Claude / Gemini / Codex / Claude Code 的 System Prompt 或第一条消息
+4. 发送你的原始指令
+5. 获得可直接交给 agent 执行的优化版任务说明
+
+### 方式 2：Claude Code Skill
+
+在 Claude Code 中输入 `/optimize-prompt`，然后粘贴你的原始指令。
+
+### 方式 3：按模板手写
+
+从 `templates/` 选择最接近的模板：
+
+- [AGENT-BRIEF.md](templates/AGENT-BRIEF.md)：把想法整理成完整 agent 任务简报
+- [CLARIFY.md](templates/CLARIFY.md)：让 agent 先追问，再执行
+- [PROJECT-CONTEXT.md](templates/PROJECT-CONTEXT.md)：沉淀项目上下文，减少每次重复解释
+- [CODE.md](templates/CODE.md)：编程任务
+- [ANALYZE.md](templates/ANALYZE.md)：分析 / 调研 / 对比
+- [WRITE.md](templates/WRITE.md)：写作任务
+- [META.md](templates/META.md)：总结 / 解释 / 教学
+
+## 适用场景
+
+| 你的原始想法 | 本项目输出 |
+| --- | --- |
+| “帮我优化这个项目” | 明确目标、范围、约束、验收标准和执行阶段的 Agent Brief |
+| “帮我做个功能” | 带上下文读取、方案选择、最小变更、测试门的开发任务 |
+| “我还没想清楚” | 一次只问一个关键问题的澄清访谈 |
+| “以后让 AI 都按这个项目规则来” | 可持久化的项目上下文和规则文件 |
+| “AI 老是理解偏” | 显性化用户意图、隐性约束、反面约束和成功标准 |
+
+## 核心方法
+
+本项目融合三类方法：
+
+- **五维诊断**：精确性、约束性、结构性、上下文、验证性
+- **Agent 对齐协议**：意图、背景、范围、交付物、约束、执行策略、验收、沉淀
+- **自主思维循环**：感知 → 自设计 → 深度思考 → 执行 → 反思 → 沉淀
+
+详细说明见 [METHODOLOGY.md](METHODOLOGY.md)。
+
+## 项目结构
+
+```text
+├── README.md
+├── METHODOLOGY.md
+├── TRANSFORM.md
+├── templates/
+│   ├── AGENT-BRIEF.md
+│   ├── CLARIFY.md
+│   ├── PROJECT-CONTEXT.md
+│   ├── CODE.md
+│   ├── WRITE.md
+│   ├── ANALYZE.md
+│   ├── META.md
+│   └── ANTI-PATTERNS-REFERENCE.md
+├── examples/
+│   ├── transformations.md
+│   └── anti-patterns.md
+└── skills/
+    └── SKILL.md
+```
+
+## 设计原则
+
+1. **先对齐，再执行**：复杂任务先确认理解和边界，不急着输出。
+2. **把隐含意图显性化**：用户没说出口但影响结果的信息，要被挖出来。
+3. **一问一答澄清**：需要追问时一次只问一个最高价值问题。
+4. **最小必要补全**：补齐缺口，不替用户改目标。
+5. **任务即契约**：优化后的 prompt 必须包含交付物、范围、约束和验收。
+6. **反思和沉淀**：复杂任务结束后，要求 agent 记录项目模式、风险和复用规则。
+
+## License
+
+MIT
