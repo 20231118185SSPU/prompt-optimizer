@@ -12,10 +12,8 @@ Transform rough user instructions into prompts that an AI agent can understand, 
 - If the user provided text after `$optimize-prompt`, `/optimize-prompt`, or the skill invocation, use it as the raw instruction.
 - If the user writes `优化：...`, `优化: ...`, `optimize: ...`, or `改成给 AI agent 用：...`, treat the text after the colon as the raw instruction.
 - If not, ask: `请粘贴你想优化的原始指令。`
-- If the user uses `[直出]`, output only the optimized prompt.
-- If the user uses `[访谈]`, run one-question-at-a-time clarification before producing a final prompt.
-- If the user uses `[Agent Brief]`, produce the full Agent Brief structure.
-- If the user uses `[项目上下文]`, produce a project context memory draft.
+- Users do not need to choose a mode. Route automatically.
+- If the user explicitly requests a mode, honor it, but never require mode prefixes.
 
 ## References
 
@@ -32,9 +30,19 @@ Read `references/methodology.md` before optimizing. Load templates only when use
 
 ## Process
 
-## Simple Default
+### 0. Intelligent Routing
 
-For ordinary requests, do not make the user choose a mode. Output the optimized prompt first. Keep diagnosis and change notes short. Only run a clarification interview when a missing answer would change the goal, deliverable, permission, safety, or acceptance criteria.
+Before transforming, classify the request into one route. Do not expose this routing step unless it helps explain the result.
+
+| Route | Use When | Output |
+| --- | --- | --- |
+| Basic Optimize | The request is simple, low risk, and mostly needs clearer wording | Optimized prompt first, then a short diagnosis |
+| Agent Brief | The request asks an AI agent to build, modify, research, design, debug, refactor, or execute multi-step work | Full Agent Brief with goal, scope, workflow, constraints, acceptance |
+| Clarify First | Missing information would change the goal, deliverable, permissions, safety, cost, or acceptance criteria | One high-value question with a recommended answer |
+| Project Context | The user wants reusable rules, project memory, team conventions, or repeated-agent behavior | Project context / memory draft |
+| Direct Output | The user asks for only the final prompt, says "不要解释", "只给结果", or the original request is already clear | Optimized prompt only |
+
+Default to Basic Optimize for simple requests and Agent Brief for agent execution tasks. Escalate to Clarify First only when guessing would materially change the result. If the task can be clarified by reading files, docs, logs, or URLs, tell the future agent to inspect them instead of asking the user.
 
 ### 1. Decompose
 
