@@ -56,7 +56,7 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s agents
 ```
 
-安装内容来自 [agent-skills/optimize-prompt](agent-skills/optimize-prompt)，是自包含 skill 包，内置方法论和模板引用。
+安装内容来自 [agent-skills/optimize-prompt](../../agent-skills/optimize-prompt)，是自包含 skill 包，内置方法论和模板引用。
 
 安装后最简单的用法：
 
@@ -74,7 +74,7 @@ Claude Code：
 
 适用于 ChatGPT、Claude、Gemini、Poe、自建 agent、任何支持 System Prompt / Custom Instructions 的工具。
 
-1. 打开 [TRANSFORM.md](TRANSFORM.md)。
+1. 打开 [TRANSFORM.md](../core/TRANSFORM.md)。
 2. 复制 `## System Prompt 开始` 到 `## System Prompt 结束` 之间的内容。
 3. 粘贴到目标 AI 工具的 System Prompt、Custom Instructions、项目规则或第一条消息中。
 4. 输入你的原始想法，例如：
@@ -123,7 +123,7 @@ Copy-Item ".\prompt-optimizer\agent-skills\optimize-prompt" "$env:USERPROFILE\.c
 
 在处理模糊需求前，先按以下协议优化用户意图：
 
-1. 阅读 `prompt-optimizer/TRANSFORM.md` 中的 System Prompt。
+1. 阅读 `prompt-optimizer/docs/core/TRANSFORM.md` 中的 System Prompt。
 2. 将用户原始请求转换成 Agent Brief。
 3. 如果缺失信息会改变目标、交付物、权限或验收标准，先只问一个问题。
 4. 复杂任务必须包含：上下文读取、范围边界、执行策略、验收标准、完成后沉淀。
@@ -135,7 +135,7 @@ Copy-Item ".\prompt-optimizer\agent-skills\optimize-prompt" "$env:USERPROFILE\.c
 git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 ```
 
-如果你不想把仓库放进项目，也可以只复制 [TRANSFORM.md](TRANSFORM.md) 的 System Prompt 到 Codex 的全局或项目指令里。
+如果你不想把仓库放进项目，也可以只复制 [TRANSFORM.md](../core/TRANSFORM.md) 的 System Prompt 到 Codex 的全局或项目指令里。
 
 ## 方式 5：Cursor / Windsurf / Continue 等编辑器 Agent
 
@@ -143,9 +143,9 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 
 推荐做法：
 
-1. 复制 [TRANSFORM.md](TRANSFORM.md) 的 System Prompt。
+1. 复制 [TRANSFORM.md](../core/TRANSFORM.md) 的 System Prompt。
 2. 粘贴到项目规则文件中，例如 `.cursorrules`、`.windsurfrules` 或工具提供的 Project Rules。
-3. 再复制 [templates/PROJECT-CONTEXT.md](templates/PROJECT-CONTEXT.md)，按你的项目补全后保存为项目上下文文件。
+3. 再复制 [templates/PROJECT-CONTEXT.md](../../templates/PROJECT-CONTEXT.md)，按你的项目补全后保存为项目上下文文件。
 
 项目规则建议加入：
 
@@ -158,13 +158,13 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 
 如果你不想配置任何工具，可以直接打开 `templates/`：
 
-- [AGENT-BRIEF.md](templates/AGENT-BRIEF.md)：复杂任务简报
-- [CLARIFY.md](templates/CLARIFY.md)：澄清访谈
-- [PROJECT-CONTEXT.md](templates/PROJECT-CONTEXT.md)：项目上下文沉淀
-- [CODE.md](templates/CODE.md)：编程任务
-- [ANALYZE.md](templates/ANALYZE.md)：分析调研
-- [WRITE.md](templates/WRITE.md)：写作任务
-- [META.md](templates/META.md)：总结解释教学
+- [AGENT-BRIEF.md](../../templates/AGENT-BRIEF.md)：复杂任务简报
+- [CLARIFY.md](../../templates/CLARIFY.md)：澄清访谈
+- [PROJECT-CONTEXT.md](../../templates/PROJECT-CONTEXT.md)：项目上下文沉淀
+- [CODE.md](../../templates/CODE.md)：编程任务
+- [ANALYZE.md](../../templates/ANALYZE.md)：分析调研
+- [WRITE.md](../../templates/WRITE.md)：写作任务
+- [META.md](../../templates/META.md)：总结解释教学
 
 ## 验证是否安装成功
 
@@ -181,5 +181,7 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 - 工作方式或执行阶段
 - 验收标准
 - 如果信息不足，会先问一个关键问题
+- 非 `[直出]` 输出应包含路由决策日志、诊断、契约回验和改动记录
+- 改动记录应区分 `[原文]`、`[推断]`、`[假设]`
 
-如果 AI 只是把句子改得更礼貌，没有输出 Agent Brief、约束和验收标准，说明没有正确接入。
+如果 AI 只是把句子改得更礼貌，没有输出 Agent Brief、约束、验收标准和必要的回验信息，说明没有正确接入。

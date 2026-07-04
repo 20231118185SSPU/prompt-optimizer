@@ -1,3 +1,4 @@
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [string]$Target = "all",
   [string]$SkillsDir = "",
@@ -52,6 +53,15 @@ if ($SkillsDir) {
 } else {
   $skillsDirs = Resolve-SkillsDirs -Target $Target
 }
+
+if ($WhatIfPreference) {
+  foreach ($skillsDir in $skillsDirs) {
+    $installDir = Join-Path $skillsDir "optimize-prompt"
+    Write-Host "What if: Install optimize-prompt skill to: $installDir"
+  }
+  return
+}
+
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("prompt-optimizer-skill-" + [System.Guid]::NewGuid().ToString("N"))
 $zipPath = Join-Path $tempRoot "repo.zip"
 $extractDir = Join-Path $tempRoot "repo"

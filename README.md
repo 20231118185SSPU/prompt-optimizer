@@ -61,7 +61,7 @@ Claude Code 也可以：
 
 不支持 skills 的工具可以复制 System Prompt：
 
-1. 打开 [TRANSFORM.md](TRANSFORM.md)
+1. 打开 [TRANSFORM.md](docs/core/TRANSFORM.md)
 2. 复制 `## System Prompt 开始` 到 `## System Prompt 结束` 之间的内容
 3. 粘贴到目标 AI 工具的 System Prompt、Custom Instructions、项目规则或第一条消息
 4. 发送你的原始指令
@@ -73,11 +73,13 @@ Claude Code 也可以：
 
 - [AGENT-BRIEF.md](templates/AGENT-BRIEF.md)：把想法整理成完整 agent 任务简报
 - [CLARIFY.md](templates/CLARIFY.md)：让 agent 先追问，再执行
+- [INTENT-PROBE.md](templates/INTENT-PROBE.md)：意图探查决策树和偏差检测模板
 - [PROJECT-CONTEXT.md](templates/PROJECT-CONTEXT.md)：沉淀项目上下文，减少每次重复解释
 - [CODE.md](templates/CODE.md)：编程任务
 - [ANALYZE.md](templates/ANALYZE.md)：分析 / 调研 / 对比
 - [WRITE.md](templates/WRITE.md)：写作任务
 - [META.md](templates/META.md)：总结 / 解释 / 教学
+- [ACCEPTANCE-CHECKLIST.md](templates/ACCEPTANCE-CHECKLIST.md)：分类型可复制验收清单库
 
 ## 适用场景
 
@@ -97,21 +99,40 @@ Claude Code 也可以：
 - **Agent 对齐协议**：意图、背景、范围、交付物、约束、执行策略、验收、沉淀
 - **自主思维循环**：感知 → 自设计 → 深度思考 → 执行 → 反思 → 沉淀
 
-详细说明见 [METHODOLOGY.md](METHODOLOGY.md)。
+详细说明见 [METHODOLOGY.md](docs/core/METHODOLOGY.md)。
+
+## 文档导航
+
+全部开发、使用、参考和规划文档集中在 [docs/](docs/README.md)：
+
+- [核心文档](docs/README.md#核心文档)：方法论和 System Prompt
+- [使用文档](docs/README.md#使用文档)：安装与日常使用
+- [参考文档](docs/README.md#参考文档)：外部参考取舍
+- [规划文档](docs/README.md#规划文档)：深度优化方案和会话任务拆解
 
 ## 参考内容取舍
 
-本项目参考了 AI 自主思维模型、AI 编程开发规则手册和 `mattpocock/skills`。具体吸收了什么、没有照搬什么、为什么这样取舍，见 [REFERENCE-DIGEST.md](REFERENCE-DIGEST.md)。
+本项目参考了 AI 自主思维模型、AI 编程开发规则手册和 `mattpocock/skills`。具体吸收了什么、没有照搬什么、为什么这样取舍，见 [REFERENCE-DIGEST.md](docs/reference/REFERENCE-DIGEST.md)。
 
 ## 项目结构
 
 ```text
 ├── README.md
-├── METHODOLOGY.md
-├── TRANSFORM.md
-├── INSTALL.md
-├── USAGE.md
-├── REFERENCE-DIGEST.md
+├── AGENTS.md
+├── docs/
+│   ├── README.md
+│   ├── core/
+│   │   ├── METHODOLOGY.md
+│   │   └── TRANSFORM.md
+│   ├── usage/
+│   │   ├── INSTALL.md
+│   │   └── USAGE.md
+│   ├── reference/
+│   │   └── REFERENCE-DIGEST.md
+│   └── planning/
+│       ├── BENCHMARK.md
+│       ├── prompt-optimizer-深度优化方案.md
+│       └── prompt-optimizer-深度优化方案-会话任务拆解.md
 ├── agent-skills/
 │   └── optimize-prompt/       ← 通用可安装 skill 包
 │       ├── SKILL.md
@@ -123,15 +144,18 @@ Claude Code 也可以：
 ├── templates/
 │   ├── AGENT-BRIEF.md
 │   ├── CLARIFY.md
+│   ├── INTENT-PROBE.md
 │   ├── PROJECT-CONTEXT.md
 │   ├── CODE.md
 │   ├── WRITE.md
 │   ├── ANALYZE.md
 │   ├── META.md
-│   └── ANTI-PATTERNS-REFERENCE.md
+│   ├── ANTI-PATTERNS-REFERENCE.md
+│   └── ACCEPTANCE-CHECKLIST.md
 ├── examples/
 │   ├── transformations.md
-│   └── anti-patterns.md
+│   ├── anti-patterns.md
+│   └── intent-gap-cases.md
 ```
 
 ## 设计原则

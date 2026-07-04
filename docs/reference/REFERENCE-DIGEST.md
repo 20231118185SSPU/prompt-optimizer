@@ -12,10 +12,10 @@
 
 已吸收：
 
-- 写入 [METHODOLOGY.md](METHODOLOGY.md) 的“自主思维循环”
-- 写入 [templates/AGENT-BRIEF.md](templates/AGENT-BRIEF.md) 的工作方式
-- 写入 [TRANSFORM.md](TRANSFORM.md) 的复杂任务要求
-- 写入 [templates/PROJECT-CONTEXT.md](templates/PROJECT-CONTEXT.md) 的沉淀结构
+- 写入 [METHODOLOGY.md](../core/METHODOLOGY.md) 的“自主思维循环”
+- 写入 [templates/AGENT-BRIEF.md](../../templates/AGENT-BRIEF.md) 的工作方式
+- 写入 [TRANSFORM.md](../core/TRANSFORM.md) 的复杂任务要求
+- 写入 [templates/PROJECT-CONTEXT.md](../../templates/PROJECT-CONTEXT.md) 的沉淀结构
 
 没有照搬：
 
