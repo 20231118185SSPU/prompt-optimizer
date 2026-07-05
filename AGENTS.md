@@ -20,12 +20,12 @@
 任何开发任务开始前，至少阅读：
 
 1. `README.md`：理解项目目标、使用方式和项目结构。
-2. `docs/core/METHODOLOGY.md`：理解核心方法论、诊断模型、路由和转换规则。
-3. `docs/core/TRANSFORM.md`：理解可复制 System Prompt 的实际执行流程。
-4. `agent-skills/optimize-prompt/SKILL.md`：理解 skill 入口、路由和质量门槛。
-5. 与本次任务直接相关的 `templates/`、`examples/`、`agent-skills/optimize-prompt/references/` 文件。
+2. `core/protocol/00-positioning.md` 到 `07-precipitation.md`：理解协议内核（定位、意图探查、五维诊断、路由、转换规则、契约回验、生命周期门、沉淀协议）。
+3. `dist/universal/SYSTEM-PROMPT.md`：理解构建产出的可复制 System Prompt（由 `core/` 生成，禁止手改）。
+4. `dist/claude-code/optimize-prompt/SKILL.md` 或 `dist/codex/optimize-prompt/SKILL.md`：理解 skill 入口、路由和质量门槛（由 `core/` 生成，禁止手改）。
+5. 与本次任务直接相关的 `core/templates/`、`examples/`、`dist/*/optimize-prompt/references/` 文件。
 
-如果任务来自 `docs/planning/prompt-optimizer-深度优化方案.md` 或 `docs/planning/prompt-optimizer-深度优化方案-会话任务拆解.md`，必须先阅读对应任务片段，再动手。
+如果任务来自 `docs/planning/` 下的方案或会话任务拆解文档，必须先阅读对应任务片段，再动手。
 
 ## 2. 强制工作流程
 
@@ -34,15 +34,36 @@
 1. **先定位**：用 `rg`、`Get-ChildItem` 或等价工具确认相关文件和重复内容位置。
 2. **先读后改**：不得在未阅读目标文件上下文的情况下直接覆盖或重写。
 3. **小步修改**：只实现当前任务要求，不顺手重构无关内容。
-4. **同步镜像**：如果修改了主方法论、模板或 skill reference，必须检查并同步对应镜像文件。
+4. **改 core → 跑 build → 禁改 dist**：协议内容只在 `core/` 修改；修改后必须运行 `build/build.sh` 或 `build/build.ps1` 重新生成 `dist/`；`dist/` 是构建产物，禁止手工编辑。
 5. **验证关键词**：修改后用搜索命令验证关键规则、标题、引用和新增文件是否落地。
 6. **报告结果**：最终说明修改了哪些文件、完成了哪些验收、还有什么风险或未验证项。
 
-## 3. 文件同步规则
+## 3. 文件结构与 SSOT 规则
 
-本项目存在多份语义镜像。修改其中一类文件时，必须检查另一类是否需要同步。
+本项目采用 **SSOT（单一事实来源）** 架构。`core/` 是唯一内容来源，`dist/` 由 `build/` 脚本生成，禁止手工编辑。
 
-### 文档分类
+### 目录职责
+
+```text
+prompt-optimizer/
+├── core/                          # ★ 唯一事实来源，只在这里改内容
+│   ├── protocol/                  # 协议内核 00-07
+│   ├── templates/                 # 10 个模板（唯一一份）
+│   └── spec-kit/                  # 规范生成器素材库
+├── build/                         # 构建脚本
+│   ├── build.ps1                  # Windows PowerShell
+│   └── build.sh                   # macOS/Linux Bash
+├── dist/                          # 构建产物，禁止手工编辑
+│   ├── claude-code/               # skill + hooks + CLAUDE.md 片段
+│   ├── codex/                     # skill + AGENTS.md 片段
+│   ├── cursor/                    # .cursor/rules 片段
+│   └── universal/                 # 可复制 System Prompt
+├── examples/                      # 示例
+├── scripts/                       # 安装脚本
+├── docs/                          # 文档（usage/reference/planning）
+├── README.md                      # 项目入口
+└── AGENTS.md                      # 开发规范（本文件）
+```
 
 根目录只保留项目入口和开发规范：
 
@@ -51,41 +72,58 @@
 
 开发文档必须放入 `docs/`，按类型分类：
 
-- `docs/core/`：核心方法论和可复制 System Prompt。
 - `docs/usage/`：安装、使用、接入说明。
 - `docs/reference/`：参考来源、取舍说明、背景材料。
 - `docs/planning/`：优化方案、路线图、会话任务拆解、开发计划。
 
 禁止在根目录新增零散开发文档。新增文档前必须判断归属目录，并同步 `docs/README.md` 和必要的 `README.md` 链接。
 
-### 核心方法论
+### SSOT 工作流
 
-- `docs/core/METHODOLOGY.md`
-- `agent-skills/optimize-prompt/references/methodology.md`
+1. **只改 `core/`**：协议内容（方法论、路由、转换规则、契约回验等）只在 `core/protocol/` 修改；模板只在 `core/templates/` 修改。
+2. **跑 build**：修改后必须运行 `bash build/build.sh`（或 `powershell -File build/build.ps1`）重新生成 `dist/`。
+3. **禁改 `dist/`**：`dist/` 下所有文件都是构建产物。禁止手工编辑、禁止手工新增、禁止手工删除。如需修改 `dist/` 内容，改 `core/` 后跑 build。
+4. **幂等性**：连续运行两次 build，第二次不应产生额外 diff。
 
-如果改动五维诊断、智能路由、转换规则、反模式、自检清单，通常两处都要同步。
+### 协议内核（core/protocol/）
 
-### System Prompt 与 Skill 入口
+协议内核是项目的唯一事实来源，按文件组织：
 
-- `docs/core/TRANSFORM.md`
-- `agent-skills/optimize-prompt/SKILL.md`
+| 文件 | 职责 |
+| --- | --- |
+| `00-positioning.md` | 定位与总纲 |
+| `01-intent-probe.md` | 意图探查 + 三类偏差 |
+| `02-diagnosis.md` | 五维零容忍诊断 |
+| `03-routing.md` | 路由决策树 |
+| `04-transform-rules.md` | R1-R10 转换规则 |
+| `05-contract-check.md` | 契约回验四问 + 硬性重做条件 |
+| `06-lifecycle-gates.md` | 生命周期五门 |
+| `07-precipitation.md` | 自动沉淀协议 |
 
-如果改动执行流程、路由、输出格式、Quality Bar、硬性门槛，必须检查两处是否一致。
+修改协议内核后，必须跑 build 同步到 `dist/`。
 
-### 模板与 Skill References
+### 模板（core/templates/）
 
-下列文件通常成对维护：
+模板的唯一来源是 `core/templates/`。`dist/` 下的 `references/` 由构建脚本从 `core/templates/` 复制生成。
 
-- `templates/AGENT-BRIEF.md` ↔ `agent-skills/optimize-prompt/references/agent-brief.md`
-- `templates/CLARIFY.md` ↔ `agent-skills/optimize-prompt/references/clarify.md`
-- `templates/CODE.md` ↔ `agent-skills/optimize-prompt/references/code.md`
-- `templates/ANALYZE.md` ↔ `agent-skills/optimize-prompt/references/analyze.md`
-- `templates/WRITE.md` ↔ `agent-skills/optimize-prompt/references/write.md`
-- `templates/META.md` ↔ `agent-skills/optimize-prompt/references/meta.md`
-- `templates/PROJECT-CONTEXT.md` ↔ `agent-skills/optimize-prompt/references/project-context.md`
-- `templates/ANTI-PATTERNS-REFERENCE.md` ↔ `agent-skills/optimize-prompt/references/anti-patterns-reference.md`
+新增模板时：
+1. 在 `core/templates/` 新增源文件。
+2. 在 `build/build.sh` 和 `build/build.ps1` 的 `TemplateMap` 中注册映射。
+3. 跑 build 生成 `dist/*/references/` 下的对应文件。
+4. 更新 `README.md` / `docs/usage/USAGE.md` 列出该模板。
 
-新增模板时，也要检查是否需要新增对应 reference，并更新 `SKILL.md` 的 References。
+### 构建产物（dist/）
+
+`dist/` 下的所有文件由 build 脚本生成：
+
+- `dist/universal/SYSTEM-PROMPT.md`：拼接 `core/protocol/*.md` 生成。
+- `dist/claude-code/optimize-prompt/SKILL.md`：skill 包装 + 协议内容。
+- `dist/codex/optimize-prompt/SKILL.md`：同上，Codex 适配。
+- `dist/cursor/rules/align.mdc`：Cursor 规则 + 协议内容。
+- `dist/*/optimize-prompt/references/`：从 `core/templates/` 复制。
+- `dist/*/optimize-prompt/agents/openai.yaml`：OpenAI skill 元数据。
+
+每个产物顶部写明 `Generated from core/` 和 `Do not edit dist/ manually`。
 
 ### 示例与文档索引
 
@@ -147,7 +185,8 @@
 AI agent 不得：
 
 - 未读上下文就直接重写大文件。
-- 删除已有模板、示例、安装脚本或核心方法论，除非用户明确要求。
+- 手工编辑、手工新增或手工删除 `dist/` 下的任何文件——`dist/` 是构建产物，只能由 `build/` 脚本生成。
+- 删除已有 `core/` 模板、协议文件、示例、安装脚本或核心方法论，除非用户明确要求。
 - 把严格规则改成泛泛建议。
 - 把"澄清"改成一次问多个问题。
 - 让 AI 自行决定高风险操作是否需要确认。
@@ -170,35 +209,35 @@ AI agent 不得：
 
 ## 8. 修改类型规范
 
-### 修改方法论
+### 修改协议内核
 
-必须检查：
+修改 `core/protocol/*.md` 时必须检查：
 
-- 是否影响 `docs/core/TRANSFORM.md` 的执行流程。
-- 是否影响 `SKILL.md` 的 Process 或 Quality Bar。
-- 是否需要同步 `agent-skills/optimize-prompt/references/methodology.md`。
+- 是否影响 `dist/universal/SYSTEM-PROMPT.md` 的执行流程（跑 build 后验证）。
+- 是否影响 `dist/*/optimize-prompt/SKILL.md` 的 Process 或 Quality Bar（跑 build 后验证）。
 - 是否需要新增或更新示例。
+- 修改后必须跑 build，禁止手改 `dist/`。
 
 ### 修改模板
 
-必须检查：
+修改 `core/templates/*.md` 时必须检查：
 
 - 模板是否仍包含目标、背景、范围、交付物、约束、执行策略、验收。
-- 对应 skill reference 是否同步。
+- 跑 build 后 `dist/*/references/` 是否正确更新。
 - `README.md` / `docs/usage/USAGE.md` 是否列出该模板。
 
-### 修改 Skill
+### 修改 Skill 构建逻辑
 
-必须检查：
+修改 `build/build.sh` 或 `build/build.ps1` 时必须检查：
 
-- `SKILL.md` description 是否仍能准确触发本 skill。
-- References 是否覆盖新增参考文件。
-- Process 是否与 `docs/core/METHODOLOGY.md` 和 `docs/core/TRANSFORM.md` 一致。
-- Quality Bar 是否保留验收门、信息不足处理、长期沉淀要求。
+- 两次构建产物逐字节一致（幂等性）。
+- `dist/` 下所有产物顶部写明 `Generated from core/`。
+- PowerShell 脚本至少能被 PowerShell 解析，Shell 脚本至少通过 `bash -n`。
+- 两个脚本产出一致（同一 `core/` 输入应得到相同的 `dist/` 内容）。
 
 ### 修改安装脚本
 
-必须检查：
+修改 `scripts/install-skill.ps1` 或 `scripts/install-skill.sh` 时必须检查：
 
 - 不破坏 Windows PowerShell 和 macOS/Linux 两条安装路径。
 - 不改变默认安装目标，除非用户明确要求。
@@ -222,6 +261,21 @@ AI agent 不得：
 ```powershell
 git status --short
 rg "关键术语或新增标题" .
+```
+
+协议/模板修改后必须验证 build：
+
+```bash
+# 语法检查
+bash -n build/build.sh
+powershell -NoProfile -ExecutionPolicy Bypass -File build/build.ps1 -WhatIf
+
+# 实际构建
+bash build/build.sh
+
+# 幂等性验证（连续两次构建无额外 diff）
+bash build/build.sh
+git status --short dist/
 ```
 
 文档/模板修改建议验证：
@@ -263,10 +317,25 @@ bash -n scripts/install-skill.sh
 
 - [ ] 我是否阅读了相关上下文？
 - [ ] 我是否只改了当前任务需要的文件？
-- [ ] 我是否同步了镜像文件或明确说明无需同步？
+- [ ] 我是否只改了 `core/` 并跑了 build，没有手改 `dist/`？
 - [ ] 我是否保留了项目"意图对齐器"定位？
 - [ ] 我是否没有弱化"必须/禁止/重做条件"？
 - [ ] 我是否给出了可执行验收或验证结果？
 - [ ] 我是否没有覆盖用户已有改动？
+
+<!-- align-protocol:begin v3.0 -->
+## 对齐协议（Alignment Protocol）
+
+每条开发指令执行前，静默完成三档路由评估：
+
+1. 读取 .align/lessons.md → .align/spec.md → .align/context.md
+2. 五维快评：简单且明确 → 直接执行（但交付前必须自验证）
+3. 有缺口但项目上下文可补全 → 开头 ≤3 行披露对齐假设，然后直接执行
+4. 高风险（见 .align/spec.md 高风险清单）或总分<6 或假设>2 条
+   → 停下澄清，一次只问一个问题并给推荐答案
+5. 任务结束：有踩坑/纠正/新约定 → 追加到 .align/lessons.md
+
+硬性红线：高风险静默假设 = 无效输出；交付前不验证 = 无效输出。
+<!-- align-protocol:end -->
 
 

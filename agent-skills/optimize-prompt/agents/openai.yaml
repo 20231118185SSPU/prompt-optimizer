@@ -1,6 +1,0 @@
-interface:
-  display_name: "Optimize Prompt"
-  short_description: "Turn rough ideas into executable Agent Briefs"
-  default_prompt: "Use $optimize-prompt 优化：把我的粗糙想法改成可执行的 Agent Brief."
-policy:
-  allow_implicit_invocation: true

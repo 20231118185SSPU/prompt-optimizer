@@ -12,10 +12,10 @@
 
 已吸收：
 
-- 写入 [METHODOLOGY.md](../core/METHODOLOGY.md) 的“自主思维循环”
-- 写入 [templates/AGENT-BRIEF.md](../../templates/AGENT-BRIEF.md) 的工作方式
-- 写入 [TRANSFORM.md](../core/TRANSFORM.md) 的复杂任务要求
-- 写入 [templates/PROJECT-CONTEXT.md](../../templates/PROJECT-CONTEXT.md) 的沉淀结构
+- 写入 [core/protocol/](../../core/protocol/) 的”自主思维循环”
+- 写入 [AGENT-BRIEF.md](../../core/templates/AGENT-BRIEF.md) 的工作方式
+- 写入 [SYSTEM-PROMPT.md](../../dist/universal/SYSTEM-PROMPT.md) 的复杂任务要求
+- 写入 [PROJECT-CONTEXT.md](../../core/templates/PROJECT-CONTEXT.md) 的沉淀结构
 
 没有照搬：
 
@@ -62,8 +62,8 @@
 - `CLARIFY.md` 采用“一次只问一个问题 + 推荐答案”的访谈方式
 - `PROJECT-CONTEXT.md` 采用共享术语和项目记忆思路
 - `AGENT-BRIEF.md` 采用可执行工作单元，而不是泛泛 prompt
-- `agent-skills/optimize-prompt/SKILL.md` 保持短小，详细方法论和模板放入 `references/`
-- `TRANSFORM.md` 使用模式路由，而不是所有输入都走同一个流程
+- `dist/claude-code/optimize-prompt/SKILL.md` 保持短小，详细方法论和模板放入 `references/`
+- `SYSTEM-PROMPT.md` 使用模式路由，而不是所有输入都走同一个流程
 
 没有照搬：
 

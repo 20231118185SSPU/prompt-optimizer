@@ -6,13 +6,18 @@
 
 ## 方式 1：通用 Agent Skill 一键安装
 
-适用于支持 `skills/` 目录的 agent 工具。默认会同时安装到常见目录：
+适用于支持 `skills/` 目录的 agent 工具。默认会同时安装两个 skill 到常见目录：
+
+- **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief
+- **align-init**：项目接入器，为项目生成 `.align/` 运行时并注入挂载区
+
+安装目标：
 
 - Codex / OpenAI Agents：`~/.codex/skills` 或 `$CODEX_HOME/skills`
 - Claude Code：`~/.claude/skills`
 - agents-style 工具：`~/.agents/skills`
 
-安装后可以用 `$optimize-prompt` 或 `/optimize-prompt` 调用，具体取决于你的工具。
+安装后可以用 `$optimize-prompt` 或 `/optimize-prompt` 调用意图对齐器，用 `/align-init` 接入项目。
 
 ### Windows PowerShell
 
@@ -56,7 +61,32 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s agents
 ```
 
-安装内容来自 [agent-skills/optimize-prompt](../../agent-skills/optimize-prompt)，是自包含 skill 包，内置方法论和模板引用。
+安装内容来自 [dist/claude-code/](../../dist/claude-code/)，包含两个自包含 skill 包：
+
+- `optimize-prompt/`：意图对齐器，内置方法论和模板引用
+- `align-init/`：项目接入器，内置扫描协议、访谈决策树和规范章节库
+
+### 预览和版本
+
+安装前可以预览（不实际安装）：
+
+```bash
+# macOS / Linux
+bash scripts/install-skill.sh --what-if all
+
+# Windows PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1 -WhatIf
+```
+
+查看版本：
+
+```bash
+# macOS / Linux
+bash scripts/install-skill.sh --version
+
+# Windows PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1 -Version
+```
 
 安装后最简单的用法：
 
@@ -70,12 +100,65 @@ Claude Code：
 /optimize-prompt 优化：你的原始想法
 ```
 
+接入项目（在项目根目录运行）：
+
+```text
+/align-init
+```
+
+从零开始新项目：
+
+```text
+/align-init --new
+```
+
+### 卸载与升级
+
+**卸载 skill**（从 skills 目录移除 optimize-prompt 和 align-init）：
+
+```bash
+# macOS / Linux
+bash scripts/install-skill.sh --uninstall
+
+# Windows PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1 -Uninstall
+```
+
+卸载只移除 `optimize-prompt/` 和 `align-init/` 两个 skill 目录，不触碰其他 skill。`.align/` 目录保留（用户可能还想保留项目规范和经验）。
+
+**升级 skill**（重新安装最新版）：
+
+```bash
+# macOS / Linux
+bash scripts/install-skill.sh
+
+# Windows PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1
+```
+
+升级会覆盖旧版 skill，不影响 `.align/` 目录中的 lessons 和 decisions。
+
+**项目内原位升级挂载区**（在项目根目录运行）：
+
+```text
+/align-init --upgrade
+```
+
+原位升级检测 CLAUDE.md/AGENTS.md 中的 `<!-- align-protocol:begin -->` 标记，替换标记区间内容，标记区外的用户内容零损伤。
+
+**完全清除**（手动删除 .align/ 目录和挂载区）：
+
+```bash
+rm -rf .align/
+# 然后手动删除 CLAUDE.md 中 <!-- align-protocol:begin --> 到 <!-- align-protocol:end --> 之间的内容
+```
+
 ## 方式 2：通用 System Prompt
 
 适用于 ChatGPT、Claude、Gemini、Poe、自建 agent、任何支持 System Prompt / Custom Instructions 的工具。
 
-1. 打开 [TRANSFORM.md](../core/TRANSFORM.md)。
-2. 复制 `## System Prompt 开始` 到 `## System Prompt 结束` 之间的内容。
+1. 打开 [SYSTEM-PROMPT.md](../dist/universal/SYSTEM-PROMPT.md)。
+2. 复制 `## System Prompt Start` 到 `## System Prompt End` 之间的内容。
 3. 粘贴到目标 AI 工具的 System Prompt、Custom Instructions、项目规则或第一条消息中。
 4. 输入你的原始想法，例如：
 
@@ -94,7 +177,7 @@ Claude Code：
 ```bash
 git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 mkdir -p ~/.claude/skills
-cp -R prompt-optimizer/agent-skills/optimize-prompt ~/.claude/skills/
+cp -R prompt-optimizer/dist/claude-code/optimize-prompt ~/.claude/skills/
 ```
 
 ### Windows PowerShell
@@ -102,7 +185,7 @@ cp -R prompt-optimizer/agent-skills/optimize-prompt ~/.claude/skills/
 ```powershell
 git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills"
-Copy-Item ".\prompt-optimizer\agent-skills\optimize-prompt" "$env:USERPROFILE\.claude\skills\" -Recurse -Force
+Copy-Item ".\prompt-optimizer\dist\claude-code\optimize-prompt" "$env:USERPROFILE\.claude\skills\" -Recurse -Force
 ```
 
 使用：
@@ -123,7 +206,7 @@ Copy-Item ".\prompt-optimizer\agent-skills\optimize-prompt" "$env:USERPROFILE\.c
 
 在处理模糊需求前，先按以下协议优化用户意图：
 
-1. 阅读 `prompt-optimizer/docs/core/TRANSFORM.md` 中的 System Prompt。
+1. 阅读 `prompt-optimizer/dist/universal/SYSTEM-PROMPT.md` 中的 System Prompt。
 2. 将用户原始请求转换成 Agent Brief。
 3. 如果缺失信息会改变目标、交付物、权限或验收标准，先只问一个问题。
 4. 复杂任务必须包含：上下文读取、范围边界、执行策略、验收标准、完成后沉淀。
@@ -135,7 +218,7 @@ Copy-Item ".\prompt-optimizer\agent-skills\optimize-prompt" "$env:USERPROFILE\.c
 git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 ```
 
-如果你不想把仓库放进项目，也可以只复制 [TRANSFORM.md](../core/TRANSFORM.md) 的 System Prompt 到 Codex 的全局或项目指令里。
+如果你不想把仓库放进项目，也可以只复制 [SYSTEM-PROMPT.md](../dist/universal/SYSTEM-PROMPT.md) 的 System Prompt 到 Codex 的全局或项目指令里。
 
 ## 方式 5：Cursor / Windsurf / Continue 等编辑器 Agent
 
@@ -143,9 +226,9 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 
 推荐做法：
 
-1. 复制 [TRANSFORM.md](../core/TRANSFORM.md) 的 System Prompt。
+1. 复制 [SYSTEM-PROMPT.md](../dist/universal/SYSTEM-PROMPT.md) 的 System Prompt。
 2. 粘贴到项目规则文件中，例如 `.cursorrules`、`.windsurfrules` 或工具提供的 Project Rules。
-3. 再复制 [templates/PROJECT-CONTEXT.md](../../templates/PROJECT-CONTEXT.md)，按你的项目补全后保存为项目上下文文件。
+3. 再复制 [PROJECT-CONTEXT.md](../../core/templates/PROJECT-CONTEXT.md)，按你的项目补全后保存为项目上下文文件。
 
 项目规则建议加入：
 
@@ -156,15 +239,15 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 
 ## 方式 6：只使用模板
 
-如果你不想配置任何工具，可以直接打开 `templates/`：
+如果你不想配置任何工具，可以直接打开 `core/templates/`：
 
-- [AGENT-BRIEF.md](../../templates/AGENT-BRIEF.md)：复杂任务简报
-- [CLARIFY.md](../../templates/CLARIFY.md)：澄清访谈
-- [PROJECT-CONTEXT.md](../../templates/PROJECT-CONTEXT.md)：项目上下文沉淀
-- [CODE.md](../../templates/CODE.md)：编程任务
-- [ANALYZE.md](../../templates/ANALYZE.md)：分析调研
-- [WRITE.md](../../templates/WRITE.md)：写作任务
-- [META.md](../../templates/META.md)：总结解释教学
+- [AGENT-BRIEF.md](../../core/templates/AGENT-BRIEF.md)：复杂任务简报
+- [CLARIFY.md](../../core/templates/CLARIFY.md)：澄清访谈
+- [PROJECT-CONTEXT.md](../../core/templates/PROJECT-CONTEXT.md)：项目上下文沉淀
+- [CODE.md](../../core/templates/CODE.md)：编程任务
+- [ANALYZE.md](../../core/templates/ANALYZE.md)：分析调研
+- [WRITE.md](../../core/templates/WRITE.md)：写作任务
+- [META.md](../../core/templates/META.md)：总结解释教学
 
 ## 验证是否安装成功
 

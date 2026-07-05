@@ -518,3 +518,110 @@ Basic Optimize。
 1. **先探意图，再谈优化** — 用户的第一句话是线索，不是需求。
 2. **补结构不补方向** — 缺的格式可以补，缺的决策必须问。
 3. **无验收，不交付** — 每份契约必须自带"怎么算做对了"。
+
+---
+
+## P0 回归验证报告
+
+> 验证时间：P0-4（SSOT 重构后）
+> 验证对象：`dist/universal/SYSTEM-PROMPT.md`（由 `core/protocol/00-07` 构建）
+> 验证方法：逐 case 推演 v3 协议规则，对比 v2.0 基线结论
+> 验证结论：**10/10 一致**
+
+### 回归推演总结
+
+| Case | 原始指令 | v2 预期路由 | v3 推演路由 | 是否一致 | 关键规则 |
+| --- | --- | --- | --- | --- | --- |
+| 01 | 帮我优化一下这个项目。 | Clarify First | Clarify First | ✓ | 高抽象动词+D5=0+总分<6 → 强制澄清访谈 |
+| 02 | 让这个接口更稳定。 | Intent Probing | Intent Probing | ✓ | 模糊目标触发意图探查 → 探查问题或 Clarify 输出 |
+| 03 | 把这个函数拆成三个小函数。 | Intent Probing | Intent Probing | ✓ | 缺少 WHY 触发意图探查 + D5=0 |
+| 04 | 帮我把登录状态存到 localStorage… | Intent Probing | Intent Probing | ✓ | 隐含假设触发 + 安全/数据持久化风险 |
+| 05 | 帮我用正则解析这个 HTML 提取商品价格。 | Clarify First | Clarify First | ✓ | XY Problem → A/B 方案确认式澄清 |
+| 06 | 这个页面加载慢，帮我加一个 loading 动画。 | Agent Brief | Agent Brief | ✓ | 症状伪装成原因 → Brief 中记录症状+根因+先诊断 |
+| 07 | 把 getUser(id, verbose) 改成接收一个 options 对象。 | Agent Brief | Agent Brief | ✓ | 局部视角遮蔽全局 → Brief 中强制影响面分析 |
+| 08 | 把 README 里的"Prompt 优化器"改成"Agent 意图对齐器"。 | Basic Optimize | Basic Optimize | ✓ | 低风险+目标单一 → 跳过探查 + 总分≥6 → 基础优化 |
+| 09 | [直出] 把"帮我写登录功能"改成给 Codex 执行的任务说明。 | Direct Output | Direct Output | ✓ | 显式 [直出] + 未命中安全阀 → 只输出正文 |
+| 10 | 请重构 src/config.js 的 parseConfig()… | Basic Optimize | Basic Optimize | ✓ | 信息完整 → 跳过探查 + 总分≥8 → 基础优化 |
+
+### 关键规则覆盖验证
+
+以下 v2.0 硬性门槛在 `dist/universal/SYSTEM-PROMPT.md` 中原样保留：
+
+| 门槛 | 来源 | v3 命中位置 | Case 验证 |
+| --- | --- | --- | --- |
+| D5=0 必补验收 | 02-diagnosis.md | "D5=0 → 强制补全验收标准，无论用户是否提及" | 01, 02, 03, 05 |
+| 总分<6 禁直出 | 02-diagnosis.md | "总分<6分 → 禁止直接优化，必须先澄清或探查" | 01, 02, 03 |
+| [假设]>2 转澄清 | 05-contract-check.md | "[假设] 超过2条 → 不应直接输出优化结果，应转入澄清访谈" | 01, 05 |
+| 高风险必探查 | 03-routing.md | "包含高风险信号？是，且缺少目标/范围/约束/验收 → 强制进入意图探查" | 04 |
+| 输出无效，必须重做 | 05-contract-check.md | 四条硬性重做门槛完整保留 | 全部 |
+
+### 意图探查触发与跳过验证
+
+| 触发条件 | 来源 | Case |
+| --- | --- | --- |
+| 高抽象动词且缺少可验证目标 | 01-intent-probe.md | 01 |
+| 模糊目标 | 01-intent-probe.md | 02 |
+| 缺少 WHY | 01-intent-probe.md | 03 |
+| 隐含假设 | 01-intent-probe.md | 04 |
+
+| 跳过条件 | 来源 | Case |
+| --- | --- | --- |
+| 用户请求已包含目标、约束和验收标准 | 01-intent-probe.md | 10 |
+| 任务低风险、目标单一，缺失信息不会改变交付物 | 01-intent-probe.md | 08 |
+| 用户明确使用 [直出] | 01-intent-probe.md | 09 |
+
+### 意图-表达偏差检测验证
+
+| 偏差类型 | 来源 | Case | 处理方式 |
+| --- | --- | --- | --- |
+| A: XY Problem（解决方案伪装成需求） | 01-intent-probe.md | 05 | A/B 方案确认式澄清 |
+| B: 症状伪装成原因 | 01-intent-probe.md | 06 | Agent Brief 中记录症状+根因+先诊断 |
+| C: 局部视角遮蔽全局目标 | 01-intent-probe.md | 07 | Agent Brief 中强制影响面分析 |
+
+### 输出模式映射验证
+
+| 模式 | v2 触发条件 | v3 触发条件 | 一致性 |
+| --- | --- | --- | --- |
+| Basic Optimize | 通过安全阀 + 单步简单任务 | 同 | ✓ |
+| Agent Brief | 开发/重构/调研/设计/调试类多步骤任务 | 同 | ✓ |
+| Clarify First | 安全阀命中低分/关键缺失/[假设]>2 | 同 | ✓ |
+| Direct Output | 用户明确 [直出] + 未命中安全阀 | 同 | ✓ |
+| Project Context | 用户想沉淀规则/术语/团队约定 | 同 | ✓（本批 case 未覆盖，规则保留） |
+
+### 结论
+
+P0 SSOT 重构未改变任何路由行为。`core/protocol/00-07` 完整保留了 v2.0 的：
+
+1. 意图探查协议（触发条件、跳过条件、探查框架）
+2. 五维零容忍诊断（D1-D5 评分标准、硬性门槛）
+3. 三层智能路由（安全阀 → 任务类型 → 复杂度）
+4. 零妥协转换规则（R1-R10）
+5. 契约回验四问 + 置信度标注
+6. 防退化机制（四条硬性重做门槛）
+
+`dist/universal/SYSTEM-PROMPT.md` 由 `build/` 脚本从 `core/` 生成，内容与 v2.0 `docs/core/METHODOLOGY.md` + `docs/core/TRANSFORM.md` 语义一致，未弱化任何"必须/禁止/输出无效，必须重做"。
+
+### 未覆盖项
+
+- Project Context 模式（用户想沉淀规则/术语）在本批 10 case 中未出现；v3 规则已保留，P1-4 将新增 v3 case 覆盖。
+
+### v3.0 三档路由预期档位（P1-1 落地后补充）
+
+> P1-1 已将静默三档路由落地到 `core/protocol/03-routing.md`。以下为 10 个 case 的 v3 预期档位推演。
+
+| Case | 原始指令 | v2 路由 | v3 档位 | 档位判定依据 |
+| --- | --- | --- | --- | --- |
+| 01 | 帮我优化一下这个项目。 | Clarify First | 档位 C（浮出澄清） | 总分=0（<6）+ D5=0 + 高抽象动词 → 强制澄清 |
+| 02 | 让这个接口更稳定。 | Intent Probing | 档位 C（浮出澄清） | 总分<6 + D5=0 + 模糊目标 → 强制探查/澄清 |
+| 03 | 把这个函数拆成三个小函数。 | Intent Probing | 档位 C（浮出澄清） | 总分<6 + D5=0 + 缺少 WHY → 强制探查 |
+| 04 | 帮我把登录状态存到 localStorage… | Intent Probing | 档位 C（浮出澄清） | 高风险（安全/数据持久化）+ 缺约束 → 强制探查 |
+| 05 | 帮我用正则解析这个 HTML 提取商品价格。 | Clarify First | 档位 C（浮出澄清） | XY Problem + D5=0 + [假设]>2 → A/B 方案确认 |
+| 06 | 这个页面加载慢，帮我加一个 loading 动画。 | Agent Brief | 档位 B（静默对齐） | 有缺口（根因不明）但可从代码诊断补全 → 披露后直接执行 |
+| 07 | 把 getUser(id, verbose) 改成接收一个 options 对象。 | Agent Brief | 档位 B（静默对齐） | 有缺口（调用方不明）但可从代码读取补全 → 披露后直接执行 |
+| 08 | 把 README 里的"Prompt 优化器"改成"Agent 意图对齐器"。 | Basic Optimize | 档位 A（直通） | 单步简单 + 低风险 + 意图明确（总分≥8）→ 零感知直通 |
+| 09 | [直出] 把"帮我写登录功能"改成给 Codex 执行的任务说明。 | Direct Output | 档位 A（直通） | 显式 [直出] 覆盖 + 未命中安全阀 → 直接输出 |
+| 10 | 请重构 src/config.js 的 parseConfig()… | Basic Optimize | 档位 A（直通） | 信息完整 + 总分≥8 + 无高风险 → 零感知直通 |
+
+**档位分布**：A×3（30%）、B×2（20%）、C×5（50%）。
+
+与设计预期的偏差：C 档占比 50% 高于设计预期 ~10%，因为本批 10 case 偏向"模糊/高风险"场景（P3 基准设计目的就是测试严格性）。实际项目中 A 档应占 ~60%。P1-4 将新增 8 个 v3 case 覆盖 A/B 档的静默化指标。

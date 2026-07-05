@@ -1,23 +1,27 @@
 # Prompt Optimizer / Agent 意图对齐器
 
-> 把用户脑中的粗糙想法，转换成 AI agent 能准确执行、能自检、能沉淀的任务契约。
+> 可注入任意项目的对齐运行时：接入时为项目生成开发规范，运行时让每条开发指令在执行前静默通过意图对齐管线，执行后把经验沉淀回项目。
 
-这个项目不只是“润色提示词”。它的目标是解决 AI agent 最大的失败来源：用户以为自己说清楚了，agent 以为自己听懂了，最后做出来的东西偏了。
+这个项目不只是”润色提示词”。它的目标是解决 AI agent 最大的失败来源：用户以为自己说清楚了，agent 以为自己听懂了，最后做出来的东西偏了。
 
 ## 项目介绍
 
-Prompt Optimizer 是一个面向 AI agent 的意图对齐工具包。它通过五维诊断、澄清访谈、Agent Brief、项目上下文沉淀和验收门，把一句模糊的自然语言请求转换成一份可执行的任务说明。
+Prompt Optimizer v3.0 是一个可注入任意项目的 **Alignment Runtime**（对齐运行时）。它通过两个 skill 实现：
+
+- **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief。v3 默认静默运行——简单任务直接执行（零感知），有缺口时静默补全+微披露（不等待），高风险时浮出澄清（必须拦截）。
+- **align-init**：项目接入器，为项目生成 `.align/` 运行时（开发规范+上下文+经验+决策），并注入挂载区到 CLAUDE.md/AGENTS.md。
 
 它适合经常使用 Codex、Claude Code、Cursor、ChatGPT、Claude、Gemini 等 AI 工具的人，用来减少误解、跑偏、过度发挥、提前完成和缺少验证的问题。
 
-本项目提供一套 **Agent Intent Alignment Protocol**：
+### 三档路由（v3 核心设计）
 
-1. 识别用户真实意图，而不只改写表面文字
-2. 把模糊需求拆成可执行的 Agent Brief
-3. 自动路由基础优化、高级 Agent Brief、澄清访谈、项目上下文和直出
-4. 在信息不足时触发澄清访谈，而不是让 agent 猜
-5. 为复杂任务加入感知、自设计、深度思考、执行、反思、沉淀
-6. 让每次任务都留下可复用的上下文、验收标准和经验规则
+| 档位 | 覆盖 | 条件 | 用户感知 |
+| --- | --- | --- | --- |
+| A 档直通 | ~60% | 简单+低风险+意图明确 | 零感知，直接执行 |
+| B 档静默对齐 | ~30% | 有缺口但可从 .align/ 补全 | 1-3 行披露，不等待 |
+| C 档浮出澄清 | ~10% | 高风险/总分<6/假设>2 | 停下，一次一问 |
+
+对齐的存在感与任务风险成正比，与任务频率成反比。简单指令零卡顿，高风险指令必拦截。
 
 ## 快速开始
 
@@ -35,51 +39,63 @@ macOS / Linux：
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash
 ```
 
-默认会安装到常见 skills 目录：Codex/OpenAI Agents、Claude Code、`~/.agents`。
+安装两个 skill：`optimize-prompt`（意图对齐器）和 `align-init`（项目接入器）。默认安装到 Codex、Claude Code、`~/.agents` 三个目录。
 
-### 2. 直接使用
+### 2. 接入项目
 
-```text
-$optimize-prompt 优化：帮我做一个用户登录功能
-```
-
-Claude Code 也可以：
+进入你的项目目录，运行：
 
 ```text
-/optimize-prompt 优化：帮我做一个用户登录功能
+/align-init
 ```
 
-如果你的工具支持隐式调用，也可以直接说：
+`align-init` 会扫描项目，生成 `.align/` 运行时（开发规范+上下文+经验+决策），并注入挂载区到 CLAUDE.md。从此每条开发指令自动经过三档路由。
+
+从零开始新项目：
+
+```text
+/align-init --new
+```
+
+### 3. 正常干活
+
+接入后直接开发即可。不需要说"优化："——对齐在后台静默发生：
+
+- 简单指令（如"改个变量名"）→ **直接执行**，零感知
+- 有缺口的指令（如"加个搜索功能"）→ **1-3 行披露后直接执行**，不等待
+- 高风险指令（如"清空数据库"）→ **停下问一个问题**，必须确认
+
+想看完整优化结果时，显式使用：
 
 ```text
 优化：帮我做一个用户登录功能
 ```
 
-你不需要选择基础模式或高级模式。模型会根据任务复杂度、风险和上下文缺口自动路由。
+这会输出完整 Agent Brief 文档（v2.0 兼容行为）。
 
-### 3. 其他接入方式
+### 4. 其他接入方式
 
 不支持 skills 的工具可以复制 System Prompt：
 
-1. 打开 [TRANSFORM.md](docs/core/TRANSFORM.md)
-2. 复制 `## System Prompt 开始` 到 `## System Prompt 结束` 之间的内容
+1. 打开 [SYSTEM-PROMPT.md](dist/universal/SYSTEM-PROMPT.md)
+2. 复制 `## System Prompt Start` 到 `## System Prompt End` 之间的内容
 3. 粘贴到目标 AI 工具的 System Prompt、Custom Instructions、项目规则或第一条消息
 4. 发送你的原始指令
 5. 获得可直接交给 agent 执行的优化版任务说明
 
 也可以直接按模板手写：
 
-从 `templates/` 选择最接近的模板：
+从 `core/templates/` 选择最接近的模板：
 
-- [AGENT-BRIEF.md](templates/AGENT-BRIEF.md)：把想法整理成完整 agent 任务简报
-- [CLARIFY.md](templates/CLARIFY.md)：让 agent 先追问，再执行
-- [INTENT-PROBE.md](templates/INTENT-PROBE.md)：意图探查决策树和偏差检测模板
-- [PROJECT-CONTEXT.md](templates/PROJECT-CONTEXT.md)：沉淀项目上下文，减少每次重复解释
-- [CODE.md](templates/CODE.md)：编程任务
-- [ANALYZE.md](templates/ANALYZE.md)：分析 / 调研 / 对比
-- [WRITE.md](templates/WRITE.md)：写作任务
-- [META.md](templates/META.md)：总结 / 解释 / 教学
-- [ACCEPTANCE-CHECKLIST.md](templates/ACCEPTANCE-CHECKLIST.md)：分类型可复制验收清单库
+- [AGENT-BRIEF.md](core/templates/AGENT-BRIEF.md)：把想法整理成完整 agent 任务简报
+- [CLARIFY.md](core/templates/CLARIFY.md)：让 agent 先追问，再执行
+- [INTENT-PROBE.md](core/templates/INTENT-PROBE.md)：意图探查决策树和偏差检测模板
+- [PROJECT-CONTEXT.md](core/templates/PROJECT-CONTEXT.md)：沉淀项目上下文，减少每次重复解释
+- [CODE.md](core/templates/CODE.md)：编程任务
+- [ANALYZE.md](core/templates/ANALYZE.md)：分析 / 调研 / 对比
+- [WRITE.md](core/templates/WRITE.md)：写作任务
+- [META.md](core/templates/META.md)：总结 / 解释 / 教学
+- [ACCEPTANCE-CHECKLIST.md](core/templates/ACCEPTANCE-CHECKLIST.md)：分类型可复制验收清单库
 
 ## 适用场景
 
@@ -99,13 +115,12 @@ Claude Code 也可以：
 - **Agent 对齐协议**：意图、背景、范围、交付物、约束、执行策略、验收、沉淀
 - **自主思维循环**：感知 → 自设计 → 深度思考 → 执行 → 反思 → 沉淀
 
-详细说明见 [METHODOLOGY.md](docs/core/METHODOLOGY.md)。
+详细说明见 [core/protocol/](core/protocol/)（协议内核 00-07）。
 
 ## 文档导航
 
 全部开发、使用、参考和规划文档集中在 [docs/](docs/README.md)：
 
-- [核心文档](docs/README.md#核心文档)：方法论和 System Prompt
 - [使用文档](docs/README.md#使用文档)：安装与日常使用
 - [参考文档](docs/README.md#参考文档)：外部参考取舍
 - [规划文档](docs/README.md#规划文档)：深度优化方案和会话任务拆解
@@ -119,43 +134,40 @@ Claude Code 也可以：
 ```text
 ├── README.md
 ├── AGENTS.md
+├── core/                          # ★ 唯一事实来源（SSOT）
+│   ├── protocol/                  # 协议内核 00-07
+│   ├── templates/                 # 14 个模板（含 4 个 ALIGN 模板）
+│   ├── spec-kit/                  # 规范生成器素材库
+│   ├── skills/align-init/         # align-init skill 源文件
+│   └── host/                      # 宿主适配源文件（挂载区/hook/reminder）
+├── build/                         # 构建脚本
+│   ├── build.ps1
+│   └── build.sh
+├── dist/                          # 构建产物（禁止手改）
+│   ├── claude-code/
+│   │   ├── optimize-prompt/       # skill 1 + references + agents/
+│   │   ├── align-init/            # skill 2 + references + spec-sections/
+│   │   ├── hooks/                 # HOOK-REMINDER.txt + settings.fragment.json
+│   │   └── CLAUDE.align.md        # 挂载区片段
+│   ├── codex/
+│   │   ├── optimize-prompt/
+│   │   ├── align-init/
+│   │   └── AGENTS.align.md
+│   ├── cursor/
+│   │   ├── rules/align.mdc
+│   │   └── references/
+│   └── universal/
+│       ├── SYSTEM-PROMPT.md       # 可复制 System Prompt
+│       ├── optimize-prompt/
+│       └── align-init/
 ├── docs/
 │   ├── README.md
-│   ├── core/
-│   │   ├── METHODOLOGY.md
-│   │   └── TRANSFORM.md
-│   ├── usage/
-│   │   ├── INSTALL.md
-│   │   └── USAGE.md
+│   ├── usage/                     # INSTALL + USAGE + MIGRATION
 │   ├── reference/
-│   │   └── REFERENCE-DIGEST.md
-│   └── planning/
-│       ├── BENCHMARK.md
-│       ├── prompt-optimizer-深度优化方案.md
-│       └── prompt-optimizer-深度优化方案-会话任务拆解.md
-├── agent-skills/
-│   └── optimize-prompt/       ← 通用可安装 skill 包
-│       ├── SKILL.md
-│       ├── agents/openai.yaml
-│       └── references/
-├── scripts/
-│   ├── install-skill.ps1
-│   └── install-skill.sh
-├── templates/
-│   ├── AGENT-BRIEF.md
-│   ├── CLARIFY.md
-│   ├── INTENT-PROBE.md
-│   ├── PROJECT-CONTEXT.md
-│   ├── CODE.md
-│   ├── WRITE.md
-│   ├── ANALYZE.md
-│   ├── META.md
-│   ├── ANTI-PATTERNS-REFERENCE.md
-│   └── ACCEPTANCE-CHECKLIST.md
-├── examples/
-│   ├── transformations.md
-│   ├── anti-patterns.md
-│   └── intent-gap-cases.md
+│   └── planning/                  # BENCHMARK + BENCHMARK-V3 + 方案文档
+├── scripts/                       # 安装脚本（双 skill + 卸载 + 版本）
+├── tests/                         # 卸载零损伤测试 fixture
+└── examples/
 ```
 
 ## 设计原则
