@@ -183,7 +183,7 @@ A 档命中时完全静默：单步简单 + 无高风险信号 + 意图明确（
 
 - 如果 `.align/spec.md` 存在：执行其中定义的测试/构建/lint 命令（接入时已写入规范，无需每次询问）。
 - 如果 `.align/spec.md` 不存在：按任务契约中的验收清单自验证。
-- 如果两者都不存在：按 `core/templates/ACCEPTANCE-CHECKLIST.md` 选择任务类型匹配的验收项。
+- 如果两者都不存在：按 `references/acceptance-checklist.md` 选择任务类型匹配的验收项。
 
 ### 静默度
 

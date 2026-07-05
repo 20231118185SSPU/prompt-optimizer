@@ -48,9 +48,21 @@
 #### 7. 安装脚本 v3
 
 - 双 skill 安装（optimize-prompt + align-init）
+- 默认安装和卸载覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录
+- Codex 安装源使用 `dist/codex`；Claude Code 使用 `dist/claude-code`
+- `~/.agents/skills` 使用 Claude-compatible 的 `dist/claude-code` 包，并在脚本与文档中明确说明
 - `--version` / `-Version`：版本输出
 - `--what-if` / `-WhatIf`：预览不安装
 - `--uninstall` / `-Uninstall`：卸载双 skill，零损伤用户内容
+
+#### 8. v3.0 最终审查修复
+
+- 修复 Bash 参数解析：`--what-if` / `--uninstall` 不再覆盖默认 `all` target
+- 修复 PowerShell / Bash adapter 路由：Codex 不再安装 Claude Code adapter
+- `align-init` 的 `[假设]` 硬门槛统一为 `>2`
+- 模板运行时引用统一为 `references/acceptance-checklist.md`
+- `BENCHMARK-V3.md` 明确为协议规则推演回测，修正 C 档统计和文档类验证门
+- 文档索引更新为 14 个模板，并将 `BENCHMARK-V3-DRAFT.md` 标注为历史草案
 
 ### 新增文件
 
@@ -64,7 +76,7 @@
 - `.align/`：自举生成的四件套
 - `tests/`：卸载零损伤测试 fixture + 验证脚本
 - `docs/planning/BENCHMARK-V3.md`：18 case 全量回测报告
-- `docs/planning/BENCHMARK-V3-DRAFT.md`：8 个 v3 新 case 草案
+- `docs/planning/BENCHMARK-V3-DRAFT.md`：8 个 v3 新 case 历史草案
 - `docs/planning/ALIGN-SCAN-SELFTEST.md`：自举扫描测试报告
 - `docs/usage/MIGRATION.md`：v2→v3 迁移指南
 
@@ -77,9 +89,10 @@
 
 ### 验收
 
-- 18/18 回测全绿（10 v2 + 8 v3）
+- 18/18 协议规则推演回测全绿（10 v2 + 8 v3）
 - 三个卡顿指标：A 档零感知 ✓ B 档不等待 ✓ C 档仍拦截 ✓
 - 零容忍门槛原样继承：D5=0 / 总分<6 / [假设]>2 / 高风险必探查
+- 安装预览和卸载预览默认覆盖三目录，且 Codex / Claude Code adapter 路由正确
 - build 幂等 ✓
 - 卸载零损伤 ✓
 - 本项目自举运行 ✓

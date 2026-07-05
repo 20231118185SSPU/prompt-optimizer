@@ -7,7 +7,7 @@
 ## 核心来源
 
 - [`core/protocol/`](../core/protocol/)：协议内核 00-07（定位、意图探查、诊断、路由、转换规则、契约回验、生命周期门、沉淀）。
-- [`core/templates/`](../core/templates/)：10 个模板（唯一来源）。
+- [`core/templates/`](../core/templates/)：14 个模板（含 4 个 ALIGN 模板，唯一来源）。
 - [`dist/universal/SYSTEM-PROMPT.md`](../dist/universal/SYSTEM-PROMPT.md)：可复制到其他 AI 工具中的 System Prompt（构建产物）。
 
 ## 使用文档
@@ -23,8 +23,8 @@
 ## 规划文档
 
 - [BENCHMARK.md](planning/BENCHMARK.md)：P3 回测基准，记录 10 个真实指令的路由、澄清和验收推演。含 P0 SSOT 重构后回归验证报告（10/10 一致）。
-- [BENCHMARK-V3-DRAFT.md](planning/BENCHMARK-V3-DRAFT.md)：v3.0 静默三档路由 + 生命周期门回测草案，8 个新 case 覆盖 A/B/C 档、门 3 偏离声明、门 5 沉淀。
 - [BENCHMARK-V3.md](planning/BENCHMARK-V3.md)：v3.0 全量回测报告，18 case（10 v2 + 8 v3）逐个推演，三个卡顿指标逐项验收，18/18 通过。
+- [BENCHMARK-V3-DRAFT.md](planning/BENCHMARK-V3-DRAFT.md)：历史草案，仅保留 P1-4 的 8 个新增 case 设计背景；完成态以 `BENCHMARK-V3.md` 为准。
 - [ALIGN-SCAN-SELFTEST.md](planning/ALIGN-SCAN-SELFTEST.md)：P2-2 自举测试报告，对 prompt-optimizer 项目自身执行扫描协议，验证 spec-kit 可用性。
 - [prompt-optimizer-深度优化方案.md](planning/prompt-optimizer-深度优化方案.md)：深度升级方案原文。
 - [prompt-optimizer-深度优化方案-会话任务拆解.md](planning/prompt-optimizer-深度优化方案-会话任务拆解.md)：按多会话执行拆解后的任务清单。

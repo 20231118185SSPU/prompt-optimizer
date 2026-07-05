@@ -81,7 +81,7 @@ Do not edit dist/ manually
 
 ## 验收标准
 
-从 `templates/ACCEPTANCE-CHECKLIST.md` 按任务类型选择或改写为可执行验收项。不得只写“要好用”“要稳定”“符合最佳实践”等抽象标准。
+从 `references/acceptance-checklist.md` 按任务类型选择或改写为可执行验收项。不得只写“要好用”“要稳定”“符合最佳实践”等抽象标准。
 
 完成后自检：
 

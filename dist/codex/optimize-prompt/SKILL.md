@@ -946,7 +946,7 @@ v3.0 输出模式 = 档位（静默度） × v2.0 模式（输出形态）。
 
 
 
-操作：按任务类型从 `core/templates/ACCEPTANCE-CHECKLIST.md` 选择可执行验收项，添加可检查的验收项、自检项、测试命令、量化指标或人工检查清单。
+操作：按任务类型从 `references/acceptance-checklist.md` 选择可执行验收项，添加可检查的验收项、自检项、测试命令、量化指标或人工检查清单。
 
 
 
@@ -1427,7 +1427,7 @@ A 档命中时完全静默：单步简单 + 无高风险信号 + 意图明确（
 
 - 如果 `.align/spec.md` 存在：执行其中定义的测试/构建/lint 命令（接入时已写入规范，无需每次询问）。
 - 如果 `.align/spec.md` 不存在：按任务契约中的验收清单自验证。
-- 如果两者都不存在：按 `core/templates/ACCEPTANCE-CHECKLIST.md` 选择任务类型匹配的验收项。
+- 如果两者都不存在：按 `references/acceptance-checklist.md` 选择任务类型匹配的验收项。
 
 ### 静默度
 
@@ -1825,7 +1825,7 @@ agent 的读取顺序写死在挂载区，固定为：
 
 ## 与 `.align/` 四件套模板的引用关系
 
-`.align/` 四件套的模板将在 P2-1 定义：
+`.align/` 四件套模板已在 `core/templates/` 定义：
 
 - `core/templates/ALIGN-SPEC.md` → 生成 `.align/spec.md`
 - `core/templates/ALIGN-CONTEXT.md` → 生成 `.align/context.md`

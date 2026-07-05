@@ -42,7 +42,7 @@ Do not edit dist/ manually
 **示例句**（语气参考）：
 "【写一句你期望的语气和风格的示例】"
 
-**完成后自检**：从 `templates/ACCEPTANCE-CHECKLIST.md` 的写作类清单选择或改写为可执行验收项，确认篇幅、语气、结构和术语准确性。
+**完成后自检**：从 `references/acceptance-checklist.md` 的写作类清单选择或改写为可执行验收项，确认篇幅、语气、结构和术语准确性。
 ```
 
 ---
@@ -68,7 +68,7 @@ Do not edit dist/ manually
 - 不要：【过度客套/使用附件/提及某话题】
 - 要：【直接切入主题/给出截止日期/附上参考链接】
 
-**完成后自检**：从 `templates/ACCEPTANCE-CHECKLIST.md` 的写作类清单选择或改写为可执行验收项，确认篇幅、语气、结构和关键信息完整性。
+**完成后自检**：从 `references/acceptance-checklist.md` 的写作类清单选择或改写为可执行验收项，确认篇幅、语气、结构和关键信息完整性。
 ```
 
 ---
@@ -94,5 +94,5 @@ Do not edit dist/ manually
 
 **第一句参考**：【如果你想指定开头方向】
 
-**完成后自检**：从 `templates/ACCEPTANCE-CHECKLIST.md` 的写作类清单选择或改写为可执行验收项，确认篇幅、风格、结构和关键元素完整性。
+**完成后自检**：从 `references/acceptance-checklist.md` 的写作类清单选择或改写为可执行验收项，确认篇幅、风格、结构和关键元素完整性。
 ```

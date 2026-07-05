@@ -21,7 +21,7 @@
 
 ### Windows PowerShell
 
-自动安装到优先检测到的 skills 目录：
+默认同时安装到 Codex、Claude Code、`~/.agents` 三个 skills 目录：
 
 ```powershell
 iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -UseB | iex
@@ -42,7 +42,7 @@ powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.c
 
 ### macOS / Linux
 
-自动安装：
+默认同时安装到 Codex、Claude Code、`~/.agents` 三个 skills 目录：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash
@@ -61,7 +61,13 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s agents
 ```
 
-安装内容来自 [dist/claude-code/](../../dist/claude-code/)，包含两个自包含 skill 包：
+安装内容按目标工具选择对应 adapter：
+
+- Codex / OpenAI Agents：来自 [dist/codex/](../../dist/codex/)
+- Claude Code：来自 [dist/claude-code/](../../dist/claude-code/)
+- `~/.agents/skills`：来自 [dist/claude-code/](../../dist/claude-code/)，因为 agents-style 工具消费 Claude-compatible skill layout
+
+每个 adapter 都包含两个自包含 skill 包：
 
 - `optimize-prompt/`：意图对齐器，内置方法论和模板引用
 - `align-init/`：项目接入器，内置扫描协议、访谈决策树和规范章节库
@@ -72,7 +78,7 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 
 ```bash
 # macOS / Linux
-bash scripts/install-skill.sh --what-if all
+bash scripts/install-skill.sh --what-if
 
 # Windows PowerShell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1 -WhatIf
@@ -124,7 +130,7 @@ bash scripts/install-skill.sh --uninstall
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1 -Uninstall
 ```
 
-卸载只移除 `optimize-prompt/` 和 `align-init/` 两个 skill 目录，不触碰其他 skill。`.align/` 目录保留（用户可能还想保留项目规范和经验）。
+默认卸载会覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录，只移除 `optimize-prompt/` 和 `align-init/` 两个 skill 目录，不触碰其他 skill。`.align/` 目录保留（用户可能还想保留项目规范和经验）。
 
 **升级 skill**（重新安装最新版）：
 

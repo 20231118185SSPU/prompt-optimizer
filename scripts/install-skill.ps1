@@ -11,86 +11,192 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptVersion = "v3.0"
 $Skills = @("optimize-prompt", "align-init")
+$UserHome = $HOME
+if ([string]::IsNullOrWhiteSpace($UserHome)) {
+  $UserHome = $env:USERPROFILE
+}
+if ([string]::IsNullOrWhiteSpace($UserHome)) {
+  $UserHome = [Environment]::GetFolderPath('UserProfile')
+}
+if ([string]::IsNullOrWhiteSpace($UserHome)) {
+  throw "Could not resolve user home directory."
+}
 
 if ($Version) {
   Write-Host "prompt-optimizer installer $ScriptVersion"
   return
 }
 
-function Resolve-SkillsDirs {
+function Resolve-InstallTargets {
   param([string]$Target)
 
+  function New-InstallTarget {
+    param(
+      [string]$SkillsDir,
+      [string]$Adapter,
+      [string]$Label
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SkillsDir)) {
+      throw "Could not resolve skills directory for target: $Label"
+    }
+
+    return "$SkillsDir|$Adapter|$Label"
+  }
+
   if ($Target -eq "claude") {
-    return @((Join-Path $HOME ".claude\skills"))
+    return ,(New-InstallTarget -SkillsDir (Join-Path $UserHome ".claude\skills") -Adapter "claude-code" -Label "Claude Code")
   }
 
   if ($Target -eq "codex") {
     if ($env:CODEX_HOME) {
-      return @((Join-Path $env:CODEX_HOME "skills"))
+      return ,(New-InstallTarget -SkillsDir (Join-Path $env:CODEX_HOME "skills") -Adapter "codex" -Label "Codex")
     }
-    return @((Join-Path $HOME ".codex\skills"))
+    return ,(New-InstallTarget -SkillsDir (Join-Path $UserHome ".codex\skills") -Adapter "codex" -Label "Codex")
   }
 
   if ($Target -eq "agents") {
-    return @((Join-Path $HOME ".agents\skills"))
+    return ,(New-InstallTarget -SkillsDir (Join-Path $UserHome ".agents\skills") -Adapter "claude-code" -Label "agents-style")
   }
 
   if ($Target -eq "all") {
-    $dirs = @()
+    $targets = New-Object System.Collections.Generic.List[string]
     if ($env:CODEX_HOME) {
-      $dirs += (Join-Path $env:CODEX_HOME "skills")
+      $codexDir = Join-Path $env:CODEX_HOME "skills"
     } else {
-      $dirs += (Join-Path $HOME ".codex\skills")
+      $codexDir = Join-Path $UserHome ".codex\skills"
     }
-    $dirs += (Join-Path $HOME ".claude\skills")
-    $dirs += (Join-Path $HOME ".agents\skills")
-    return $dirs
+    $targets.Add((New-InstallTarget -SkillsDir $codexDir -Adapter "codex" -Label "Codex"))
+    $targets.Add((New-InstallTarget -SkillsDir (Join-Path $UserHome ".claude\skills") -Adapter "claude-code" -Label "Claude Code"))
+    $targets.Add((New-InstallTarget -SkillsDir (Join-Path $UserHome ".agents\skills") -Adapter "claude-code" -Label "agents-style"))
+    return $targets.ToArray()
   }
 
-  $codex = Join-Path $HOME ".codex\skills"
-  $claude = Join-Path $HOME ".claude\skills"
-  $agents = Join-Path $HOME ".agents\skills"
+  throw "Unknown target: $Target"
+}
 
-  if (Test-Path $codex) { return $codex }
-  if (Test-Path $claude) { return $claude }
-  if (Test-Path $agents) { return $agents }
+function Resolve-SourceRoot {
+  param(
+    [string]$Repo,
+    [string]$ZipPath,
+    [string]$ExtractDir
+  )
 
-  return @($codex)
+  if (Test-Path -LiteralPath $Repo -PathType Container) {
+    return (Resolve-Path -LiteralPath $Repo).Path
+  }
+
+  Invoke-WebRequest -Uri $Repo -OutFile $ZipPath
+  Expand-Archive -LiteralPath $ZipPath -DestinationPath $ExtractDir -Force
+
+  $distRoot = Get-ChildItem -LiteralPath $ExtractDir -Directory -Recurse |
+    Where-Object { $_.Name -eq "dist" } |
+    Select-Object -First 1
+
+  if (-not $distRoot) {
+    throw "Could not find dist directory in downloaded archive."
+  }
+
+  return (Split-Path -Parent $distRoot.FullName)
+}
+
+function Test-AdapterSource {
+  param(
+    [string]$SourceRoot,
+    [string]$Adapter
+  )
+
+  $distSource = Join-Path $SourceRoot "dist\$Adapter"
+  if (-not (Test-Path -LiteralPath $distSource -PathType Container)) {
+    throw "Could not find dist\$Adapter directory."
+  }
+
+  foreach ($skill in $Skills) {
+    $skillSource = Join-Path $distSource $skill
+    if (-not (Test-Path -LiteralPath (Join-Path $skillSource "SKILL.md"))) {
+      throw "Could not find dist\$Adapter\$skill\SKILL.md."
+    }
+  }
+}
+
+function Get-InstallTargetValue {
+  param(
+    [string]$Target,
+    [string]$Name
+  )
+
+  $parts = $Target -split '\|', 3
+  if ($parts.Count -lt 3) {
+    throw "Invalid install target entry: $Target"
+  }
+
+  switch ($Name) {
+    "SkillsDir" {
+      return $parts[0]
+    }
+    "Adapter" {
+      return $parts[1]
+    }
+    "Label" {
+      return $parts[2]
+    }
+    default {
+      return ""
+    }
+  }
 }
 
 if ($SkillsDir) {
-  $skillsDirs = @($SkillsDir)
+  $customAdapter = "claude-code"
+  if ($Target -eq "codex") {
+    $customAdapter = "codex"
+  }
+  $installTargets = @("$SkillsDir|$customAdapter|custom")
 } else {
-  $skillsDirs = Resolve-SkillsDirs -Target $Target
+  $installTargets = @(Resolve-InstallTargets -Target $Target)
 }
 
 if ($Uninstall) {
-  foreach ($skillsDir in $skillsDirs) {
+  foreach ($target in $installTargets) {
+    $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
+    if ([string]::IsNullOrWhiteSpace($skillsDir)) {
+      throw "Resolved an empty skills directory for target $($target | Out-String)."
+    }
     foreach ($skill in $Skills) {
       $installDir = Join-Path $skillsDir $skill
-      if (Test-Path -LiteralPath $installDir -PathType Container) {
-        if ($WhatIfPreference) {
-          Write-Host "What if: Remove $skill skill from: $installDir"
-        } else {
-          Remove-Item -LiteralPath $installDir -Recurse -Force
-          Write-Host "Removed $skill skill from: $installDir"
-        }
+      if ($WhatIfPreference) {
+        Write-Host "What if: Remove $skill skill from: $installDir (if present)"
+      } elseif (Test-Path -LiteralPath $installDir -PathType Container) {
+        Remove-Item -LiteralPath $installDir -Recurse -Force
+        Write-Host "Removed $skill skill from: $installDir"
       }
     }
   }
   Write-Host ""
-  Write-Host "Uninstall complete. Only optimize-prompt and align-init were removed."
+  if ($WhatIfPreference) {
+    Write-Host "What if: Only optimize-prompt and align-init would be removed."
+  } else {
+    Write-Host "Uninstall complete. Only optimize-prompt and align-init were removed."
+  }
   Write-Host "Other skills and user content were not touched."
   return
 }
 
 if ($WhatIfPreference) {
-  foreach ($skillsDir in $skillsDirs) {
+  foreach ($target in $installTargets) {
+    $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
+    if ([string]::IsNullOrWhiteSpace($skillsDir)) {
+      throw "Resolved an empty skills directory for target $($target | Out-String)."
+    }
     foreach ($skill in $Skills) {
       $installDir = Join-Path $skillsDir $skill
-      Write-Host "What if: Install $skill skill to: $installDir"
+      $adapter = Get-InstallTargetValue -Target $target -Name "Adapter"
+      Write-Host "What if: Install $skill skill to: $installDir (source: dist/$adapter)"
     }
   }
+  Write-Host ""
+  Write-Host "What if: Skills would be downloaded from $Repo"
+  Write-Host "Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout."
   return
 }
 
@@ -101,28 +207,24 @@ $extractDir = Join-Path $tempRoot "repo"
 New-Item -ItemType Directory -Force $tempRoot | Out-Null
 
 try {
-  if (Test-Path -LiteralPath $Repo -PathType Container) {
-    $distSource = Join-Path (Resolve-Path -LiteralPath $Repo).Path "dist\claude-code"
-  } else {
-    Invoke-WebRequest -Uri $Repo -OutFile $zipPath
-    Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
-    $distSource = Get-ChildItem -LiteralPath $extractDir -Directory | Select-Object -First 1 | ForEach-Object {
-      Join-Path $_.FullName "dist\claude-code"
+  $sourceRoot = Resolve-SourceRoot -Repo $Repo -ZipPath $zipPath -ExtractDir $extractDir
+
+  $validatedAdapters = @{}
+  foreach ($target in $installTargets) {
+    $adapter = Get-InstallTargetValue -Target $target -Name "Adapter"
+    if (-not $validatedAdapters.ContainsKey($adapter)) {
+      Test-AdapterSource -SourceRoot $sourceRoot -Adapter $adapter
+      $validatedAdapters[$adapter] = $true
     }
   }
 
-  if (-not (Test-Path -LiteralPath $distSource -PathType Container)) {
-    throw "Could not find dist\claude-code in downloaded archive."
-  }
-
-  foreach ($skill in $Skills) {
-    $skillSource = Join-Path $distSource $skill
-    if (-not (Test-Path -LiteralPath (Join-Path $skillSource "SKILL.md"))) {
-      throw "Could not find dist\claude-code\$skill\SKILL.md."
+  foreach ($target in $installTargets) {
+    $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
+    if ([string]::IsNullOrWhiteSpace($skillsDir)) {
+      throw "Resolved an empty skills directory for target $($target | Out-String)."
     }
-  }
-
-  foreach ($skillsDir in $skillsDirs) {
+    $adapter = Get-InstallTargetValue -Target $target -Name "Adapter"
+    $distSource = Join-Path $sourceRoot "dist\$adapter"
     New-Item -ItemType Directory -Force $skillsDir | Out-Null
 
     foreach ($skill in $Skills) {
@@ -134,7 +236,7 @@ try {
       }
 
       Copy-Item -LiteralPath $skillSource -Destination $installDir -Recurse
-      Write-Host "Installed $skill skill to: $installDir"
+      Write-Host "Installed $skill skill to: $installDir (source: dist/$adapter)"
     }
   }
 
@@ -143,6 +245,7 @@ try {
   Write-Host "Use optimize-prompt with: `$optimize-prompt optimize: your rough idea"
   Write-Host "Use align-init with: /align-init (in your project directory)"
   Write-Host "Claude Code also supports: /optimize-prompt and /align-init"
+  Write-Host "Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout."
 }
 finally {
   if (Test-Path -LiteralPath $tempRoot) {

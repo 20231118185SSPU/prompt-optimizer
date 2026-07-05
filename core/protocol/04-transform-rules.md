@@ -222,7 +222,7 @@
 
 
 
-操作：按任务类型从 `core/templates/ACCEPTANCE-CHECKLIST.md` 选择可执行验收项，添加可检查的验收项、自检项、测试命令、量化指标或人工检查清单。
+操作：按任务类型从 `references/acceptance-checklist.md` 选择可执行验收项，添加可检查的验收项、自检项、测试命令、量化指标或人工检查清单。
 
 
 

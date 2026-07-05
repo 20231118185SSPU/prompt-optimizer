@@ -287,7 +287,7 @@ agent 的读取顺序写死在挂载区，固定为：
 
 ## 与 `.align/` 四件套模板的引用关系
 
-`.align/` 四件套的模板将在 P2-1 定义：
+`.align/` 四件套模板已在 `core/templates/` 定义：
 
 - `core/templates/ALIGN-SPEC.md` → 生成 `.align/spec.md`
 - `core/templates/ALIGN-CONTEXT.md` → 生成 `.align/context.md`
