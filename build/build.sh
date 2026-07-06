@@ -32,6 +32,7 @@ assert_dir() {
 }
 
 align_init_skill_root="$core_root/skills/align-init"
+lite_skill_root="$core_root/skills/optimize-prompt-lite"
 spec_kit_root="$core_root/spec-kit"
 host_root="$core_root/host"
 
@@ -281,6 +282,18 @@ EOF
   emit_file_lf "$align_init_skill_root/SKILL.md"
 }
 
+emit_lite_skill() {
+  cat <<'EOF'
+<!--
+Generated from core/skills/optimize-prompt-lite/SKILL.md
+Generated from core/
+Do not edit dist/ manually
+-->
+
+EOF
+  emit_file_lf "$lite_skill_root/SKILL.md"
+}
+
 emit_reference() {
   local source_path="$1"
   local source_label="$2"
@@ -342,6 +355,7 @@ copy_spec_kit() {
 assert_dir "$protocol_root"
 assert_dir "$templates_root"
 assert_dir "$align_init_skill_root"
+assert_dir "$lite_skill_root"
 assert_dir "$spec_kit_root"
 assert_dir "$host_root"
 
@@ -355,6 +369,10 @@ write_generated_file "$dist_root/codex/optimize-prompt/agents/openai.yaml" emit_
 write_generated_file "$dist_root/claude-code/align-init/SKILL.md" emit_align_init_skill
 write_generated_file "$dist_root/codex/align-init/SKILL.md" emit_align_init_skill
 write_generated_file "$dist_root/universal/align-init/SKILL.md" emit_align_init_skill
+
+write_generated_file "$dist_root/claude-code/optimize-prompt-lite/SKILL.md" emit_lite_skill
+write_generated_file "$dist_root/codex/optimize-prompt-lite/SKILL.md" emit_lite_skill
+write_generated_file "$dist_root/universal/optimize-prompt-lite/SKILL.md" emit_lite_skill
 
 copy_references "$dist_root/universal/references"
 copy_references "$dist_root/claude-code/optimize-prompt/references"
@@ -373,3 +391,6 @@ write_generated_file "$dist_root/claude-code/CLAUDE.align.md" emit_file_lf "$hos
 write_generated_file "$dist_root/codex/AGENTS.align.md" emit_file_lf "$host_root/mount-area.md"
 write_generated_file "$dist_root/claude-code/hooks/HOOK-REMINDER.txt" emit_file_lf "$host_root/hook-reminder.txt"
 write_generated_file "$dist_root/claude-code/hooks/settings.fragment.json" emit_file_lf "$host_root/settings.fragment.json"
+write_generated_file "$dist_root/claude-code/hooks/align-route.sh" emit_file_lf "$host_root/align-route.sh"
+write_generated_file "$dist_root/claude-code/hooks/align-check.sh" emit_file_lf "$host_root/align-check.sh"
+write_generated_file "$dist_root/claude-code/hooks/project-settings.fragment.json" emit_file_lf "$host_root/project-settings.fragment.json"

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat .align/HOOK-REMINDER.txt 2>/dev/null || true"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" 2>/dev/null || cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" 2>/dev/null || true"
           }
         ]
       }

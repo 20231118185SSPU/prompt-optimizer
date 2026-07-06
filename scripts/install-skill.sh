@@ -37,7 +37,7 @@ for arg in "$@"; do
   esac
 done
 
-SKILLS=("optimize-prompt" "align-init")
+SKILLS=("optimize-prompt" "align-init" "optimize-prompt-lite")
 
 resolve_install_targets() {
   case "$TARGET" in
@@ -93,9 +93,50 @@ $INSTALL_TARGETS
 EOF
   echo
   if [ "$WHAT_IF" -eq 1 ]; then
-    echo 'What if: Only optimize-prompt and align-init would be removed.'
+    echo 'What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed.'
+    echo 'What if: The align-route hook would be removed from ~/.claude/settings.json.'
   else
-    echo 'Uninstall complete. Only optimize-prompt and align-init were removed.'
+    # 移除本协议安装的 hook 条目（只删自己的，其他 hooks 与字段不触碰）
+    SETTINGS_FILE="$HOME/.claude/settings.json"
+    if [ -f "$SETTINGS_FILE" ] && command -v python3 >/dev/null 2>&1; then
+      SETTINGS="$SETTINGS_FILE" python3 - <<'PYEOF'
+import json, os
+
+settings_path = os.environ["SETTINGS"]
+ours = (
+    'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
+    "bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true",
+    "cat .align/HOOK-REMINDER.txt 2>/dev/null || true",
+)
+with open(settings_path, encoding="utf-8") as f:
+    data = json.load(f)
+
+entries = data.get("hooks", {}).get("UserPromptSubmit", [])
+changed = False
+for group in entries:
+    kept = [h for h in group.get("hooks", []) if h.get("command") not in ours]
+    if len(kept) != len(group.get("hooks", [])):
+        group["hooks"] = kept
+        changed = True
+data.setdefault("hooks", {})["UserPromptSubmit"] = [g for g in entries if g.get("hooks")]
+if not data["hooks"]["UserPromptSubmit"]:
+    del data["hooks"]["UserPromptSubmit"]
+if not data["hooks"]:
+    del data["hooks"]
+
+if changed:
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    print("Removed align-route hook from " + settings_path)
+else:
+    print("No align-route hook found in settings.json (no change).")
+PYEOF
+    elif [ -f "$SETTINGS_FILE" ]; then
+      echo "Note: python3 not found — could not auto-remove the align-route hook."
+      echo "      Remove the UserPromptSubmit entry manually from $SETTINGS_FILE."
+    fi
+    echo 'Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed.'
   fi
   echo 'Other skills and user content were not touched.'
   exit 0
@@ -192,6 +233,102 @@ while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
 done <<EOF
 $INSTALL_TARGETS
 EOF
+
+# ── Claude Code hook 自动接线（幂等：已存在则跳过；只增不删既有字段）──
+wire_claude_hooks() {
+  local settings="$HOME/.claude/settings.json"
+  local hook_cmd='bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
+  local legacy_cmd='cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
+  local old_relative_cmd='bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "Note: python3 not found — skipped hook wiring."
+    echo "      Merge dist/claude-code/hooks/settings.fragment.json into $settings manually."
+    return 0
+  fi
+
+  mkdir -p "$HOME/.claude"
+  if [ -f "$settings" ]; then
+    cp "$settings" "$settings.bak-$(date +%Y%m%d%H%M%S)"
+  fi
+
+  HOOK_CMD="$hook_cmd" LEGACY_CMD="$legacy_cmd" OLD_CMD="$old_relative_cmd" SETTINGS="$settings" python3 - <<'PYEOF'
+import json, os
+
+settings_path = os.environ["SETTINGS"]
+hook_cmd = os.environ["HOOK_CMD"]
+# 旧形态（纯提醒 hook、CWD 相对路径 hook）都识别并原地升级到锚定版
+legacy = (os.environ["LEGACY_CMD"], os.environ["OLD_CMD"])
+
+data = {}
+if os.path.exists(settings_path):
+    with open(settings_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+hooks = data.setdefault("hooks", {})
+entries = hooks.setdefault("UserPromptSubmit", [])
+
+def commands(entries):
+    for group in entries:
+        for h in group.get("hooks", []):
+            yield h
+
+if any(h.get("command") == hook_cmd for h in commands(entries)):
+    print("Hook wiring: already present (no change).")
+else:
+    upgraded = False
+    for h in commands(entries):
+        if h.get("command") in legacy:
+            h["command"] = hook_cmd
+            upgraded = True
+    if upgraded:
+        print("Hook wiring: upgraded existing hook to project-anchored align-route.")
+    else:
+        entries.append({"hooks": [{"type": "command", "command": hook_cmd}]})
+        print(f"Hook wiring: added UserPromptSubmit hook to {settings_path}")
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+PYEOF
+}
+
+CLAUDE_INSTALLED=0
+while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
+  [ -n "$SKILLS_DIR" ] || continue
+  case "$SKILLS_DIR" in
+    "$HOME/.claude/skills") CLAUDE_INSTALLED=1 ;;
+  esac
+done <<EOF
+$INSTALL_TARGETS
+EOF
+
+if [ "$CLAUDE_INSTALLED" -eq 1 ]; then
+  wire_claude_hooks
+fi
+
+# ── 复制 hooks/ 脚本到全局目录（align-init 从此处复制到项目 .align/）──
+copy_hooks_scripts() {
+  local hooks_source="$SOURCE_ROOT/dist/claude-code/hooks"
+  [ -d "$hooks_source" ] || return 0
+  while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
+    [ -n "$SKILLS_DIR" ] || continue
+    local hooks_dest=""
+    case "$SKILLS_DIR" in
+      "$HOME/.claude/skills") hooks_dest="$HOME/.claude/hooks" ;;
+      "$HOME/.agents/skills") hooks_dest="$HOME/.agents/hooks" ;;
+    esac
+    if [ -n "$hooks_dest" ]; then
+      mkdir -p "$hooks_dest"
+      for hf in align-route.sh align-check.sh HOOK-REMINDER.txt settings.fragment.json project-settings.fragment.json; do
+        [ -f "$hooks_source/$hf" ] && cp -f "$hooks_source/$hf" "$hooks_dest/$hf"
+      done
+      echo "Copied hooks scripts to: $hooks_dest"
+    fi
+  done <<EOF
+$INSTALL_TARGETS
+EOF
+}
+copy_hooks_scripts
 
 echo
 echo 'Installed skills: optimize-prompt, align-init'

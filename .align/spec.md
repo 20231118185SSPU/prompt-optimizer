@@ -5,8 +5,8 @@
 
 ## 技术栈与版本
 
-- 项目类型：文档/Skill 项目 [假设]
-- 运行时依赖：零依赖 [假设]
+- 项目类型：文档/Skill 项目 [原文]（2026-07-06 实测确认：无语言运行时，纯 markdown+shell）
+- 运行时依赖：零依赖 [原文]（2026-07-06 实测确认：构建与安装只用 bash/PowerShell；python3 仅安装器 JSON 合并用，缺失时降级为手动提示）
 - 构建工具：Bash（build/build.sh）+ PowerShell（build/build.ps1） [原文]
 - 无传统语言/框架
 
@@ -34,10 +34,13 @@
 
 ## 测试与验证命令
 
-- 脚本语法检查：`bash -n build/build.sh` [假设]
-- 安装脚本语法检查：`bash -n scripts/install-skill.sh` [假设]
-- 构建幂等验证：`bash build/build.sh`（连续两次无 diff） [假设]
+- 一键验证：`bash .align/align-check.sh`（跑 .align/check-commands.txt 全部命令 + 债务扫描） [原文]
+- 脚本语法检查：`bash -n build/build.sh` [原文]（2026-07-06 实测通过，假设升级）
+- 安装脚本语法检查：`bash -n scripts/install-skill.sh` [原文]（2026-07-06 实测通过，假设升级）
+- 构建幂等验证：`bash build/build.sh`（连续两次无 diff） [原文]（2026-07-06 实测通过，假设升级）
 - 卸载零损伤测试：`bash tests/verify-uninstall.sh` [原文]
+- 路由语料回归：`bash tests/verify-router.sh` [原文]
+- 安装器接线测试：`bash tests/verify-installer-wiring.sh` [原文]
 
 ## 代码风格
 

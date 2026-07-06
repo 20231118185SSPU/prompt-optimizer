@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ScriptVersion = "v3.0"
-$Skills = @("optimize-prompt", "align-init")
+$Skills = @("optimize-prompt", "align-init", "optimize-prompt-lite")
 $UserHome = $HOME
 if ([string]::IsNullOrWhiteSpace($UserHome)) {
   $UserHome = $env:USERPROFILE
@@ -20,6 +20,38 @@ if ([string]::IsNullOrWhiteSpace($UserHome)) {
 }
 if ([string]::IsNullOrWhiteSpace($UserHome)) {
   throw "Could not resolve user home directory."
+}
+
+# ── PowerShell 5.1 兼容的 JSON 读写 ──
+# -AsHashtable 是 PS6+ 专有；Win10/11 默认 shell 是 PS5.1，直接用会终止安装。
+# 用递归转换保留 key 顺序；写出用无 BOM UTF-8 + 足够深度，与 bash/python 侧字节对齐。
+function ConvertTo-OrderedHashtable {
+  param($InputObject)
+  if ($null -eq $InputObject) { return $null }
+  if ($InputObject -is [System.Management.Automation.PSCustomObject]) {
+    $ht = [ordered]@{}
+    foreach ($p in $InputObject.PSObject.Properties) {
+      $ht[$p.Name] = ConvertTo-OrderedHashtable $p.Value
+    }
+    return $ht
+  }
+  if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+    return @(foreach ($item in $InputObject) { ConvertTo-OrderedHashtable $item })
+  }
+  return $InputObject
+}
+
+function Read-SettingsJson {
+  param([string]$Path)
+  $raw = Get-Content -LiteralPath $Path -Raw
+  return ConvertTo-OrderedHashtable ($raw | ConvertFrom-Json)
+}
+
+function Write-SettingsJson {
+  param([string]$Path, $Data)
+  $json = $Data | ConvertTo-Json -Depth 64
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($Path, $json + "`n", $utf8NoBom)
 }
 
 if ($Version) {
@@ -174,9 +206,38 @@ if ($Uninstall) {
   }
   Write-Host ""
   if ($WhatIfPreference) {
-    Write-Host "What if: Only optimize-prompt and align-init would be removed."
+    Write-Host "What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed."
+    Write-Host "What if: The align-route hook would be removed from ~/.claude/settings.json."
   } else {
-    Write-Host "Uninstall complete. Only optimize-prompt and align-init were removed."
+    # 移除本协议安装的 hook 条目（只删自己的，其他 hooks 与字段不触碰）
+    $settingsPath = Join-Path $HOME ".claude\settings.json"
+    $ourCmds = @(
+      'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
+      'bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true',
+      'cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
+    )
+    if (Test-Path -LiteralPath $settingsPath) {
+      $data = Read-SettingsJson $settingsPath
+      $changed = $false
+      if ($data.ContainsKey("hooks") -and $data["hooks"].ContainsKey("UserPromptSubmit")) {
+        $groups = @()
+        foreach ($group in $data["hooks"]["UserPromptSubmit"]) {
+          $kept = @($group["hooks"] | Where-Object { $ourCmds -notcontains $_["command"] })
+          if ($kept.Count -ne @($group["hooks"]).Count) { $changed = $true }
+          if ($kept.Count -gt 0) { $group["hooks"] = $kept; $groups += , $group }
+        }
+        if ($groups.Count -gt 0) { $data["hooks"]["UserPromptSubmit"] = $groups }
+        else { $data["hooks"].Remove("UserPromptSubmit") }
+        if ($data["hooks"].Count -eq 0) { $data.Remove("hooks") }
+      }
+      if ($changed) {
+        Write-SettingsJson $settingsPath $data
+        Write-Host "Removed align-route hook from $settingsPath"
+      } else {
+        Write-Host "No align-route hook found in settings.json (no change)."
+      }
+    }
+    Write-Host "Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed."
   }
   Write-Host "Other skills and user content were not touched."
   return
@@ -246,6 +307,83 @@ try {
   Write-Host "Use align-init with: /align-init (in your project directory)"
   Write-Host "Claude Code also supports: /optimize-prompt and /align-init"
   Write-Host "Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout."
+
+  # ── Claude Code hook 自动接线（幂等：已存在则跳过；只增不删既有字段）──
+  $claudeSkillsDir = Join-Path $HOME ".claude\skills"
+  $wireClaude = $false
+  foreach ($target in $installTargets) {
+    $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
+    if ($skillsDir -eq $claudeSkillsDir) { $wireClaude = $true }
+  }
+
+  if ($wireClaude) {
+    $settingsPath = Join-Path $HOME ".claude\settings.json"
+    $hookCmd = 'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
+    $legacyCmds = @(
+      'cat .align/HOOK-REMINDER.txt 2>/dev/null || true',
+      'bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
+    )
+
+    New-Item -ItemType Directory -Force (Join-Path $HOME ".claude") | Out-Null
+    $data = [ordered]@{}
+    if (Test-Path -LiteralPath $settingsPath) {
+      Copy-Item -LiteralPath $settingsPath -Destination "$settingsPath.bak-$(Get-Date -Format yyyyMMddHHmmss)"
+      $data = Read-SettingsJson $settingsPath
+    }
+
+    if (-not $data.ContainsKey("hooks")) { $data["hooks"] = @{} }
+    if (-not $data["hooks"].ContainsKey("UserPromptSubmit")) { $data["hooks"]["UserPromptSubmit"] = @() }
+
+    $entries = $data["hooks"]["UserPromptSubmit"]
+    $present = $false
+    $upgraded = $false
+    foreach ($group in $entries) {
+      foreach ($h in $group["hooks"]) {
+        if ($h["command"] -eq $hookCmd) { $present = $true }
+        elseif ($legacyCmds -contains $h["command"]) { $h["command"] = $hookCmd; $upgraded = $true }
+      }
+    }
+
+    if ($present) {
+      Write-Host "Hook wiring: already present (no change)."
+    }
+    elseif ($upgraded) {
+      Write-Host "Hook wiring: upgraded legacy reminder hook to align-route."
+    }
+    else {
+      $data["hooks"]["UserPromptSubmit"] += , @{ hooks = @(@{ type = "command"; command = $hookCmd }) }
+      Write-Host "Hook wiring: added UserPromptSubmit hook to $settingsPath"
+    }
+
+    if (-not $present) {
+      Write-SettingsJson $settingsPath $data
+    }
+  }
+
+  # ── 复制 hooks/ 脚本到全局目录（align-init 从此处复制到项目 .align/）──
+  $hooksSource = Join-Path $sourceRoot "dist\claude-code\hooks"
+  if (Test-Path -LiteralPath $hooksSource -PathType Container) {
+    $hooksFiles = @('align-route.sh', 'align-check.sh', 'HOOK-REMINDER.txt', 'settings.fragment.json', 'project-settings.fragment.json')
+    foreach ($target in $installTargets) {
+      $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
+      $hooksDest = ""
+      if ($skillsDir -eq (Join-Path $HOME ".claude\skills")) {
+        $hooksDest = Join-Path $HOME ".claude\hooks"
+      } elseif ($skillsDir -eq (Join-Path $HOME ".agents\skills")) {
+        $hooksDest = Join-Path $HOME ".agents\hooks"
+      }
+      if ($hooksDest) {
+        New-Item -ItemType Directory -Force $hooksDest | Out-Null
+        foreach ($hf in $hooksFiles) {
+          $src = Join-Path $hooksSource $hf
+          if (Test-Path -LiteralPath $src) {
+            Copy-Item -LiteralPath $src -Destination (Join-Path $hooksDest $hf) -Force
+          }
+        }
+        Write-Host "Copied hooks scripts to: $hooksDest"
+      }
+    }
+  }
 }
 finally {
   if (Test-Path -LiteralPath $tempRoot) {

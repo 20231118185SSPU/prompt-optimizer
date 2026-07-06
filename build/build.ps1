@@ -10,6 +10,7 @@ $ProtocolRoot = Join-Path $CoreRoot 'protocol'
 $TemplatesRoot = Join-Path $CoreRoot 'templates'
 $DistRoot = Join-Path $RepoRoot 'dist'
 $AlignInitSkillRoot = Join-Path $CoreRoot 'skills/align-init'
+$LiteSkillRoot = Join-Path $CoreRoot 'skills/optimize-prompt-lite'
 $SpecKitRoot = Join-Path $CoreRoot 'spec-kit'
 $HostRoot = Join-Path $CoreRoot 'host'
 
@@ -270,6 +271,19 @@ $SourceContent
 "@
 }
 
+function New-LiteSkill {
+    $SourceContent = Read-TextFile (Join-Path $LiteSkillRoot 'SKILL.md')
+    return @"
+<!--
+Generated from core/skills/optimize-prompt-lite/SKILL.md
+Generated from core/
+Do not edit dist/ manually
+-->
+
+$SourceContent
+"@
+}
+
 function Copy-SpecKit {
     param([string]$DestinationRoot)
 
@@ -350,6 +364,7 @@ $SourceContent
 Assert-Directory $ProtocolRoot
 Assert-Directory $TemplatesRoot
 Assert-Directory $AlignInitSkillRoot
+Assert-Directory $LiteSkillRoot
 Assert-Directory $SpecKitRoot
 Assert-Directory $HostRoot
 
@@ -366,6 +381,10 @@ Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/optimize-prompt/agents/ope
 Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/align-init/SKILL.md') -Content (New-AlignInitSkill)
 Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/align-init/SKILL.md') -Content (New-AlignInitSkill)
 Write-GeneratedFile -Path (Join-Path $DistRoot 'universal/align-init/SKILL.md') -Content (New-AlignInitSkill)
+
+Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/optimize-prompt-lite/SKILL.md') -Content (New-LiteSkill)
+Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/optimize-prompt-lite/SKILL.md') -Content (New-LiteSkill)
+Write-GeneratedFile -Path (Join-Path $DistRoot 'universal/optimize-prompt-lite/SKILL.md') -Content (New-LiteSkill)
 
 Copy-References -DestinationRoot (Join-Path $DistRoot 'universal/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'claude-code/optimize-prompt/references')
@@ -384,3 +403,6 @@ Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/CLAUDE.align.md') -C
 Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/AGENTS.align.md') -Content (Read-TextFile (Join-Path $HostRoot 'mount-area.md'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/HOOK-REMINDER.txt') -Content (Read-TextFile (Join-Path $HostRoot 'hook-reminder.txt'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/settings.fragment.json') -Content (Read-TextFile (Join-Path $HostRoot 'settings.fragment.json'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/align-route.sh') -Content (Read-TextFile (Join-Path $HostRoot 'align-route.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/align-check.sh') -Content (Read-TextFile (Join-Path $HostRoot 'align-check.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/project-settings.fragment.json') -Content (Read-TextFile (Join-Path $HostRoot 'project-settings.fragment.json'))

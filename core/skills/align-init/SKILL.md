@@ -11,10 +11,22 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 
 ## 触发方式
 
-- `/align-init`：扫描当前项目，生成 `.align/` 四件套 + 注入挂载区。
+- `/align-init`：扫描当前项目，生成 `.align/` 运行时 + 注入挂载区 + 机械层接线。
 - `$align-init`：同上（支持 `$` 前缀的工具）。
 - `/align-init --new`：从零项目模式，走访谈决策树。
+- `/align-init --zero`：零问模式，全部采用推荐默认值，一个问题都不问，装完即用（适合无开发基础的用户）。
 - `/align-init --upgrade`：升级已有挂载区版本，增量更新 spec，不重置 lessons/decisions。
+
+## 零问模式（--zero）
+
+面向无开发基础的用户或希望零打扰接入的场景：
+
+1. 执行扫描协议，但**所有 `[假设]` 一律采用推荐默认值，不发起任何澄清**。
+2. 未能识别的项按最保守值填写（如验证命令留空并在 spec.md 标注"待补"）。
+3. 全部 `[假设]` 在 spec.md 中保留标注，用户以后随时可改。
+4. 接入报告末尾提示："以下 N 条为默认假设，运行中如发现不符，直接告诉我即可修正。"
+
+零问模式不弱化安全红线：运行期高风险指令仍会被路由器拦截澄清。
 
 ## 输入
 
@@ -54,10 +66,86 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 │   ├── spec.md            # 项目开发规范（从 ALIGN-SPEC.md 模板生成）
 │   ├── context.md         # 项目上下文契约（从 ALIGN-CONTEXT.md 模板生成）
 │   ├── lessons.md         # 经验规则（初始为空）
-│   └── decisions.log.md   # 重大决策日志（初始为空）
+│   ├── decisions.log.md   # 重大决策日志（初始为空）
+│   ├── HOOK-REMINDER.txt  # hook 提醒文本（路由器不可用时的降级注入）
+│   ├── align-route.sh     # 信号评分路由器（从 skill 目录的 hooks/ 复制）
+│   ├── align-check.sh     # 一键交付验证 + 债务台账（同上）
+│   └── check-commands.txt # 项目验证命令清单（扫描结果生成，每行一条）
+├── .claude/settings.json  # 项目级硬拦截（deny 危险操作；已有文件则提示手动合并）
 ├── CLAUDE.md              # 注入挂载区（已有内容不覆盖）
 └── AGENTS.md              # 同上（面向 Codex）
 ```
+
+### check-commands.txt 生成规则
+
+从扫描结果中提取可执行验证命令写入，每行一条：
+
+- 识别到 `package.json` → 写入 `npm test`（存在 test script 时）、`npm run lint`（存在 lint script 时）
+- 识别到 `pyproject.toml`/`pytest.ini` → 写入 `pytest -q`
+- 识别到 `go.mod` → 写入 `go build ./...` 和 `go test ./...`
+- 识别到 shell 脚本项目 → 写入 `bash -n <主要脚本>`
+- 无法识别 → 留空文件并加注释 `# 待补：项目验证命令`，同时在 spec.md 标注
+
+### 模型能力配置（.align/route.conf）
+
+扫描/访谈时询问（零问模式默认 auto）执行模型的指令遵循能力，写入 `.align/route.conf`：
+
+```text
+# 弱模型建议 ARBITER=off（避免仲裁本身不可靠），强模型可保持 auto
+ARBITER=auto
+# BLOCK_ON_HIGH=on 时，HIGH verdict 会 exit 2 阻断 prompt 提交（机械层硬拦截）
+# 默认 off：只注入警告文本，由模型自觉停下。弱模型建议 on。
+# bypass：[直出] 前缀或 ALIGN_BYPASS=1 环境变量跳过阻断
+BLOCK_ON_HIGH=off
+```
+
+弱模型场景额外建议：把 `optimize-prompt-lite/SKILL.md` 的内容注入宿主规则文件（不支持 hooks 的宿主必须这样做，它是弱模型的全部护栏）。
+
+## Hook 接线（Claude Code）
+
+`.align/` 生成后，必须完成 hook 接线，否则协议只是被动文档、没有强制推送：
+
+1. **复制机械层脚本**：从 `~/.claude/hooks/`（安装器复制）或 `~/.agents/hooks/` 或仓库 `dist/claude-code/hooks/` 复制 `align-route.sh` 和 `align-check.sh` 到 `.align/`。**找不到源文件时必须报错并指向安装文档，禁止静默生成简化版**——简化版不读 stdin、不分类，会导致对齐失效且接入报告误报"成功"。
+
+2. **生成 `.align/HOOK-REMINDER.txt`**（路由器不可用时的降级注入），内容固定为：
+
+   ```text
+   [Alignment Protocol] 本条指令须先过三档路由评估。
+   读取 .align/lessons.md → spec.md → context.md。
+   简单明确→直通；有缺口→披露后执行；高风险/总分<6→停下澄清。
+   交付前必须自验证（R8 验证门不可跳过）。
+   ```
+
+3. **合并 hook 进 `~/.claude/settings.json`**（用户全局配置，修改前先备份并向用户展示改动）：
+
+   ```json
+   {
+     "hooks": {
+       "UserPromptSubmit": [
+         {
+           "hooks": [
+             {
+               "type": "command",
+               "command": "bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" 2>/dev/null || cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" 2>/dev/null || true"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+   合并规则：只增不删，保留 `env` 等既有字段；相同命令已存在时无操作（幂等）；存在旧版 `cat .align/HOOK-REMINDER.txt` 命令时原位升级。
+   命令自带降级链，未接入 `.align/` 的项目不受影响。
+
+4. **项目级硬拦截**：目标项目无 `.claude/settings.json` 时，写入 skill 附带的 `project-settings.fragment.json`（deny 改 dist、rm -rf、reset --hard、force push）；已有该文件时输出 fragment 内容请用户手动合并，**不自动改写用户的项目配置**。
+
+5. **验证接线**（必须区分完整版与简化版）：
+   - `bash .align/align-route.sh --classify "优化一下"` 输出 `VAGUE`
+   - **stdin 解析验证**：`echo '{"prompt":"删库"}' | bash .align/align-route.sh` 输出含"高风险"的差异化文本（简化版只会 cat 静态 HOOK-REMINDER，不输出"高风险"）
+   - `bash .align/align-check.sh` 可执行
+   - settings.json 可被 JSON 解析且含 `hooks` 段
+   - 任一失败 → 接入报告标注"接线失败"并指向修复方式，**不得报告"接入成功"**
 
 ## 挂载区注入
 
@@ -116,8 +204,9 @@ Cursor 不使用 CLAUDE.md/AGENTS.md，改为注入 `.cursor/rules/align.mdc`（
 1. **移除挂载区**：从 CLAUDE.md/AGENTS.md 中删除 `<!-- align-protocol:begin ... -->` 到 `<!-- align-protocol:end -->` 之间的全部内容（含标记行）。
 2. **保留标记区外内容**：用户在 CLAUDE.md/AGENTS.md 中的自有内容完全不动。
 3. **移除 skill 目录**：从 skills 目录中删除 `optimize-prompt/` 和 `align-init/`，不删除其他 skill。
-4. **保留 .align/ 目录**：`.align/` 目录中的 spec.md、context.md、lessons.md、decisions.log.md 不删除（用户可能还想保留项目规范和经验）。
-5. **可选删除 .align/**：用户可手动 `rm -rf .align/` 完全清除。
+4. **移除 hook**：从 `~/.claude/settings.json` 的 `hooks.UserPromptSubmit` 中删除 `cat .align/HOOK-REMINDER.txt` 命令项，只删本协议安装的条目，其他 hooks 和字段不触碰。
+5. **保留 .align/ 目录**：`.align/` 目录中的 spec.md、context.md、lessons.md、decisions.log.md 不删除（用户可能还想保留项目规范和经验）。
+6. **可选删除 .align/**：用户可手动 `rm -rf .align/` 完全清除。
 
 ### 零损伤保证
 
@@ -139,9 +228,15 @@ Cursor 不使用 CLAUDE.md/AGENTS.md，改为注入 `.cursor/rules/align.mdc`（
   - .align/context.md（X 条上下文）
   - .align/lessons.md（初始为空）
   - .align/decisions.log.md（初始为空）
+  - .align/HOOK-REMINDER.txt（降级提醒文本）
+  - .align/align-route.sh + align-check.sh（机械层脚本）
+  - .align/check-commands.txt（N 条验证命令 / 待补）
 - 挂载区注入：CLAUDE.md / AGENTS.md / .cursor/rules/align.mdc
+- Hook 接线：~/.claude/settings.json 已合并 UserPromptSubmit hook / 跳过（原因）
+- 硬拦截：.claude/settings.json 已写入 / 已有文件请手动合并（附 fragment）
 - 澄清问题数：N（≤3 为正常）
 - 下一步：正常开发即可，每条指令会自动经过三档路由评估
+- 给氛围编程者：现在直接用大白话告诉 AI 你想做什么就行。指令模糊时 AI 会先问你一个关键问题（不是找麻烦，是防止做偏）；高风险操作（删除/生产环境）AI 会先拦住你确认。完成后 AI 会提醒你跑验证。
 ```
 
 ## 澄清协议

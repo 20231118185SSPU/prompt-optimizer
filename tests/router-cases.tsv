@@ -1,0 +1,45 @@
+# align-route.sh 回归语料
+# 格式：期望判定<TAB>指令文本
+# 注意：GRAY 是仲裁前的中间态，--classify 模式不触发 LLM，直接输出 GRAY
+HIGH	帮我把生产环境的旧数据清空
+HIGH	执行 rm -rf node_modules 然后重装
+HIGH	把这个分支 force push 到 main
+HIGH	drop table users 然后重建
+HIGH	帮我回滚昨天的数据库迁移
+HIGH	上线之前先删掉这些废弃接口
+VAGUE	帮我优化一下这个项目
+VAGUE	把代码改进一下让它更优雅
+VAGUE	看看这个项目有什么问题
+VAGUE	帮我处理一下报错
+VAGUE	make it better please
+VAGUE	clean up the codebase
+VAGUE	弄一下那个页面，美化美化
+GRAY	优化一下 build/build.sh 的执行速度
+GRAY	帮我改进 parseConfig() 的可读性
+GRAY	refactor src/auth/login.ts to be cleaner
+CLEAR	把 README.md 第 12 行的版本号改成 3.1.0
+GRAY	在 scripts/install-skill.sh 里加一个 --version 参数
+CLEAR	跑一下 tests/verify-uninstall.sh 告诉我结果
+CLEAR	读取 core/host/mount-area.md 并解释每一行的作用
+CLEAR	把 docs/usage/INSTALL.md 里的错别字改掉：第 3 节"安装"写成了"按装"
+CLEAR	不要删除任何文件，只列出哪些文件超过 500 行
+CLEAR	禁止修改生产配置，先在本地复现这个 bug
+CLEAR	文档里提到"rm -rf 很危险"，请把这句话翻译成英文
+CLEAR	把这段代码加到 utils.py：`data = load("prod.json")`
+CLEAR	don't touch the database, just show me the schema file
+VAGUE	这个项目感觉不太行，帮我搞一下
+HIGH	清库重跑迁移脚本，动作快点
+GRAY	解释一下什么是 force push，我不打算用它
+# v3.1 扩展：氛围编程创建类动词（做个/加个/写个/搞个/弄个/实现个/建个/创建一个）
+VAGUE	帮我做个登录功能
+VAGUE	加个搜索功能
+VAGUE	帮我写个用户管理模块
+VAGUE	搞个好看的界面
+VAGUE	弄个导出功能
+VAGUE	实现一个支付接口
+VAGUE	建个后台管理系统
+VAGUE	创建一个新的配置文件
+VAGUE	帮我做一个数据导出
+VAGUE	加一个用户反馈功能
+GRAY	帮我做个 login.ts 的骨架
+GRAY	写个 utils.py 处理日期格式
