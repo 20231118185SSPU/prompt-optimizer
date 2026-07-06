@@ -1,5 +1,41 @@
 # 更新日志
 
+## v3.1 — hook 接线修复 + VAGUE 扩展 + 轻协议
+
+> v3.0 发布后发现 hook 接线断口、VAGUE 分类器漏覆盖氛围编程动词、弱指令遵循模型无轻量协议。v3.1 修复并扩展。
+
+### 核心变更
+
+#### 1. hook 接线与安全修复
+
+- `align-route.sh` 同步到 `.align/` 副本（修 lessons §30 自举同步断口）
+- 命令注入修复：LLM 仲裁调用改用 `printf '%s'` 构建 prompt 参数，防双引号断开
+- `BLOCK_ON_HIGH` 机械拦截 + `[直出]` bypass 机制
+- `.align/route.conf` 纳入 git 跟踪
+
+#### 2. VAGUE 扩展
+
+- 氛围编程"创建类"动词（做个/加个/写个/搞个/弄个）纳入 VAGUE_RE
+- 人话输出（verdict 用自然语言而非机器标签）
+
+#### 3. 轻协议 optimize-prompt-lite
+
+- 面向弱指令遵循模型或不支持 hook 的宿主
+- 无需 .align/ 运行时即可使用基础对齐
+
+#### 4. 测试与运行时
+
+- `verify-router.sh` 同时测 `core/host/` 和 `.align/` 两份副本（防"测试通过≠运行时正确"）
+- `check-commands.txt` 增加 .align/ 副本语法检查和 diff 一致性检查
+- build.ps1 加 UTF-8 BOM，修 Windows PS5.x + GBK 中文乱码
+
+#### 5. 协议与文档
+
+- 协议"九组件"统一为"八组件（含可选 MEMORY/RISKS）"
+- META.md 模板补"完成后自检"验收要素
+- AGENTS.md 目录树补 `core/skills/`、`core/host/`、`tests/`，模板数 10→14
+- CHANGELOG/VERSION/skill 数量/context.md 同步到 v3.1
+
 ## v3.0 — Alignment Runtime（对齐运行时）
 
 > 从「显式调用的意图对齐器」升级为「嵌入任意项目、静默运行的对齐运行时」。

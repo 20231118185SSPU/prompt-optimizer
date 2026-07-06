@@ -48,7 +48,11 @@
 prompt-optimizer/
 ├── core/                          # ★ 唯一事实来源，只在这里改内容
 │   ├── protocol/                  # 协议内核 00-07
-│   ├── templates/                 # 10 个模板（唯一一份）
+│   ├── templates/                 # 14 个模板（唯一一份）
+│   ├── skills/                    # skill 源文件
+│   │   ├── align-init/            # 项目接入器
+│   │   └── optimize-prompt-lite/  # 轻量协议（弱模型/无 hook 宿主）
+│   ├── host/                      # 宿主适配（挂载区/hook/reminder）
 │   └── spec-kit/                  # 规范生成器素材库
 ├── build/                         # 构建脚本
 │   ├── build.ps1                  # Windows PowerShell
@@ -60,15 +64,18 @@ prompt-optimizer/
 │   └── universal/                 # 可复制 System Prompt
 ├── examples/                      # 示例
 ├── scripts/                       # 安装脚本
+├── tests/                         # 回归测试
 ├── docs/                          # 文档（usage/reference/planning）
 ├── README.md                      # 项目入口
 └── AGENTS.md                      # 开发规范（本文件）
 ```
 
-根目录只保留项目入口和开发规范：
+根目录只保留项目入口、开发规范和以下例外：
 
-- `README.md`
-- `AGENTS.md`
+- `README.md`：项目入口
+- `AGENTS.md`：开发规范（本文件）
+- `CHANGELOG.md`：变更日志（例外，随版本更新）
+- `CLAUDE.md`：align-init 自举生成的挂载区（运行时产物，非手写）
 
 开发文档必须放入 `docs/`，按类型分类：
 

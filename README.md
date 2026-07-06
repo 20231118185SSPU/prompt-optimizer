@@ -6,10 +6,11 @@
 
 ## 项目介绍
 
-Prompt Optimizer v3.0 是一个可注入任意项目的 **Alignment Runtime**（对齐运行时）。它通过两个 skill 实现：
+Prompt Optimizer v3.1 是一个可注入任意项目的 **Alignment Runtime**（对齐运行时）。它通过三个 skill 实现：
 
 - **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief。v3 默认静默运行——简单任务直接执行（零感知），有缺口时静默补全+微披露（不等待），高风险时浮出澄清（必须拦截）。
 - **align-init**：项目接入器，为项目生成 `.align/` 运行时（开发规范+上下文+经验+决策），并注入挂载区到 CLAUDE.md/AGENTS.md。
+- **optimize-prompt-lite**：轻量协议，面向弱指令遵循模型或不支持 hook 的宿主，无需 .align/ 运行时即可使用基础对齐。
 
 它适合经常使用 Codex、Claude Code、Cursor、ChatGPT、Claude、Gemini 等 AI 工具的人，用来减少误解、跑偏、过度发挥、提前完成和缺少验证的问题。
 
@@ -23,7 +24,7 @@ Prompt Optimizer v3.0 是一个可注入任意项目的 **Alignment Runtime**（
 
 对齐的存在感与任务风险成正比，与任务频率成反比。简单指令零卡顿，高风险指令必拦截。
 
-### v3.0 发布状态
+### v3.1 发布状态
 
 - 安装闭环：PowerShell / Bash 默认覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录。
 - Adapter 路由：Codex 安装使用 `dist/codex`；Claude Code 和 `~/.agents` 使用 Claude-compatible 的 `dist/claude-code`。
@@ -46,7 +47,7 @@ macOS / Linux：
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash
 ```
 
-安装两个 skill：`optimize-prompt`（意图对齐器）和 `align-init`（项目接入器）。默认安装到 Codex、Claude Code、`~/.agents` 三个目录。
+安装三个 skill：`optimize-prompt`（意图对齐器）、`align-init`（项目接入器）和 `optimize-prompt-lite`（轻量协议）。默认安装到 Codex、Claude Code、`~/.agents` 三个目录。
 Codex 使用 `dist/codex` 包；Claude Code 和 `~/.agents` 使用 Claude-compatible 的 `dist/claude-code` 包。
 
 ### 2. 接入项目

@@ -10,7 +10,7 @@
 - [settings.json 修改] 规则：~/.claude/settings.json 是用户全局配置 → 下次执行：修改前先备份 settings.json.bak-{date}，只增不删既有字段
 - [hook 生效范围] 规则：settings.json 的 hook 只在新会话生效 → 下次执行：验证 hook 效果必须换新会话测，当前会话测不出来
 - [hook 内调模型] 规则：hook 里调 claude -p 必须防递归+超时降级 → 下次执行：设 ALIGN_ROUTE_INNER 环境变量哨兵，仲裁失败按 VAGUE 保守处理
-- [路由规则修改] 规则：改 align-route.sh 信号词必须过语料回归 → 下次执行：跑 bash tests/verify-router.sh，29 条全过才能合
+- [路由规则修改] 规则：改 align-route.sh 信号词必须过语料回归 → 下次执行：跑 bash tests/verify-router.sh，41 条×2 副本（core/host + .align）全过才能合
 - [交付验证] 规则：本项目 R8 验证门已机械化 → 下次执行：交付前跑 bash .align/align-check.sh，FAIL 不得交付
 - [安装器修改] 规则：改 install-skill.* 的接线逻辑必须过沙箱测试 → 下次执行：跑 bash tests/verify-installer-wiring.sh（假 HOME 全流程：装→幂等→升级→卸载）
 - [双安装器同步] 规则：install-skill.sh 与 .ps1 必须行为一致 → 下次执行：改任一侧时同步另一侧（SKILLS 列表、hook 命令、卸载逻辑）
@@ -27,3 +27,4 @@
 - [VAGUE 分类器] 规则：氛围编程"创建类"动词（做个/加个/写个/搞个/弄个）必须入 VAGUE_RE → 下次执行：扩信号词时优先加创建类，修改类（改/调/修）靠 SPEC 兜底
 - [价值可见性] 规则：verdict 输出用人话非机器标签 → 下次执行：改输出格式时 grep "verdict=" 确认无机器标签残留
 - [R8 具体化] 规则：验证提醒读 check-commands.txt 实际命令 → 下次执行：改 CLEAR 输出时验证 check-commands 读取链路
+- [自举同步] 规则：core/host/ 升级 route/check 脚本后 .align/ 副本不自动同步 → 下次执行：改 core/host/align-route.sh 后重跑 align-init 或 cp 同步 .align/，否则本项目自身路由跑旧版

@@ -58,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -UseB | iex
 ```
 
-v3 安装两个 skill：`optimize-prompt`（升级版）和 `align-init`（新增）。
+v3 安装三个 skill：`optimize-prompt`（升级版）、`align-init`（新增）和 `optimize-prompt-lite`（轻量协议，面向弱指令遵循模型）。
 
 ### 步骤 2：接入项目
 

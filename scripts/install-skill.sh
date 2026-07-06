@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# v3.0: Install both optimize-prompt and align-init skills
+# v3.1: Install optimize-prompt, align-init, and optimize-prompt-lite skills
 
-VERSION="v3.0"
+VERSION="v3.1"
 TARGET="all"
 REPO_ZIP="${PROMPT_OPTIMIZER_ZIP:-https://github.com/20231118185SSPU/prompt-optimizer/archive/refs/heads/main.zip}"
 WHAT_IF=0

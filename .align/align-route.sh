@@ -23,6 +23,7 @@ fi
 CONF="$ALIGN_DIR/route.conf"
 ARBITER="${ALIGN_ARBITER:-auto}"   # auto|off
 ARBITER_TIMEOUT=5
+BLOCK_ON_HIGH="off"                # off|on：HIGH verdict 是否 exit 2 阻断 prompt 提交
 # route.conf 只做白名单解析，绝不 source 任意 shell（防仓库内 route.conf 注入代码）
 if [ -f "$CONF" ]; then
   while IFS='=' read -r _k _v; do
@@ -31,6 +32,7 @@ if [ -f "$CONF" ]; then
     case "$_k" in
       ALIGN_ARBITER|ARBITER) [ -n "$_v" ] && ARBITER="$_v" ;;
       ARBITER_TIMEOUT) _v="$(printf '%s' "$_v" | tr -dc '0-9')"; [ -n "$_v" ] && ARBITER_TIMEOUT="$_v" ;;
+      BLOCK_ON_HIGH) case "$_v" in on|true|1) BLOCK_ON_HIGH="on" ;; esac ;;
     esac
   done < "$CONF"
 fi
@@ -64,6 +66,20 @@ except Exception: pass' 2>/dev/null || true)"
   fi
 fi
 
+# ── bypass 检测：[直出] 前缀或 ALIGN_BYPASS=1 跳过整个路由 ──
+BYPASS=0
+if [ -n "${ALIGN_BYPASS:-}" ]; then
+  BYPASS=1
+else
+  case "$PROMPT" in
+    \[直出\]*|直出*) BYPASS=1 ;;
+  esac
+fi
+if [ "$BYPASS" -eq 1 ]; then
+  echo "[对齐] [直出] 模式，跳过路由。"
+  exit 0
+fi
+
 # ── 文本清洗：剥离代码块 / 行内代码 / 引号内容（讨论≠执行）──
 strip_noise() {
   printf '%s\n' "$1" \
@@ -84,7 +100,7 @@ SIGNAL_TEXT="$(strip_negation "$CLEAN")"
 
 # ── 信号计数（双语）──
 RISK_RE='删除|删掉|删库|清空|清库|重置|回滚|强推|上线|生产环境|生产库|数据库迁移|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration'
-VAGUE_RE='优化一下|优化下|改进|完善|提升一下|处理一下|看看|弄一下|搞一下|搞定|修一下|美化|更好|更快|更优雅|更稳定|optimi[sz]e|improve|clean ?up|polish|make it better|refactor'
+VAGUE_RE='优化一下|优化下|改进|完善|提升一下|处理一下|看看|弄一下|搞一下|搞定|修一下|美化|更好|更快|更优雅|更稳定|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个'
 SPEC_RE='[A-Za-z0-9_./\\-]+\.(sh|ps1|md|js|jsx|ts|tsx|py|json|yml|yaml|toml|go|rs|java|c|cpp|h|css|html|sql)|[A-Za-z_][A-Za-z0-9_]*\(\)|第[[:space:]]*[0-9]+[[:space:]]*行|line [0-9]+|:[0-9]+\b'
 
 count_re() { printf '%s' "$1" | grep -oiE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
@@ -122,7 +138,9 @@ if [ "$VERDICT" = "GRAY" ] && [ "$ARBITER" != "off" ] && command -v claude >/dev
   # 必须有超时约束才发起阻塞的 claude -p；timeout(GNU)/gtimeout(macOS brew) 皆无 → 直接保守降级，绝不无上限阻塞
   TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
   if [ -n "$TIMEOUT_BIN" ]; then
-    LLM_OUT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" "$ARBITER_TIMEOUT" claude -p "只回答一个词（HIGH/VAGUE/CLEAR）。判定这条开发指令：HIGH=含不可逆或生产风险操作；VAGUE=目标或对象不明需要澄清；CLEAR=目标对象明确可直接执行。指令：${PROMPT}" 2>/dev/null | grep -oiE 'HIGH|VAGUE|CLEAR' | head -1 | tr '[:lower:]' '[:upper:]')" || LLM_OUT=""
+    # 用 printf %s 构建 prompt：$PROMPT 作为参数传入，其值（含双引号/反引号）被 %s 格式化为字面字符串，避免双引号断开注入
+    ARBITER_PROMPT="$(printf '只回答一个词（HIGH/VAGUE/CLEAR）。判定这条开发指令：HIGH=含不可逆或生产风险操作；VAGUE=目标或对象不明需要澄清；CLEAR=目标对象明确可直接执行。指令：%s' "$PROMPT")"
+    LLM_OUT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" "$ARBITER_TIMEOUT" claude -p "$ARBITER_PROMPT" 2>/dev/null | grep -oiE 'HIGH|VAGUE|CLEAR' | head -1 | tr '[:lower:]' '[:upper:]')" || LLM_OUT=""
     case "$LLM_OUT" in
       HIGH|VAGUE|CLEAR) VERDICT="$LLM_OUT" ;;
       *) VERDICT="VAGUE" ;;  # 仲裁失败/超时 → 保守降级
@@ -134,12 +152,17 @@ elif [ "$VERDICT" = "GRAY" ]; then
   VERDICT="VAGUE"  # 无仲裁可用 → 保守降级
 fi
 
-# ── 按判定注入路由指令 ──
+# ── 按判定注入路由指令（人话输出：氛围编程者能看懂）──
 case "$VERDICT" in
   HIGH)
+    if [ "$BLOCK_ON_HIGH" = "on" ]; then
+      # 机械层硬拦截：exit 2 阻断 prompt 提交，stderr 显示警告
+      printf '%s\n' "[对齐] ⚠️ 这条含高风险操作（删除/生产/数据库/不可逆）。已阻断提交。" >&2
+      printf '%s\n' "  如确需执行，加 [直出] 前缀或设 ALIGN_BYPASS=1 后重发。" >&2
+      exit 2
+    fi
     cat <<'EOF'
-[align-route] verdict=HIGH
-⚠️ 本条指令含高风险信号（删除/生产/数据库/不可逆操作）。你必须：
+[对齐] ⚠️ 这条含高风险操作（删除/生产/数据库/不可逆）。你必须：
 1. 先列出全部影响面（哪些文件/数据/环境会被改动）
 2. 输出执行方案，停下等待用户明确确认
 3. 禁止在确认前执行任何写操作
@@ -148,17 +171,21 @@ EOF
     ;;
   VAGUE)
     cat <<'EOF'
-[align-route] verdict=VAGUE
-本条指令目标或对象不明确。你必须先问一个澄清问题（一次只问一个，附推荐答案），
-禁止基于猜测直接执行。若答案可从项目文件中读到，先自行读取再决定是否提问。
+[对齐] 这条指令不够清楚，我先问一个关键问题再开始，避免做偏返工。
+若答案可从项目文件中读到，先自行读取再决定是否提问。
 EOF
     ;;
   *)
-    cat <<'EOF'
-[align-route] verdict=CLEAR
-[Alignment Protocol] 直接执行，但交付前必须自验证（R8 验证门不可跳过）。
-有踩坑/纠正/新约定 → 追加到 .align/lessons.md。
-EOF
+    VERIFY_CMD=""
+    if [ -f "$ALIGN_DIR/check-commands.txt" ]; then
+      VERIFY_CMD="$(grep -vE '^\s*#' "$ALIGN_DIR/check-commands.txt" 2>/dev/null | grep -vE '^\s*$' | head -1 || true)"
+    fi
+    if [ -n "$VERIFY_CMD" ]; then
+      printf '[对齐] 指令清楚，直接执行。完成后请跑：%s\n' "$VERIFY_CMD"
+    else
+      printf '%s\n' '[对齐] 指令清楚，直接执行。完成后自行验证核心功能未回归。'
+    fi
+    printf '%s\n' '有踩坑/纠正/新约定 → 追加到 .align/lessons.md。'
     ;;
 esac
 

@@ -18,6 +18,7 @@ overall=0
 if [ "$ONLY_DEBT" -eq 0 ]; then
   if [ -f "$CMDS" ]; then
     echo "== align-check: 项目验证 =="
+    echo "（正在执行 $CMDS 中的命令，请确认信任当前仓库）"
     n=0
     while IFS= read -r cmd; do
       case "$cmd" in ''|'#'*) continue ;; esac

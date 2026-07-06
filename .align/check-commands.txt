@@ -4,6 +4,10 @@ bash -n build/build.sh
 bash -n scripts/install-skill.sh
 bash -n core/host/align-route.sh
 bash -n core/host/align-check.sh
+bash -n .align/align-route.sh
+bash -n .align/align-check.sh
+diff .align/align-route.sh core/host/align-route.sh
+diff .align/align-check.sh core/host/align-check.sh
 bash tests/verify-uninstall.sh
 bash tests/verify-router.sh
 bash tests/verify-installer-wiring.sh

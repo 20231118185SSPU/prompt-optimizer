@@ -19,7 +19,11 @@ Prompt Optimizer v3.0 是一个可注入任意项目的对齐运行时（Alignme
 ├── spec.md            # 项目开发规范
 ├── context.md         # 项目上下文契约
 ├── lessons.md         # 经验规则（沉淀门自动追加，agent 每次任务前必读）
-└── decisions.log.md   # 重大决策日志（档位 C 澄清的结论自动归档）
+├── decisions.log.md   # 重大决策日志（档位 C 澄清的结论自动归档）
+├── check-commands.txt # R8 验证门命令清单（align-check.sh 逐行执行）
+├── route.conf         # 路由配置（白名单解析，绝不 source）
+├── align-route.sh     # 确定性信号评分路由器（UserPromptSubmit hook）
+└── align-check.sh     # 一键验证脚本（跑 check-commands.txt + 债务扫描）
 ```
 
 ### 读取顺序
@@ -88,6 +92,14 @@ agent 的读取顺序写死在挂载区，固定为：
 **判定标准**：决策影响后续方向、架构、权限或高风险边界。
 
 **示例信号**：用户确认"就按方案 A 做"、"允许修改数据库 schema"、"可以删除旧代码"。
+
+### 6. 可复用模板
+
+出现可复用的 Agent Brief、检查清单或决策模式。
+
+**判定标准**：本次任务形成的结构可被未来类似任务直接套用。
+
+**示例信号**：用户说"这个格式不错，以后都这样"、agent 发现某检查清单可通用。
 
 ---
 

@@ -138,7 +138,9 @@ if [ "$VERDICT" = "GRAY" ] && [ "$ARBITER" != "off" ] && command -v claude >/dev
   # 必须有超时约束才发起阻塞的 claude -p；timeout(GNU)/gtimeout(macOS brew) 皆无 → 直接保守降级，绝不无上限阻塞
   TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
   if [ -n "$TIMEOUT_BIN" ]; then
-    LLM_OUT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" "$ARBITER_TIMEOUT" claude -p "只回答一个词（HIGH/VAGUE/CLEAR）。判定这条开发指令：HIGH=含不可逆或生产风险操作；VAGUE=目标或对象不明需要澄清；CLEAR=目标对象明确可直接执行。指令：${PROMPT}" 2>/dev/null | grep -oiE 'HIGH|VAGUE|CLEAR' | head -1 | tr '[:lower:]' '[:upper:]')" || LLM_OUT=""
+    # 用 printf %s 构建 prompt：$PROMPT 作为参数传入，其值（含双引号/反引号）被 %s 格式化为字面字符串，避免双引号断开注入
+    ARBITER_PROMPT="$(printf '只回答一个词（HIGH/VAGUE/CLEAR）。判定这条开发指令：HIGH=含不可逆或生产风险操作；VAGUE=目标或对象不明需要澄清；CLEAR=目标对象明确可直接执行。指令：%s' "$PROMPT")"
+    LLM_OUT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" "$ARBITER_TIMEOUT" claude -p "$ARBITER_PROMPT" 2>/dev/null | grep -oiE 'HIGH|VAGUE|CLEAR' | head -1 | tr '[:lower:]' '[:upper:]')" || LLM_OUT=""
     case "$LLM_OUT" in
       HIGH|VAGUE|CLEAR) VERDICT="$LLM_OUT" ;;
       *) VERDICT="VAGUE" ;;  # 仲裁失败/超时 → 保守降级

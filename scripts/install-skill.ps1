@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$ScriptVersion = "v3.0"
+$ScriptVersion = "v3.1"
 $Skills = @("optimize-prompt", "align-init", "optimize-prompt-lite")
 $UserHome = $HOME
 if ([string]::IsNullOrWhiteSpace($UserHome)) {

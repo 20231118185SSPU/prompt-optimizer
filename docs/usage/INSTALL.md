@@ -6,10 +6,11 @@
 
 ## 方式 1：通用 Agent Skill 一键安装
 
-适用于支持 `skills/` 目录的 agent 工具。默认会同时安装两个 skill 到常见目录：
+适用于支持 `skills/` 目录的 agent 工具。默认会同时安装三个 skill 到常见目录：
 
 - **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief
 - **align-init**：项目接入器，为项目生成 `.align/` 运行时并注入挂载区
+- **optimize-prompt-lite**：轻量协议，面向弱指令遵循模型或不支持 hook 的宿主
 
 安装目标：
 
