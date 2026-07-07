@@ -1,4 +1,4 @@
-[CmdletBinding(SupportsShouldProcess = $true)]
+﻿[CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [string]$Target = "all",
   [string]$SkillsDir = "",
@@ -118,7 +118,7 @@ function Resolve-SourceRoot {
     return (Resolve-Path -LiteralPath $Repo).Path
   }
 
-  Invoke-WebRequest -Uri $Repo -OutFile $ZipPath
+  Invoke-WebRequest -Uri $Repo -OutFile $ZipPath -UseBasicParsing
   Expand-Archive -LiteralPath $ZipPath -DestinationPath $ExtractDir -Force
 
   $distRoot = Get-ChildItem -LiteralPath $ExtractDir -Directory -Recurse |
@@ -302,7 +302,7 @@ try {
   }
 
   Write-Host ""
-  Write-Host "Installed skills: optimize-prompt, align-init"
+  Write-Host "Installed skills: optimize-prompt, align-init, optimize-prompt-lite"
   Write-Host "Use optimize-prompt with: `$optimize-prompt optimize: your rough idea"
   Write-Host "Use align-init with: /align-init (in your project directory)"
   Write-Host "Claude Code also supports: /optimize-prompt and /align-init"

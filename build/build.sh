@@ -56,7 +56,18 @@ MAP
 }
 
 emit_file_lf() {
-  sed 's/\r$//' "$1"
+  sed 's/\r$//' "$1" | awk '
+    { lines[NR] = $0 }
+    END {
+      end = NR
+      while (end > 0 && lines[end] == "") {
+        end--
+      }
+      for (i = 1; i <= end; i++) {
+        print lines[i]
+      }
+    }
+  '
 }
 
 emit_file_lf_trim_trailing_blank_lines() {
@@ -123,7 +134,9 @@ write_generated_file() {
   fi
 
   mkdir -p "$(dirname "$path")"
-  "$@" > "$path"
+  local tmp="${path}.tmp.$$"
+  "$@" > "$tmp"
+  mv "$tmp" "$path"
 }
 
 emit_universal_prompt() {

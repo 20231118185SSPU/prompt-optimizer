@@ -174,7 +174,7 @@ Codex 使用 `dist/codex` 包；Claude Code 和 `~/.agents` 使用 Claude-compat
 │   ├── usage/                     # INSTALL + USAGE + MIGRATION
 │   ├── reference/
 │   └── planning/                  # BENCHMARK + BENCHMARK-V3 + 方案文档
-├── scripts/                       # 安装脚本（双 skill + 卸载 + 版本）
+├── scripts/                       # 安装脚本（三 skill + 卸载 + 版本）
 ├── tests/                         # 卸载零损伤测试 fixture
 └── examples/
 ```

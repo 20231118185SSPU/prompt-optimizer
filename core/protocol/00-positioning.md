@@ -24,6 +24,7 @@ Prompt 优化的重点不是“写得更漂亮”，而是降低三类偏差：
 
 ---
 
+<!-- §2 五维诊断见 core/protocol/02-diagnosis.md，全局编号跨文件连续 -->
 
 ## 3. Agent Brief 八组件
 

@@ -67,7 +67,7 @@ function Write-GeneratedFile {
     $FullDistRoot = [System.IO.Path]::GetFullPath($DistRoot).TrimEnd('\', '/')
     $DistPrefix = $FullDistRoot + [System.IO.Path]::DirectorySeparatorChar
 
-    if (($FullPath -ne $FullDistRoot) -and (-not $FullPath.StartsWith($DistPrefix, [System.StringComparison]::OrdinalIgnoreCase))) {
+    if (($FullPath -ne $FullDistRoot) -and (-not $FullPath.StartsWith($DistPrefix, [System.StringComparison]::Ordinal))) {
         throw "Refusing to write outside dist/: $FullPath"
     }
 
@@ -76,7 +76,12 @@ function Write-GeneratedFile {
         if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
             New-Item -ItemType Directory -Force -Path $Parent | Out-Null
         }
-        [System.IO.File]::WriteAllText($FullPath, (Normalize-Lf $Content), $Utf8NoBom)
+        $tmpPath = $FullPath + '.tmp'
+        [System.IO.File]::WriteAllText($tmpPath, (Normalize-Lf $Content), $Utf8NoBom)
+        if (Test-Path -LiteralPath $FullPath) {
+            Remove-Item -LiteralPath $FullPath -Force
+        }
+        [System.IO.File]::Move($tmpPath, $FullPath)
     }
 }
 

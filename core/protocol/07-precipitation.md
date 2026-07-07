@@ -21,6 +21,7 @@ Prompt Optimizer v3.0 是一个可注入任意项目的对齐运行时（Alignme
 ├── lessons.md         # 经验规则（沉淀门自动追加，agent 每次任务前必读）
 ├── decisions.log.md   # 重大决策日志（档位 C 澄清的结论自动归档）
 ├── check-commands.txt # R8 验证门命令清单（align-check.sh 逐行执行）
+├── debt.md            # 债务台账（align-check.sh 扫描 TODO/FIXME/HACK 自动登记）
 ├── route.conf         # 路由配置（白名单解析，绝不 source）
 ├── align-route.sh     # 确定性信号评分路由器（UserPromptSubmit hook）
 └── align-check.sh     # 一键验证脚本（跑 check-commands.txt + 债务扫描）

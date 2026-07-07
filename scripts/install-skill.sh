@@ -84,6 +84,10 @@ if [ "$UNINSTALL" -eq 1 ]; then
       if [ "$WHAT_IF" -eq 1 ]; then
         echo "What if: Remove $SKILL skill from: $INSTALL_DIR (if present)"
       elif [ -d "$INSTALL_DIR" ]; then
+        case "$INSTALL_DIR" in
+          */skills/*) ;;
+          *) echo "Refusing to rm: $INSTALL_DIR does not match */skills/*" >&2; exit 1 ;;
+        esac
         rm -rf "$INSTALL_DIR"
         echo "Removed $SKILL skill from: $INSTALL_DIR"
       fi
@@ -331,7 +335,7 @@ EOF
 copy_hooks_scripts
 
 echo
-echo 'Installed skills: optimize-prompt, align-init'
+echo 'Installed skills: optimize-prompt, align-init, optimize-prompt-lite'
 echo 'Use optimize-prompt with: $optimize-prompt optimize: your rough idea'
 echo 'Use align-init with: /align-init (in your project directory)'
 echo 'Claude Code also supports: /optimize-prompt and /align-init'

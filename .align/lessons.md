@@ -28,3 +28,4 @@
 - [价值可见性] 规则：verdict 输出用人话非机器标签 → 下次执行：改输出格式时 grep "verdict=" 确认无机器标签残留
 - [R8 具体化] 规则：验证提醒读 check-commands.txt 实际命令 → 下次执行：改 CLEAR 输出时验证 check-commands 读取链路
 - [自举同步] 规则：core/host/ 升级 route/check 脚本后 .align/ 副本不自动同步 → 下次执行：改 core/host/align-route.sh 后重跑 align-init 或 cp 同步 .align/，否则本项目自身路由跑旧版
+- [PS 脚本编码] 规则：含非 ASCII（中文注释/box-drawing）的 .ps1 源文件必须存为 UTF-8 BOM → 下次执行：PS 5.1 把无 BOM 文件按 ANSI 解析致 parse error；仅 settings.json 等 JSON 产物保持无 BOM（见上条）
