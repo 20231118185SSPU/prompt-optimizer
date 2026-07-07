@@ -1,5 +1,43 @@
 # 更新日志
 
+## v3.1.1 — hook 强化 + 信号扩展
+
+> v3.1 发布后继续强化 hook 拦截能力，让对齐协议在执行前真正成为"默认动作"而非"可选建议"。
+
+### 核心变更
+
+#### 1. hook 路由注入升级
+
+- 三个 verdict（HIGH / VAGUE / CLEAR）从单行提示升级为**结构化执行协议**
+  - **HIGH** 注入 5 步：读规范 → 列影响面 → 输出方案（含改动清单/回滚/验证/风险）→ 停下等确认 → 执行验证
+  - **VAGUE** 注入 5 步：读规范 → 自行读取能读到的信息 → 一次一问+推荐答案 → Agent Brief 八组件 → 禁止未对齐先输出
+  - **CLEAR** 注入 5 步：读规范 → Agent Brief 执行 → 验证命令 → 沉淀 → R8 验证门
+- 模型收到的是**对齐后的执行框架**，不是简单的"小心高风险"提醒
+
+#### 2. 信号识别扩展
+
+- **RISK_RE** 增加约 12 个词：清掉 / 下线 / 停服 / 发版 / 部署到生产 / 格式化 / 销毁 / 覆盖 / destroy / format / 抹掉 等
+- **VAGUE_RE** 增加约 20 个词：优化 / 重构 / 升级 / 增强 / 调整 / 梳理 / 整理 / 改改 / 改一下 / tweak / adjust / fix / enhance / upgrade / refine / rework / reorganize 等
+- 覆盖中英文常见模糊/风险表达，氛围编程场景下更准确
+
+#### 3. hook 强制性强化
+
+- 去掉 `2>/dev/null`（暴露 hook 错误，不再静默吞掉）
+- 去掉 `|| true`（不再静默通过）
+- 降级路径改为明确提示：`[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。`
+- HOOK-REMINDER.txt 升级为完整降级模式协议说明（含三档路由 + 硬性红线 + 修复建议）
+
+### 验收
+
+- `bash -n` 语法检查通过（core 和 dist 的 align-route.sh、align-check.sh）
+- `settings.fragment.json` JSON 验证 VALID
+- core/dist 一致性：5 个 host 文件 LF 规范化后逐文件 MATCH
+- 幂等性：3 个改动文件重新同步后字节大小不变（STABLE）
+- 连续两次 build 无额外 diff
+- `git status` 只有 6 文件改动（core 3 + dist 3），无意外改动
+
+---
+
 ## v3.1 — hook 接线修复 + VAGUE 扩展 + 轻协议
 
 > v3.0 发布后发现 hook 接线断口、VAGUE 分类器漏覆盖氛围编程动词、弱指令遵循模型无轻量协议。v3.1 修复并扩展。

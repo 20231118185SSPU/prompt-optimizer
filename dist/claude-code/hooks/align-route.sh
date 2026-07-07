@@ -99,8 +99,8 @@ CLEAN="$(strip_noise "$PROMPT")"
 SIGNAL_TEXT="$(strip_negation "$CLEAN")"
 
 # ── 信号计数（双语）──
-RISK_RE='删除|删掉|删库|清空|清库|重置|回滚|强推|上线|生产环境|生产库|数据库迁移|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration'
-VAGUE_RE='优化一下|优化下|改进|完善|提升一下|处理一下|看看|弄一下|搞一下|搞定|修一下|美化|更好|更快|更优雅|更稳定|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个'
+RISK_RE='删除|删掉|删库|清空|清库|清掉|重置|回滚|强推|上线|下线|停服|发版|部署到生产|生产环境|生产库|数据库迁移|格式化|抹掉|销毁|覆盖|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration|deploy to prod|destroy|format'
+VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|提升|处理一下|处理|看看|弄一下|弄好|搞一下|搞定|搞定它|修一下|修好|美化|改改|改一下|改下|调整一下|调整下|梳理一下|梳理下|整理一下|整理下|重构|升级|升级一下|增强|更好|更快|更优雅|更稳定|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|tweak|adjust|fix|enhance|upgrade|refine|rework|reorganize|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个'
 SPEC_RE='[A-Za-z0-9_./\\-]+\.(sh|ps1|md|js|jsx|ts|tsx|py|json|yml|yaml|toml|go|rs|java|c|cpp|h|css|html|sql)|[A-Za-z_][A-Za-z0-9_]*\(\)|第[[:space:]]*[0-9]+[[:space:]]*行|line [0-9]+|:[0-9]+\b'
 
 count_re() { printf '%s' "$1" | grep -oiE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
@@ -162,17 +162,23 @@ case "$VERDICT" in
       exit 2
     fi
     cat <<'EOF'
-[对齐] ⚠️ 这条含高风险操作（删除/生产/数据库/不可逆）。你必须：
-1. 先列出全部影响面（哪些文件/数据/环境会被改动）
-2. 输出执行方案，停下等待用户明确确认
-3. 禁止在确认前执行任何写操作
-硬性红线：高风险静默执行 = 无效输出。
+[对齐] ⚠️ 高风险指令（判定：HIGH）。按以下对齐协议执行，禁止跳步：
+1. 先读 .align/lessons.md → spec.md → context.md（项目规范，必读）
+2. 列出全部影响面：哪些文件/数据/环境/调用方会被改动
+3. 输出执行方案，须包含：改动清单 / 回滚条件 / 验证方式 / 风险说明
+4. 停下等待用户明确确认后再执行——禁止在确认前做任何写操作
+5. 确认后执行，完成后跑验证命令并报告结果
+硬性红线：高风险静默执行 = 无效输出，必须重做。
 EOF
     ;;
   VAGUE)
     cat <<'EOF'
-[对齐] 这条指令不够清楚，我先问一个关键问题再开始，避免做偏返工。
-若答案可从项目文件中读到，先自行读取再决定是否提问。
+[对齐] 指令目标或对象不够明确（判定：VAGUE）。按以下对齐协议执行：
+1. 先读 .align/lessons.md → spec.md → context.md（项目规范，必读）
+2. 能从项目文件/代码/文档读到的信息，自行读取，不问用户
+3. 仍缺失且会改变目标/范围/验收的关键信息 → 一次只问一个问题，附推荐答案
+4. 意图对齐后，按 Agent Brief 八组件执行：目标/背景/范围/交付物/约束/执行策略/验收/沉淀
+5. 禁止在意图对齐前输出最终方案——猜错返工比一次澄清成本更高
 EOF
     ;;
   *)
@@ -180,12 +186,16 @@ EOF
     if [ -f "$ALIGN_DIR/check-commands.txt" ]; then
       VERIFY_CMD="$(grep -vE '^\s*#' "$ALIGN_DIR/check-commands.txt" 2>/dev/null | grep -vE '^\s*$' | head -1 || true)"
     fi
+    printf '%s\n' '[对齐] 指令清楚（判定：CLEAR），按以下执行协议行动：'
+    printf '%s\n' '1. 先读 .align/lessons.md → spec.md → context.md（项目规范，必读）'
+    printf '%s\n' '2. 按 Agent Brief 执行：明确目标 → 锁定范围 → 最小变更 → 完成后验证'
     if [ -n "$VERIFY_CMD" ]; then
-      printf '[对齐] 指令清楚，直接执行。完成后请跑：%s\n' "$VERIFY_CMD"
+      printf '3. 完成后跑验证：%s\n' "$VERIFY_CMD"
     else
-      printf '%s\n' '[对齐] 指令清楚，直接执行。完成后自行验证核心功能未回归。'
+      printf '%s\n' '3. 完成后自行验证核心功能未回归'
     fi
-    printf '%s\n' '有踩坑/纠正/新约定 → 追加到 .align/lessons.md。'
+    printf '%s\n' '4. 有踩坑/纠正/新约定 → 追加到 .align/lessons.md（一条≤2行）'
+    printf '%s\n' '5. 交付前自验证（R8 验证门不可跳过）'
     ;;
 esac
 

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" 2>/dev/null || cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" 2>/dev/null || true"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" || cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" 2>/dev/null || printf '%s\\n' '[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。'"
           }
         ]
       }

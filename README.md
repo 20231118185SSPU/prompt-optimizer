@@ -24,11 +24,12 @@ Prompt Optimizer v3.1 是一个可注入任意项目的 **Alignment Runtime**（
 
 对齐的存在感与任务风险成正比，与任务频率成反比。简单指令零卡顿，高风险指令必拦截。
 
-### v3.1 发布状态
+### v3.1.1 发布状态
 
 - 安装闭环：PowerShell / Bash 默认覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录。
 - Adapter 路由：Codex 安装使用 `dist/codex`；Claude Code 和 `~/.agents` 使用 Claude-compatible 的 `dist/claude-code`。
 - 协议硬门槛：`[假设]>2`、`总分<6`、`D5=0`、高风险信号和 R8 验证门在 `core/` 与 `dist/` 中保持一致。
+- **hook 强化（v3.1.1）**：三个 verdict 注入升级为结构化执行协议；RISK/VAGUE 正则扩展；去掉 `2>/dev/null` 静默吞错；降级路径给出明确修复提示。
 - 回测证据：`docs/planning/BENCHMARK-V3.md` 是 18 case 协议规则推演回测，不声明为外部模型实测。
 
 ## 快速开始
