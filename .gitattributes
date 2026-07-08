@@ -1,7 +1,7 @@
 # 锁定文本文件为 LF，消除 core.autocrlf 假阳性（M8）
 * text=auto eol=lf
 *.sh text eol=lf
-*.ps1 text eol=lf
+*.ps1 text eol=crlf
 *.md text eol=lf
 *.json text eol=lf
 *.yaml text eol=lf
