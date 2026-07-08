@@ -9,10 +9,6 @@
 
 export const VERSION = '0.1.0';
 
-export function hello(): string {
-  return 'Align Pipeline initialized';
-}
-
 // Re-export pipeline components
 export { classify, Classification } from './classifier';
 export { route, Verdict, RoutingResult } from './router';
@@ -24,7 +20,6 @@ export { processInstruction, PipelineResult } from './pipeline';
 
 // Import for CLI use
 import { processInstruction } from './pipeline';
-import type { PipelineResult } from './pipeline';
 
 // Tool-specific output modes
 const toolModes: Record<string, (instruction: string, projectDir: string) => void> = {
@@ -96,9 +91,17 @@ if (require.main === module) {
 
   const tool = args[0];
   const instruction = args[1];
-  const projectDir = args.includes('--project-dir')
-    ? args[args.indexOf('--project-dir') + 1]
-    : process.cwd();
+
+  // Parse --project-dir with validation
+  let projectDir = process.cwd();
+  const projectDirIndex = args.indexOf('--project-dir');
+  if (projectDirIndex !== -1) {
+    if (projectDirIndex + 1 >= args.length) {
+      console.error('Error: --project-dir requires a value');
+      process.exit(1);
+    }
+    projectDir = args[projectDirIndex + 1];
+  }
 
   // Tool-specific modes
   if (toolModes[tool]) {
