@@ -42,7 +42,11 @@ function ConvertTo-OrderedHashtable {
     return $ht
   }
   if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
-    return @(foreach ($item in $InputObject) { ConvertTo-OrderedHashtable $item })
+    $list = New-Object System.Collections.ArrayList
+    foreach ($item in $InputObject) {
+      $list.Add((ConvertTo-OrderedHashtable $item)) | Out-Null
+    }
+    return $list.ToArray()
   }
   return $InputObject
 }

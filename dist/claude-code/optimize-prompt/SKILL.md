@@ -11,28 +11,43 @@ Generated from core/. Do not edit dist/ manually.
 
 This is the Claude Code adapter for the Agent Intent Alignment Protocol. Transform rough user instructions into prompts that an AI agent can understand, execute, verify, and learn from. Do not merely polish wording.
 
-## v3 琛屼负锛氭樉寮?vs 闅愬紡
+## v3 行为：显式 vs 隐式
 
-### 鏄惧紡妯″紡锛坴2.0 鍏煎锛?
-鐢ㄦ埛鏄惧紡浣跨敤 `浼樺寲锛歚銆乣/optimize-prompt`銆乣$optimize-prompt`锛屾垨瑕佹眰"浼樺寲/鏀硅繘/閲嶅啓"涓€涓?prompt 鈫?杈撳嚭瀹屾暣 Agent Brief 鏂囨。锛坴2.0 琛屼负锛夈€傛樉寮忔ā寮忔弧瓒?鎴戝氨鎯崇湅浼樺寲缁撴灉"鐨勫満鏅€?
-### 闅愬紡妯″紡锛坴3.0 榛樿锛?
-鏅€氬紑鍙戞寚浠わ紙涓嶅寘鍚樉寮忓墠缂€锛夆啋 璧?v3 涓夋。璺敱锛?
-- **妗ｄ綅 A锛堢洿閫氾級**锛氱畝鍗?浣庨闄?鎰忓浘鏄庣‘锛堜簲缁村揩璇?鈮?锛夆啋 鐩存帴鎵ц锛屼笉鎻?浼樺寲"浜屽瓧銆傚唴閮ㄤ粛璺?R8 楠岃瘉闂ㄣ€?- **妗ｄ綅 B锛堥潤榛樺榻愶級**锛氭湁缂哄彛浣嗗彲浠?.align/ 琛ュ叏 鈫?1-3 琛屾姭闇插悗鐩存帴鎵ц锛屼笉绛夊緟纭銆?- **妗ｄ綅 C锛堟诞鍑烘緞娓咃級**锛氶珮椋庨櫓/鎬诲垎<6/[鍋囪]>2 鈫?鍋滀笅锛屼竴娆′竴闂?鎺ㄨ崘绛旀銆?
-闅愬紡妯″紡涓嶅睍绀哄畬鏁?Agent Brief锛岄粯璁ょ洿鎺ユ墽琛屻€傛枃妗ｅ舰鎬佸彧鍦ㄩ珮椋庨櫓/澶嶆潅浠诲姟鎴栨樉寮忚姹傛椂鍑虹幇銆?
-## .align/ 璇诲彇椤哄簭
+### 显式模式（v2.0 兼容）
 
-褰?`.align/` 瀛樺湪鏃讹紝妗ｄ綅 B 鐨勭己鍙ｈˉ鍏ㄤ紭鍏堜粠 `.align/` 鍙栨潗锛堣秺鐢ㄨ秺鎳傞」鐩殑闂幆锛夛細
+用户显式使用 `优化：`、`/optimize-prompt`、`$optimize-prompt`，或要求"优化/改进/重写"一个 prompt → 输出完整 Agent Brief 文档（v2.0 行为）。显式模式满足"我就想看优化结果"的场景。
 
-1. `.align/lessons.md`锛堟渶鏄撹繚鍙嶇殑鏈€鍏堣锛?2. `.align/spec.md`锛堥」鐩鑼冿級
-3. `.align/context.md`锛堥」鐩笂涓嬫枃锛?
-鏈?`.align/` 鏃讹紝鍚屼竴鏉℃ā绯婃寚浠ゅ簲灏戜竴娆℃緞娓咃紙缂哄彛浠?.align/ 琛ュ叏鑰岄潪闂敤鎴凤級銆備笉寰楅潤榛樺鐞嗛珮椋庨櫓鎴?[鍋囪]>2銆?
-## 纭€х孩绾?
-- 楂橀闄╁満鏅笉寰楅潤榛樺亣璁撅紙妗ｄ綅 C 蹇呴』鎷︽埅锛?- [鍋囪]>2 鏉′笉寰楃洿鎺ヨ緭鍑猴紙杞叆婢勬竻锛?- 妗ｄ綅 B 鎶湶 鈮? 琛岋紝瓒呰繃鍗囨。 C
-- R8 楠岃瘉闂ㄥ湪鎵€鏈夋。浣嶅己鍒剁敓鏁?
+### 隐式模式（v3.0 默认）
+
+普通开发指令（不包含显式前缀）→ 走 v3 三档路由：
+
+- **档位 A（直通）**：简单+低风险+意图明确（五维快评 ≥8）→ 直接执行，不提"优化"二字。内部仍跑 R8 验证门。
+- **档位 B（静默对齐）**：有缺口但可从 .align/ 补全 → 1-3 行披露后直接执行，不等待确认。
+- **档位 C（浮出澄清）**：高风险/总分<6/[假设]>2 → 停下，一次一问+推荐答案。
+
+隐式模式不展示完整 Agent Brief，默认直接执行。文档形态只在高风险/复杂任务或显式请求时出现。
+
+## .align/ 读取顺序
+
+当 `.align/` 存在时，档位 B 的缺口补全优先从 `.align/` 取材（越用越懂项目的闭环）：
+
+1. `.align/lessons.md`（最易违反的最先读）
+2. `.align/spec.md`（项目规范）
+3. `.align/context.md`（项目上下文）
+
+有 `.align/` 时，同一条模糊指令应少一次澄清（缺口从 .align/ 补全而非问用户）。不得静默处理高风险或 [假设]>2。
+
+## 硬性红线
+
+- 高风险场景不得静默假设（档位 C 必须拦截）
+- [假设]>2 条不得直接输出（转入澄清）
+- 档位 B 披露 ≤5 行，超过升档 C
+- R8 验证门在所有档位强制生效
+
 ## Inputs
 
-- If the user invokes `$optimize-prompt`, `/optimize-prompt`, `optimize:`, or asks to improve or structure a prompt for an AI agent, treat the remaining text as the raw instruction (explicit mode 鈫?full Agent Brief).
-- For normal development instructions without explicit prefixes, apply v3 three-tier routing (implicit mode 鈫?direct execution with silent alignment).
+- If the user invokes `$optimize-prompt`, `/optimize-prompt`, `optimize:`, or asks to improve or structure a prompt for an AI agent, treat the remaining text as the raw instruction (explicit mode → full Agent Brief).
+- For normal development instructions without explicit prefixes, apply v3 three-tier routing (implicit mode → direct execution with silent alignment).
 - For non-English trigger phrases and explicit mode prefixes, follow the generated Core Protocol below.
 - Users do not need to choose a mode. Route automatically through the generated protocol.
 - If the user explicitly requests a mode described by the generated protocol, honor it unless a hard safety gate is triggered.
