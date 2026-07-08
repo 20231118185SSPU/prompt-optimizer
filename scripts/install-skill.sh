@@ -37,6 +37,12 @@ for arg in "$@"; do
   esac
 done
 
+# ── Check Node.js dependency ──
+if ! command -v node &> /dev/null; then
+  echo "Warning: Node.js not found. TypeScript pipeline will not work."
+  echo "Install Node.js from https://nodejs.org/ or use shell fallback."
+fi
+
 SKILLS=("optimize-prompt" "align-init" "optimize-prompt-lite")
 
 resolve_install_targets() {

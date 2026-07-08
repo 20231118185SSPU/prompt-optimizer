@@ -15,6 +15,7 @@ export { route, Verdict, RoutingResult } from './router';
 export { enrich, AlignContext, EnrichmentResult } from './enricher';
 export { getVerificationCommands, runVerification, VerificationResult } from './verifier';
 export { processInstruction, PipelineResult } from './pipeline';
+export { generateCopilotRules, generateAiderRules, generateWindsurfRules } from './rules/generate';
 
 // ── CLI Entry Point ──
 

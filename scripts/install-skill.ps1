@@ -1,4 +1,4 @@
-﻿[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [string]$Target = "all",
   [string]$SkillsDir = "",
@@ -20,6 +20,12 @@ if ([string]::IsNullOrWhiteSpace($UserHome)) {
 }
 if ([string]::IsNullOrWhiteSpace($UserHome)) {
   throw "Could not resolve user home directory."
+}
+
+# ── Check Node.js dependency ──
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+  Write-Host "Warning: Node.js not found. TypeScript pipeline will not work."
+  Write-Host "Install Node.js from https://nodejs.org/ or use shell fallback."
 }
 
 # ── PowerShell 5.1 兼容的 JSON 读写 ──
@@ -219,7 +225,7 @@ if ($Uninstall) {
     if (Test-Path -LiteralPath $settingsPath) {
       $data = Read-SettingsJson $settingsPath
       $changed = $false
-      if ($data.ContainsKey("hooks") -and $data["hooks"].ContainsKey("UserPromptSubmit")) {
+      if ($data["hooks"] -ne $null -and $data["hooks"]["UserPromptSubmit"] -ne $null) {
         $groups = @()
         foreach ($group in $data["hooks"]["UserPromptSubmit"]) {
           $kept = @($group["hooks"] | Where-Object { $ourCmds -notcontains $_["command"] })
@@ -273,7 +279,7 @@ try {
   $validatedAdapters = @{}
   foreach ($target in $installTargets) {
     $adapter = Get-InstallTargetValue -Target $target -Name "Adapter"
-    if (-not $validatedAdapters.ContainsKey($adapter)) {
+    if ($validatedAdapters[$adapter] -eq $null) {
       Test-AdapterSource -SourceRoot $sourceRoot -Adapter $adapter
       $validatedAdapters[$adapter] = $true
     }
@@ -331,8 +337,8 @@ try {
       $data = Read-SettingsJson $settingsPath
     }
 
-    if (-not $data.ContainsKey("hooks")) { $data["hooks"] = @{} }
-    if (-not $data["hooks"].ContainsKey("UserPromptSubmit")) { $data["hooks"]["UserPromptSubmit"] = @() }
+    if ($data["hooks"] -eq $null) { $data["hooks"] = @{} }
+    if ($data["hooks"]["UserPromptSubmit"] -eq $null) { $data["hooks"]["UserPromptSubmit"] = @() }
 
     $entries = $data["hooks"]["UserPromptSubmit"]
     $present = $false

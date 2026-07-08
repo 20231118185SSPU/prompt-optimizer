@@ -407,3 +407,13 @@ write_generated_file "$dist_root/claude-code/hooks/settings.fragment.json" emit_
 write_generated_file "$dist_root/claude-code/hooks/align-route.sh" emit_file_lf "$host_root/align-route.sh"
 write_generated_file "$dist_root/claude-code/hooks/align-check.sh" emit_file_lf "$host_root/align-check.sh"
 write_generated_file "$dist_root/claude-code/hooks/project-settings.fragment.json" emit_file_lf "$host_root/project-settings.fragment.json"
+
+# ── TypeScript Pipeline Compilation ──
+echo "Building TypeScript pipeline..."
+if command -v node &> /dev/null && command -v npm &> /dev/null; then
+  cd "$repo_root/core/host/pipeline" && npm install && npm run build
+  cd "$repo_root"
+  echo "TypeScript pipeline built successfully"
+else
+  echo "Warning: Node.js/npm not found, skipping TypeScript pipeline build"
+fi

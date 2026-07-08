@@ -4,6 +4,9 @@
  * Generates alignment rules for tools without hooks (Copilot, Aider, Windsurf).
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 const ALIGNMENT_RULES = `
 # Alignment Protocol
 
@@ -58,4 +61,19 @@ export function generateAiderRules(_projectDir: string): string {
 
 export function generateWindsurfRules(_projectDir: string): string {
   return ALIGNMENT_RULES;
+}
+
+export function writeRuleFiles(projectDir: string): void {
+  // Write Copilot rules
+  const copilotDir = path.join(projectDir, '.github');
+  if (!fs.existsSync(copilotDir)) {
+    fs.mkdirSync(copilotDir, { recursive: true });
+  }
+  fs.writeFileSync(path.join(copilotDir, 'copilot-instructions.md'), generateCopilotRules(projectDir));
+
+  // Write Aider rules
+  fs.writeFileSync(path.join(projectDir, 'CONVENTIONS.md'), generateAiderRules(projectDir));
+
+  // Write Windsurf rules
+  fs.writeFileSync(path.join(projectDir, '.windsurfrules'), generateWindsurfRules(projectDir));
 }

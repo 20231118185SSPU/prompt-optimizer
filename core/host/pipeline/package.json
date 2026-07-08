@@ -4,6 +4,9 @@
   "description": "Universal Align Pipeline - Agent intent alignment for AI coding assistants",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "align-cli": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest",

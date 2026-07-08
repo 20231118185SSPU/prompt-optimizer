@@ -1,4 +1,4 @@
-﻿[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -411,3 +411,15 @@ Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/settings.fragm
 Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/align-route.sh') -Content (Read-TextFile (Join-Path $HostRoot 'align-route.sh'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/align-check.sh') -Content (Read-TextFile (Join-Path $HostRoot 'align-check.sh'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/project-settings.fragment.json') -Content (Read-TextFile (Join-Path $HostRoot 'project-settings.fragment.json'))
+
+# ── TypeScript Pipeline Compilation ──
+Write-Host "Building TypeScript pipeline..."
+if (Get-Command node -ErrorAction SilentlyContinue) {
+  Push-Location "$RepoRoot\core\host\pipeline"
+  npm install
+  npm run build
+  Pop-Location
+  Write-Host "TypeScript pipeline built successfully"
+} else {
+  Write-Host "Warning: Node.js not found, skipping TypeScript pipeline build"
+}
