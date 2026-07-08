@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # claude-code.sh — Claude Code hook adapter for align-pipeline
 # Reads hook JSON from stdin, calls align-cli, outputs hook response
-set -e
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PIPELINE_DIR="$(cd "$SCRIPT_DIR/../../" && pwd)"
@@ -73,14 +73,14 @@ esac
 # Get project directory from Claude Code
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
-# Call align-cli with timeout to prevent hanging on verifier commands
+# Call align-cli (safe: pass args positionally, not interpolated)
 TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
-NODE_CMD="node \"$PIPELINE_DIR/dist/index.js\" claude-code \"$PROMPT\" --project-dir \"$PROJECT_DIR\""
+ALIGN_CMD='node "$1" claude-code "$2" --project-dir "$3"'
 
 if [ -n "$TIMEOUT_BIN" ]; then
-  RESULT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" 30 bash -c "$NODE_CMD" 2>/dev/null || true)"
+  RESULT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" 30 bash -c "$ALIGN_CMD" _ "$PIPELINE_DIR/dist/index.js" "$PROMPT" "$PROJECT_DIR" 2>/dev/null || true)"
 else
-  RESULT="$(ALIGN_ROUTE_INNER=1 bash -c "$NODE_CMD" 2>/dev/null || true)"
+  RESULT="$(ALIGN_ROUTE_INNER=1 bash -c "$ALIGN_CMD" _ "$PIPELINE_DIR/dist/index.js" "$PROMPT" "$PROJECT_DIR" 2>/dev/null || true)"
 fi
 
 if [ -n "$RESULT" ]; then
