@@ -56,7 +56,7 @@ export function enrich(instruction: string, projectDir: string): EnrichmentResul
   // Build enriched message
   let enrichedMessage = instruction;
 
-  if (lessons || spec || context) {
+  if (lessons || spec || context || decisions) {
     const contextParts: string[] = [];
 
     if (lessons) {
@@ -67,6 +67,9 @@ export function enrich(instruction: string, projectDir: string): EnrichmentResul
     }
     if (context) {
       contextParts.push(`── 项目上下文 ──\n${context}`);
+    }
+    if (decisions) {
+      contextParts.push(`── 决策日志 ──\n${decisions}`);
     }
 
     if (contextParts.length > 0) {

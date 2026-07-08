@@ -39,6 +39,8 @@ describe('enricher', () => {
     expect(result.enrichedMessage).toContain('This is a spec');
     expect(result.enrichedMessage).toContain('项目上下文');
     expect(result.enrichedMessage).toContain('Project context here');
+    expect(result.enrichedMessage).toContain('决策日志');
+    expect(result.enrichedMessage).toContain('Decision 1');
     expect(result.enrichedMessage).toContain('用户指令');
     expect(result.enrichedMessage).toContain('Fix the bug');
 
