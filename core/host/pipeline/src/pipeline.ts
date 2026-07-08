@@ -8,7 +8,7 @@
 import { classify } from './classifier';
 import { route, Verdict } from './router';
 import { enrich, AlignContext } from './enricher';
-import { getVerificationCommands, VerificationResult } from './verifier';
+import { getVerificationCommands, runVerification, VerificationResult } from './verifier';
 
 export interface PipelineResult {
   verdict: Verdict | 'BYPASS';
@@ -55,8 +55,9 @@ export function processInstruction(
   // Step 3: Enrich message with .align/ context
   const { enrichedMessage, context } = enrich(instruction, projectDir);
 
-  // Step 4: Get verification commands
+  // Step 4: Get verification commands and execute them
   const verificationCommands = getVerificationCommands(projectDir);
+  const { results: verificationResults } = runVerification(projectDir);
 
   return {
     verdict,
@@ -64,6 +65,6 @@ export function processInstruction(
     enrichedMessage,
     context,
     verificationCommands,
-    verificationResults: [] // Will be filled after execution
+    verificationResults
   };
 }

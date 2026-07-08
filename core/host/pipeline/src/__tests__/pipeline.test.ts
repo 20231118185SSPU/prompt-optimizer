@@ -53,7 +53,10 @@ describe('processInstruction', () => {
     expect(result.context.lessons).toContain('Always check types');
     expect(result.context.spec).toContain('TypeScript strict mode');
     expect(result.verificationCommands).toContain('echo "test passed"');
-    expect(result.verificationResults).toEqual([]);
+    expect(result.verificationResults).toHaveLength(1);
+    expect(result.verificationResults[0].command).toBe('echo "test passed"');
+    expect(result.verificationResults[0].success).toBe(true);
+    expect(result.verificationResults[0].output).toContain('test passed');
   });
 
   // ── Vague instruction ──
@@ -170,7 +173,9 @@ describe('processInstruction', () => {
     );
 
     expect(result.verificationCommands).toEqual(['echo "test passed"']);
-    expect(result.verificationResults).toEqual([]);
+    expect(result.verificationResults).toHaveLength(1);
+    expect(result.verificationResults[0].command).toBe('echo "test passed"');
+    expect(result.verificationResults[0].success).toBe(true);
   });
 
   // ── GRAY verdict (risk + edu) ──
