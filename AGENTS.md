@@ -48,11 +48,14 @@
 prompt-optimizer/
 ├── core/                          # ★ 唯一事实来源，只在这里改内容
 │   ├── protocol/                  # 协议内核 00-07
-│   ├── templates/                 # 14 个模板（唯一一份）
+│   ├── contracts/                 # 公共机器契约与 golden corpus
+│   ├── templates/                 # 17 个模板（唯一一份）
 │   ├── skills/                    # skill 源文件
 │   │   ├── align-init/            # 项目接入器
+│   │   ├── optimize-prompt/        # 完整意图对齐器
 │   │   └── optimize-prompt-lite/  # 轻量协议（弱模型/无 hook 宿主）
-│   ├── host/                      # 宿主适配（挂载区/hook/reminder）
+│   ├── host/                      # runtime 与宿主适配
+│   ├── distribution/              # runtime 安装计划与所有权标记
 │   └── spec-kit/                  # 规范生成器素材库
 ├── build/                         # 构建脚本
 │   ├── build.ps1                  # Windows PowerShell
@@ -61,6 +64,7 @@ prompt-optimizer/
 │   ├── claude-code/               # skill + hooks + CLAUDE.md 片段
 │   ├── codex/                     # skill + AGENTS.md 片段
 │   ├── cursor/                    # .cursor/rules 片段
+│   ├── runtime/                   # 编译 runtime、CLI、doctor 与 adapters
 │   └── universal/                 # 可复制 System Prompt
 ├── examples/                      # 示例
 ├── scripts/                       # 安装脚本
@@ -346,4 +350,3 @@ bash -n scripts/install-skill.sh
 
 硬性红线：高风险静默假设 = 无效输出；交付前不验证 = 无效输出。
 <!-- align-protocol:end -->
-

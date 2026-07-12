@@ -15,10 +15,10 @@
 
 - `core/`：SSOT 唯一事实来源，只在这里改内容 [推断]
 - `core/protocol/`：协议内核 00-07 [推断]
-- `core/templates/`：14 个模板（含 4 个 ALIGN 模板） [推断]
+- `core/templates/`：17 个模板（含 7 个 ALIGN 模板） [原文]
 - `core/spec-kit/`：规范生成器素材库 [推断]
-- `core/skills/align-init/`：align-init skill 源文件 [推断]
-- `core/host/`：宿主适配源文件（挂载区/hook/reminder） [推断]
+- `core/skills/`：optimize-prompt、align-init、optimize-prompt-lite 三个 skill 的源文件 [原文]
+- `core/host/`：TypeScript runtime、CLI、hook、router 和宿主 adapter 源文件 [原文]
 - `build/`：构建脚本 [推断]
 - `dist/`：构建产物，禁止手改 [原文]
 - `docs/`：文档（usage/ + reference/ + planning/） [推断]

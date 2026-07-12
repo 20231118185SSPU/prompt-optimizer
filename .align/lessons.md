@@ -36,3 +36,4 @@
 - [handoff 请求定位] 规则：公共 decision 的 claims 顺序不构成契约 → 下次执行：按 `user + request:text` source ref 找原始请求，再回退到首个 fact
 - [英文关键词路由] 规则：裸子串会把 `preview` 误判为 `review` → 下次执行：英文技能关键词使用词边界，并添加包含关系反例
 - [生成产物提交] 规则：本地 build 通过不代表新增 `dist/` 文件可被 Git 收录 → 下次执行：分发 gate 检查 ignored 未跟踪产物，提交前核对 `git status --ignored dist`
+- [风险能力口径] 规则：风险信号必须经过安全路由但不等于永久阻断 → 下次更新介绍时区分信息不足的 `clarify`、授权阻断的 `block` 与授权完整的 `enrich`

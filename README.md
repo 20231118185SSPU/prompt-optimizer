@@ -1,41 +1,59 @@
 # Prompt Optimizer / Agent 意图对齐器
 
-> 可注入任意项目的对齐运行时：接入时为项目生成开发规范，运行时让每条开发指令在执行前静默通过意图对齐管线，执行后把经验沉淀回项目。
+> 可注入任意项目的 Agent 对齐运行时：把自然语言请求转换成可执行、可验证、可追溯的 Alignment Decision，并在执行后沉淀项目经验。
 
-这个项目不只是”润色提示词”。它的目标是解决 AI agent 最大的失败来源：用户以为自己说清楚了，agent 以为自己听懂了，最后做出来的东西偏了。
+这个项目不是 prompt 文案润色器。它解决的是 AI agent 执行前的契约缺口：目标是否明确、范围是否受控、风险是否获得授权、验收是否可判定，以及完成后哪些经验值得进入项目上下文。
 
 ## 项目介绍
 
-Prompt Optimizer v3.2.0-rc.1 是一个可注入任意项目的 **Alignment Runtime**（对齐运行时）。它通过三个 skill 实现：
+Prompt Optimizer v3.2.0-rc.1 由协议、机器契约、结构化 runtime、宿主 adapter 和三个 skill 组成：
 
-- **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief。v3 默认静默运行——简单任务直接执行（零感知），有缺口时静默补全+微披露（不等待），高风险时浮出澄清（必须拦截）。
+- **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief。v3 默认静默运行——简单任务直接执行，有缺口时静默补全，高风险且信息或授权不足时停下澄清或等待确认。
 - **align-init**：项目接入器，为项目生成 `.align/` 运行时（开发规范+上下文+经验+决策），并注入挂载区到 CLAUDE.md/AGENTS.md。
 - **optimize-prompt-lite**：轻量协议，面向弱指令遵循模型或不支持 hook 的宿主，无需 .align/ 运行时即可使用基础对齐。
 
-它适合经常使用 Codex、Claude Code、Cursor、ChatGPT、Claude、Gemini 等 AI 工具的人，用来减少误解、跑偏、过度发挥、提前完成和缺少验证的问题。
+- **Alignment Decision v1**：使用 `pass` / `enrich` / `clarify` / `block` 表达稳定路由，并携带 reason、来源、评分、下一步和生命周期计划。
+- **结构化 runtime**：Node.js 路径负责分析、契约构建、路由和生命周期；无 Node 环境保留明确标注能力降级的 shell fallback。
+- **项目上下文**：`.align/` 将 facts、glossary、rules、lessons、decisions 和 state 按生命周期分开，避免把临时状态误当长期事实。
+
+它适合把 Codex、Claude Code、Cursor 或通用聊天模型用于持续工程工作的个人和团队，用来减少误解、范围漂移、越权执行、提前宣告完成和缺少验证的问题。
+
+### 工作方式
+
+```text
+用户请求
+  -> 五维诊断 + 风险/授权检查
+  -> 加载可信项目上下文
+  -> Alignment Decision（pass / enrich / clarify / block）
+  -> 宿主执行或停下澄清
+  -> baseline / completion verification
+  -> 脱敏沉淀到 .align/
+```
+
+`core/` 是协议、模板、契约和宿主适配的唯一事实来源。`build/` 将其生成到 `dist/`，安装器再按宿主安装 skills、runtime、doctor 和 adapter；`dist/` 禁止手工编辑。
 
 ### 三档路由（v3 核心设计）
 
-| 档位 | 覆盖 | 条件 | 用户感知 |
+| 档位 | 机器 route | 条件 | 用户感知 |
 | --- | --- | --- | --- |
-| A 档直通 | ~60% | 简单+低风险+意图明确 | 零感知，直接执行 |
-| B 档静默对齐 | ~30% | 有缺口但可从 .align/ 补全 | 1-3 行披露，不等待 |
-| C 档浮出澄清 | ~10% | 高风险/总分<6/假设>2 | 停下，一次一问 |
+| A 档直通 | `pass` | 低风险，用户输入自身完整并通过硬门槛 | 零感知，直接执行 |
+| B 档静默对齐 | `enrich` | 缺口可由可信上下文补齐，或风险信息与授权完整 | 披露补全内容后执行 |
+| C 档浮出 | `clarify` / `block` | 契约信息不足，或授权、政策、baseline 阻断 | 停下，一次一问或等待确认 |
 
-对齐的存在感与任务风险成正比，与任务频率成反比。简单指令零卡顿，高风险指令必拦截。
+对齐的存在感与任务风险成正比，与任务频率成反比。风险信号必须经过安全路由，但不等于永久阻断；信息不足时 `clarify`，授权或政策不满足时 `block`。
 
-### v3.2.0-rc.1 候选状态
+### v3.2.0-rc.1 候选版能力
 
 > 当前为候选版，尚未正式发布。G5 已按“既有独立盲评发现 + 修复后确定性回归”关闭；fresh post-fix 独立盲评和完整真实模型重复保留为稳定版前债务。
 
-- 安装闭环：PowerShell / Bash 默认覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录。
-- Adapter 路由：Codex 安装使用 `dist/codex`；Claude Code 和 `~/.agents` 使用 Claude-compatible 的 `dist/claude-code`。
-- Runtime 分发：安装器将结构化 runtime、doctor 和 Claude/Codex adapters 安装到 `~/.prompt-optimizer/`；Node 缺失时明确降级到 shell fallback。
-- 可选生态 handoff：显式 `align-cli matt` 把可执行 Alignment Decision 映射为 Matt Pocock skill 调用建议；不会复制或自动调用 skill，普通 `json` 输出不变。
-- 能力等级：Claude Code 为 L3 Native Hook；Codex 为 L2 CLI wrapper / instruction-backed，不宣称 hook parity。
-- 协议硬门槛：`[假设]>2`、`总分<6`、`D5=0`、高风险信号和 R8 验证门在 `core/` 与 `dist/` 中保持一致。
-- **hook 强化（v3.1.1）**：三个 verdict 注入升级为结构化执行协议；RISK/VAGUE 正则扩展；去掉 `2>/dev/null` 静默吞错；降级路径给出明确修复提示。
-- 回测证据：`docs/planning/BENCHMARK-V3.md` 是 18 case 协议规则推演回测，不声明为外部模型实测。
+- **机器契约**：冻结 Alignment Decision schema、decision policy、reason registry、lifecycle event 和 golden corpus；未知 major、route、action 或 reason 必须 fail closed。
+- **安装与诊断**：PowerShell / Bash 覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录，并安装 `align-cli`、`align-doctor` 和宿主 adapter 到 `~/.prompt-optimizer/`。
+- **运行时路由**：区分信息不足的 `clarify` 与授权/政策阻断的 `block`；只有 `pass` / `enrich` 可以进入 execution handoff。
+- **上下文治理**：知识类型与来源引用分轴建模，legacy `context.md` 保留兼容投影，completion evidence 默认不进入仓库。
+- **按需协议加载**：常驻 skill 保持精简，intent、routing、contract、verification、precipitation 正文按需加载。
+- **可选生态 handoff**：显式 `align-cli matt` 生成独立 Matt Pocock Skills 建议；不会复制或自动调用 skill，也不会改变普通 `json` 输出。
+- **证据与分发**：56 条确定性行为集、17 个 TypeScript suites / 273 tests、构建幂等、Bash/PowerShell parity、安装/卸载沙箱和分发完整性检查均已通过。
+- **能力边界**：Claude Code 为 L3 Native Hook；Codex 为 L2 CLI wrapper / instruction-backed；Cursor 和 Universal 只声明已验证到的较低等级能力。
 
 ### 支持矩阵
 
@@ -47,7 +65,7 @@ Prompt Optimizer v3.2.0-rc.1 是一个可注入任意项目的 **Alignment Runti
 | Universal System Prompt | L0 copy-paste | 构建与内容门 E2 | 自包含复制入口；遵循度取决于目标模型 |
 | 其他编辑器/聊天宿主 | L0/L1 | 无宿主专属 E4/E5 | 仅提供通用说明，不宣称完整支持 |
 
-证据等级：E2=确定性 corpus，E3=沙箱集成，E4=真实宿主端到端，E5=真实模型对照 benchmark。当前 G5 的 56 条确定性行为集和 Claude 三臂 pilot 已完成；完整 E5 尚未完成，Codex pilot 因本机凭据失效而阻塞。
+证据等级：E2=确定性 corpus，E3=沙箱集成，E4=真实宿主端到端，E5=真实模型对照 benchmark。当前 G5 的 tuned corpus、独立盲评修复链和 Claude 三臂 pilot 已保留；fresh post-fix 独立盲评、完整 E5 重复和真实执行返工指标仍是稳定版前债务。历史 18 case 规则推演见 [BENCHMARK-V3.md](docs/planning/BENCHMARK-V3.md)，不得当作外部模型实测。
 
 ## 快速开始
 
@@ -82,6 +100,12 @@ Codex 使用 `dist/codex` 包；Claude Code 和 `~/.agents` 使用 Claude-compat
 
 ```text
 /align-init --new
+```
+
+安装或升级后可检查 runtime、宿主接线和项目 router 状态：
+
+```bash
+bash "$HOME/.prompt-optimizer/bin/align-doctor" --json "$PWD"
 ```
 
 ### 3. 正常干活
@@ -161,7 +185,9 @@ stdout 只输出 `alignment.ecosystem-handoff` JSON，stderr 只披露 route/sta
 - [使用文档](docs/README.md#使用文档)：安装与日常使用
 - [参考文档](docs/README.md#参考文档)：外部参考取舍
 - [规划文档](docs/README.md#规划文档)：深度优化方案和会话任务拆解
-- [主代理 + 子代理改进规划](docs/planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：面向下一阶段实现的分波次执行契约与验收门
+- [G0-G6 改进规划](docs/planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：本次 Alignment Decision runtime 大更新的分波次执行契约
+- [G5 评测报告](docs/planning/MULTI-AGENT-G5-EVALUATION-REPORT.md)：确定性语料、盲评、修复回归与证据边界
+- [G6 handoff 报告](docs/planning/MULTI-AGENT-G6-MATT-HANDOFF.md)：Matt Pocock Skills envelope、映射与关闭证据
 
 ## 参考内容取舍
 
@@ -177,8 +203,9 @@ stdout 只输出 `alignment.ecosystem-handoff` JSON，stderr 只披露 route/sta
 │   ├── contracts/                 # 公共机器契约、reason registry 与 golden corpus
 │   ├── templates/                 # 17 个模板（含 7 个 ALIGN 模板）
 │   ├── spec-kit/                  # 规范生成器素材库
-│   ├── skills/align-init/         # align-init skill 源文件
-│   └── host/                      # 宿主适配源文件（挂载区/hook/reminder）
+│   ├── skills/                    # 三个 skill 的源文件
+│   ├── distribution/              # runtime 安装计划与所有权标记
+│   └── host/                      # TypeScript runtime 与宿主适配源文件
 ├── build/                         # 构建脚本
 │   ├── build.ps1
 │   └── build.sh
@@ -195,17 +222,19 @@ stdout 只输出 `alignment.ecosystem-handoff` JSON，stderr 只披露 route/sta
 │   ├── cursor/
 │   │   ├── rules/align.mdc
 │   │   └── references/
-│   └── universal/
-│       ├── SYSTEM-PROMPT.md       # 可复制 System Prompt
-│       ├── optimize-prompt/
-│       └── align-init/
+│   ├── universal/
+│   │   ├── SYSTEM-PROMPT.md       # 可复制 System Prompt
+│   │   ├── align-init/
+│   │   ├── optimize-prompt-lite/
+│   │   └── references/
+│   └── runtime/                   # 编译 runtime、doctor、CLI 与 adapters
 ├── docs/
 │   ├── README.md
 │   ├── usage/                     # INSTALL + USAGE + MIGRATION
 │   ├── reference/
-│   └── planning/                  # BENCHMARK + BENCHMARK-V3 + 方案文档
+│   └── planning/                  # 基准、G0-G6 报告与方案文档
 ├── scripts/                       # 安装脚本（三 skill + 卸载 + 版本）
-├── tests/                         # 卸载零损伤测试 fixture
+├── tests/                         # 契约、路由、分发、安装与评测回归
 └── examples/
 ```
 

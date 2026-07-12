@@ -12,11 +12,13 @@
 - 建立 56 条确定性行为语料、三臂评测 runner/scorer、隐私检查和脱敏 evidence。
 - 补齐 `LICENSE`、`SECURITY.md` 和按 E2-E5 证据分级的宿主支持矩阵。
 - 增加可选 Matt Pocock Skills handoff：独立 schema、环境/setup 发现、确定性 skill 映射与纯 JSON `align-cli matt`；不改变 Alignment Decision v1 或普通 `json` 输出。
+- 重写仓库入口介绍与文档导航，明确 runtime 数据流、支持等级、验证证据和稳定版前债务。
 
 ### 候选版验证状态
 
 - tuned conformance set：56/56 route 命中，高风险漏拦截 0，不必要澄清 0；该结果不代表 held-out 泛化能力。
-- TypeScript 全量回归：15 suites、245 tests 通过。
+- TypeScript 全量回归：17 suites、273 tests 通过。
+- 构建幂等、Bash/PowerShell parity、runtime 分发完整性与 G6 consumed-corpus regression 通过。
 - Claude 三臂 pilot 已运行；澄清质量、验收完整性和方向安全仍属于模型自报，不作为独立 release evidence。
 - 三套一次性 held-out 与两轮独立盲评已保留；已知失败经 consumed-corpus regression 修复，未冒充新的 held-out。
 - 稳定版前仍需 fresh post-fix 独立盲评、完整三臂重复、真实执行成功率与返工轮数，以及 Codex E5 凭据修复。
