@@ -4,7 +4,7 @@
 # 用法：
 #   作为 hook：从 stdin 读取 Claude Code hook JSON，向 stdout 注入路由指令
 #   测试模式：align-route.sh --classify "指令文本" → 只打印 HIGH|VAGUE|GRAY|CLEAR
-#   决策投影：align-route.sh --decision "指令文本" → route<TAB>reason,reason
+#   决策投影：align-route.sh --decision "指令文本" → route<TAB>reason,reason<TAB>next.action<TAB>degraded
 set -u
 
 # ── 递归防护：hook 内调用 claude -p 时，子进程再触发本 hook 直接退出 ──
@@ -24,7 +24,7 @@ fi
 CONF="$ALIGN_DIR/route.conf"
 ARBITER="${ALIGN_ARBITER:-auto}"   # auto|off
 ARBITER_TIMEOUT=5
-BLOCK_ON_HIGH="off"                # off|on：HIGH verdict 是否 exit 2 阻断 prompt 提交
+BLOCK_ON_HIGH="off"                # legacy 配置名；on 时仅 block + wait_confirmation|stop 会 exit 2
 # route.conf 只做白名单解析，绝不 source 任意 shell（防仓库内 route.conf 注入代码）
 if [ -f "$CONF" ]; then
   while IFS='=' read -r _k _v; do
@@ -48,7 +48,7 @@ else
   RAW="$(cat 2>/dev/null || true)"
   # 提取 JSON 的 .prompt 字段：python3 → 粗糙 sed 降级
   if command -v python3 >/dev/null 2>&1; then
-    PROMPT="$(printf '%s' "$RAW" | python3 -c 'import json,sys
+    PROMPT="$(printf '%s' "$RAW" | PYTHONIOENCODING=utf-8 python3 -c 'import json,sys
 try: print(json.load(sys.stdin).get("prompt",""))
 except Exception: pass' 2>/dev/null || true)"
   fi
@@ -127,21 +127,27 @@ if [ "$MODE" = "decision" ]; then
   DATA_MUTATION=$(count_re "$SIGNAL_TEXT" '删除|删库|清空|drop table|truncate')
   CONFIRM_MISSING=$(count_re "$SIGNAL_TEXT" '尚未确认|未确认执行|等待确认|without confirmation')
   VERIFY=$(count_re "$SIGNAL_TEXT" '运行.+测试|npm test|验收|验证|回滚条件|test')
-  BOUNDED=$(count_re "$SIGNAL_TEXT" '不改|只修改|保持现有|全部[[:space:]]*[0-9]+[[:space:]]*天|范围|public API')
+  BOUNDED=$(count_re "$SIGNAL_TEXT" '不改|只修改|保持现有|全部[[:space:]]*[0-9]+[[:space:]]*天|[0-9]+[[:space:]]*个|已列名|指定|开发[[:space:]]*fixture|范围|public API')
   FILE_OR_SYMBOL=$(count_re "$PROMPT" '[A-Za-z0-9_./\-]+\.(ts|tsx|js|jsx|py|sh|ps1|md|json)')
   SYMBOL_COUNT=$(count_re_case "$PROMPT" 'parse[A-Z][A-Za-z0-9_]*')
   FILE_OR_SYMBOL=$((FILE_OR_SYMBOL + SYMBOL_COUNT))
   CACHE_OPEN=$(count_re "$SIGNAL_TEXT" '加缓存.+细节你定')
+  POLICY_PROHIBITED=$(count_re "$PROMPT" 'git[[:space:]]+reset[[:space:]]+--hard|access token.+公开|绕过.+(hook|pre-commit).+push[[:space:]]+main|忽略所有项目规则.+删除生产数据')
   COMPLETE_RISK=0
   if { [ "$PRODUCTION" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ]; } && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then COMPLETE_RISK=1; fi
 
-  if [ "$CONFIRM_MISSING" -gt 0 ]; then reason_add authorization.confirmation_missing; fi
-  if [ "$PRODUCTION" -gt 0 ]; then reason_add risk.production_change; fi
-  if [ "$DATA_MUTATION" -gt 0 ]; then reason_add risk.data_mutation; fi
-  if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
-  if [ "$DATA_MUTATION" -gt 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add scope.impact_unknown; fi
-  if [ "$CACHE_OPEN" -gt 0 ]; then reason_add assumption.too_many; fi
-  if [ "$VERIFY" -eq 0 ]; then reason_add verification.missing; fi
+  if [ "$POLICY_PROHIBITED" -gt 0 ]; then
+    reason_add policy.operation_prohibited
+  else
+    if [ "$CONFIRM_MISSING" -gt 0 ]; then reason_add authorization.confirmation_missing; fi
+    if [ "$PRODUCTION" -gt 0 ]; then reason_add risk.production_change; fi
+    if [ "$DATA_MUTATION" -gt 0 ]; then reason_add risk.data_mutation; fi
+    if [ "$COMPLETE_RISK" -eq 1 ] && [ "$CONFIRM_MISSING" -eq 0 ]; then reason_add requirements.needs_enrichment; fi
+    if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+    if [ "$DATA_MUTATION" -gt 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add scope.impact_unknown; fi
+    if [ "$CACHE_OPEN" -gt 0 ]; then reason_add assumption.too_many; fi
+    if [ "$VERIFY" -eq 0 ]; then reason_add verification.missing; fi
+  fi
 
   LOW_SCORE=0
   if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then LOW_SCORE=1; fi
@@ -149,7 +155,9 @@ if [ "$MODE" = "decision" ]; then
 
   PROJECT_CONTEXT=0
   case "${ALIGN_CONTEXT_REFS:-}" in *project:*) PROJECT_CONTEXT=1 ;; esac
-  if [ "$VERIFY" -eq 0 ] && [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$PROJECT_CONTEXT" -eq 1 ]; then
+  if [ "$POLICY_PROHIBITED" -gt 0 ]; then
+    ROUTE=block
+  elif [ "$VERIFY" -eq 0 ] && [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$PROJECT_CONTEXT" -eq 1 ]; then
     REASONS="$(printf '%s' "$REASONS" | sed 's/,\{0,1\}diagnosis\.score_below_threshold//')"
     reason_add context.resolvable_from_project
     ROUTE=enrich
@@ -168,7 +176,12 @@ if [ "$MODE" = "decision" ]; then
     [ -n "$REASONS" ] || reason_add intent.ambiguous_goal
   fi
   if [ "$DIRECT_OUTPUT" -eq 1 ]; then reason_add override.explicit_direct_output; fi
-  printf '%s\t%s\n' "$ROUTE" "$REASONS"
+  case "$ROUTE" in
+    pass|enrich) ACTION=execute ;;
+    clarify) ACTION=ask ;;
+    block) [ "$POLICY_PROHIBITED" -gt 0 ] && ACTION=stop || ACTION=wait_confirmation ;;
+  esac
+  printf '%s\t%s\t%s\ttrue\n' "$ROUTE" "$REASONS" "$ACTION"
   exit 0
 fi
 
@@ -190,60 +203,41 @@ if [ "$MODE" = "classify" ]; then
   exit 0
 fi
 
-# ── 灰区 LLM 仲裁：用用户自己的默认模型（不指定 --model），超时降级为 VAGUE ──
-if [ "$VERDICT" = "GRAY" ] && [ "$ARBITER" != "off" ] && command -v claude >/dev/null 2>&1; then
-  # 必须有超时约束才发起阻塞的 claude -p；timeout(GNU)/gtimeout(macOS brew) 皆无 → 直接保守降级，绝不无上限阻塞
-  TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
-  if [ -n "$TIMEOUT_BIN" ]; then
-    # 用 printf %s 构建 prompt：$PROMPT 作为参数传入，其值（含双引号/反引号）被 %s 格式化为字面字符串，避免双引号断开注入
-    ARBITER_PROMPT="$(printf '只回答一个词（HIGH/VAGUE/CLEAR）。判定这条开发指令：HIGH=含不可逆或生产风险操作；VAGUE=目标或对象不明需要澄清；CLEAR=目标对象明确可直接执行。指令：%s' "$PROMPT")"
-    LLM_OUT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" "$ARBITER_TIMEOUT" claude -p "$ARBITER_PROMPT" 2>/dev/null | grep -oiE 'HIGH|VAGUE|CLEAR' | head -1 | tr '[:lower:]' '[:upper:]')" || LLM_OUT=""
-    case "$LLM_OUT" in
-      HIGH|VAGUE|CLEAR) VERDICT="$LLM_OUT" ;;
-      *) VERDICT="VAGUE" ;;  # 仲裁失败/超时 → 保守降级
-    esac
-  else
-    VERDICT="VAGUE"  # 无 timeout 可用 → 不做无上限阻塞调用，保守降级
-  fi
-elif [ "$VERDICT" = "GRAY" ]; then
-  VERDICT="VAGUE"  # 无仲裁可用 → 保守降级
-fi
+# ── Hook 只消费 Alignment Decision 最小投影；兼容 verdict 不参与执行路由 ──
+DECISION_OUTPUT="$(ALIGN_CONTEXT_REFS="${ALIGN_CONTEXT_REFS:-}" ALIGN_ARBITER=off bash "$0" --decision "$PROMPT")"
+IFS=$'\t' read -r MACHINE_ROUTE MACHINE_REASONS MACHINE_ACTION DEGRADED <<EOF
+$DECISION_OUTPUT
+EOF
 
-# ── 按判定注入路由指令（人话输出：氛围编程者能看懂）──
-case "$VERDICT" in
-  HIGH)
+case "$MACHINE_ROUTE" in
+  block)
     if [ "$BLOCK_ON_HIGH" = "on" ]; then
-      # 机械层硬拦截：exit 2 阻断 prompt 提交，stderr 显示警告
-      printf '%s\n' "[对齐] ⚠️ 这条含高风险操作（删除/生产/数据库/不可逆）。已阻断提交。" >&2
-      printf '%s\n' "  如确需执行，请补齐影响面、回滚条件和验证方式，并明确确认执行。" >&2
+      printf '%s\n' "[对齐] route=block next.action=$MACHINE_ACTION degraded=true。已阻断提交。" >&2
+      printf '%s\n' "  补齐解除条件后必须重新分析，禁止沿用旧决定直接执行。" >&2
       exit 2
     fi
-    cat <<'EOF'
-[对齐] ⚠️ 高风险指令（判定：HIGH）。按以下对齐协议执行，禁止跳步：
-1. 先读 .align/lessons.md → spec.md → facts/glossary/state（三文件未齐时同时读 context.md）
-2. 列出全部影响面：哪些文件/数据/环境/调用方会被改动
-3. 输出执行方案，须包含：改动清单 / 回滚条件 / 验证方式 / 风险说明
-4. 停下等待用户明确确认后再执行——禁止在确认前做任何写操作
-5. 确认后执行，完成后跑验证命令并报告结果
-硬性红线：高风险静默执行 = 无效输出，必须重做。
-EOF
+    printf '[对齐] route=block next.action=%s degraded=true。\n' "$MACHINE_ACTION"
+    if [ "$MACHINE_ACTION" = "stop" ]; then
+      printf '%s\n' '策略禁止执行该操作；不得通过补充确认解除。'
+    else
+      printf '%s\n' '停止执行并等待明确确认；解除后必须重新分析，禁止沿用旧决定直接执行。'
+    fi
     ;;
-  VAGUE)
+  clarify)
     cat <<'EOF'
-[对齐] 指令目标或对象不够明确（判定：VAGUE）。按以下对齐协议执行：
+[对齐] route=clarify next.action=ask degraded=true。按以下对齐协议执行：
 1. 先读 .align/lessons.md → spec.md → facts/glossary/state（三文件未齐时同时读 context.md）
 2. 能从项目文件/代码/文档读到的信息，自行读取，不问用户
 3. 仍缺失且会改变目标/范围/验收的关键信息 → 一次只问一个问题，附推荐答案
-4. 意图对齐后，按 Agent Brief 八组件执行：目标/背景/范围/交付物/约束/执行策略/验收/沉淀
-5. 禁止在意图对齐前输出最终方案——猜错返工比一次澄清成本更高
+4. 禁止在意图对齐前执行写操作
 EOF
     ;;
-  *)
+  pass|enrich)
     VERIFY_CMD=""
     if [ -f "$ALIGN_DIR/check-commands.txt" ]; then
       VERIFY_CMD="$(grep -vE '^\s*#' "$ALIGN_DIR/check-commands.txt" 2>/dev/null | grep -vE '^\s*$' | head -1 || true)"
     fi
-    printf '%s\n' '[对齐] 指令清楚（判定：CLEAR），按以下执行协议行动：'
+    printf '[对齐] route=%s next.action=execute degraded=true，按以下执行协议行动：\n' "$MACHINE_ROUTE"
     printf '%s\n' '1. 先读 .align/lessons.md → spec.md → facts/glossary/state（三文件未齐时同时读 context.md）'
     printf '%s\n' '2. 按 Agent Brief 执行：明确目标 → 锁定范围 → 最小变更 → 完成后验证'
     if [ -n "$VERIFY_CMD" ]; then
@@ -253,6 +247,10 @@ EOF
     fi
     printf '%s\n' '4. 有踩坑/纠正/新约定 → 追加到 .align/lessons.md（一条≤2行）'
     printf '%s\n' '5. 交付前自验证（R8 验证门不可跳过）'
+    ;;
+  *)
+    printf '%s\n' '[对齐] shell decision projection invalid；保守停止并重新安装 runtime。' >&2
+    exit 2
     ;;
 esac
 

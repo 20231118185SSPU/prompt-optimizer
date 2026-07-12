@@ -7,24 +7,29 @@
  * Integrates: classifier → router → enricher → verifier
  * Converts user instructions into aligned, verifiable task contracts.
  */
-import { Verdict } from './router';
 import { AlignContext } from './enricher';
 import { AlignmentDecision } from './contract-builder';
+import { CompatibilityVerdict, HostProjection } from './host-projection';
 import { MattHandoff } from './matt-handoff';
 export type PresentationMode = 'default' | 'direct_output';
 export type PipelineEcosystem = 'matt-pocock-skills';
 export interface PipelineOptions {
     bypass?: boolean;
     ecosystem?: PipelineEcosystem;
+    hostCapabilities?: {
+        adapter?: string;
+        nativeBlocking?: boolean;
+    };
 }
 export interface PipelineResult {
-    verdict: Verdict;
+    verdict: CompatibilityVerdict;
     presentationMode: PresentationMode;
     instructions: string;
     enrichedMessage: string;
     context: AlignContext;
     verificationCommands: string[];
     alignmentDecision: AlignmentDecision;
+    hostProjection: HostProjection;
     handoff?: MattHandoff;
 }
 /**
@@ -32,9 +37,9 @@ export interface PipelineResult {
  *
  * Steps:
  * 1. Detect presentation preference without bypassing alignment
- * 2. Classify signals in the instruction
- * 3. Route based on classification
- * 4. Enrich message with .align/ context
+ * 2. Enrich message with .align/ context
+ * 3. Produce one Alignment Decision
+ * 4. Project that decision into host instructions and compatibility fields
  * 5. Return the completion verification plan without executing it
  */
 export declare function processInstruction(instruction: string, projectDir: string, options?: PipelineOptions): PipelineResult;

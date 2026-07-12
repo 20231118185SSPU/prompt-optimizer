@@ -143,6 +143,7 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
   if (production) reasons.push('risk.production_change');
   if (dataMutation) reasons.push('risk.data_mutation');
   if (irreversibleOperation) reasons.push('risk.irreversible_operation');
+  if (completeRiskContract && !confirmationMissing && !policyProhibited) reasons.push('requirements.needs_enrichment');
   if (xyProblem) reasons.push('intent.xy_problem');
   if (localImpactReviewRequired) reasons.push('requirements.needs_enrichment');
   if ((directionChoiceAmbiguous || !normalized || vague || dataMutation) && !completeRiskContract && !contextCanResolve && !policyProhibited) {

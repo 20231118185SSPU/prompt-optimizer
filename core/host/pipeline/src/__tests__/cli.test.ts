@@ -91,4 +91,52 @@ describe('JSON CLI channel separation', () => {
       fs.rmSync(projectDir, { recursive: true, force: true });
     }
   });
+
+  test('does not mechanically block an incomplete safety-critical clarification', () => {
+    const result = spawnSync(process.execPath, [
+      cli,
+      'claude-code',
+      '删除旧用户数据。',
+      '--project-dir',
+      path.resolve(__dirname, '../../../..')
+    ], {
+      encoding: 'utf8',
+      env: { ...process.env, BLOCK_ON_HIGH: 'on' }
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('route=clarify next.action=ask');
+  });
+
+  test('mechanically blocks only a wait_confirmation decision', () => {
+    const result = spawnSync(process.execPath, [
+      cli,
+      'claude-code',
+      '删除生产库中全部 90 天未登录用户；备份和回滚条件已定义，但尚未确认执行。',
+      '--project-dir',
+      path.resolve(__dirname, '../../../..')
+    ], {
+      encoding: 'utf8',
+      env: { ...process.env, BLOCK_ON_HIGH: 'on' }
+    });
+
+    expect(result.status).toBe(2);
+    expect(result.stdout).toContain('route=block next.action=wait_confirmation');
+  });
+
+  test('does not block a fully authorized safety-critical execution', () => {
+    const result = spawnSync(process.execPath, [
+      cli,
+      'claude-code',
+      '在开发 fixture 中删除 3 个已列名的废弃测试用户，运行 fixture 测试；已授权。',
+      '--project-dir',
+      path.resolve(__dirname, '../../../..')
+    ], {
+      encoding: 'utf8',
+      env: { ...process.env, BLOCK_ON_HIGH: 'on' }
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('route=enrich next.action=execute');
+  });
 });

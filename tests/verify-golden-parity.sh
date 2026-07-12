@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TypeScript runtime and shell fallback must agree on route + reason projection.
+# TypeScript runtime and shell fallback must agree on route + reason + action projection.
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,9 +21,10 @@ decode_b64() {
   fi
 }
 
-while IFS='|' read -r id prompt_b64 context_b64 expected_route expected_reasons; do
+while IFS='|' read -r id prompt_b64 context_b64 expected_route expected_reasons expected_action; do
   [ -n "$id" ] || continue
   expected_reasons="${expected_reasons%$'\r'}"
+  expected_action="${expected_action%$'\r'}"
   prompt="$(printf '%s' "$prompt_b64" | decode_b64)"
   context_json="$(printf '%s' "$context_b64" | decode_b64)"
   context_refs="$(printf '%s' "$context_json" | python3 -c 'import json,sys; print(",".join(f"{x[chr(107)+chr(105)+chr(110)+chr(100)]}:{x[chr(114)+chr(101)+chr(102)]}" for x in json.load(sys.stdin)))')"
@@ -32,18 +33,18 @@ const base = process.argv[2];
 const { analyzeInstruction } = require(base + '/analyzer.js');
 const { buildAlignmentDecision } = require(base + '/contract-builder.js');
 const decision = buildAlignmentDecision(analyzeInstruction(process.env.PROMPT, JSON.parse(process.env.CONTEXT_JSON)));
-process.stdout.write(decision.route + '\t' + decision.reasons.join(','));
+process.stdout.write(decision.route + '\t' + decision.reasons.join(',') + '\t' + decision.next.action);
 NODEEOF
 )"
-  expected="$expected_route"$'\t'"$expected_reasons"
+  expected="$expected_route"$'\t'"$expected_reasons"$'\t'"$expected_action"
   if [ "$ts_projection" != "$expected" ]; then
     printf 'FAIL TypeScript [%s]: expected=%s actual=%s\n' "$id" "$expected" "$ts_projection"
     fail=1
   fi
   for router in "${ROUTERS[@]}"; do
     actual="$(ALIGN_CONTEXT_REFS="$context_refs" ALIGN_ARBITER=off bash "$router" --decision "$prompt")"
-    if [ "$actual" != "$expected" ]; then
-      printf 'FAIL shell [%s] %s: expected=%s actual=%s\n' "$id" "$router" "$expected" "$actual"
+    if [ "$actual" != "$expected"$'\t''true' ]; then
+      printf 'FAIL shell [%s] %s: expected=%s actual=%s\n' "$id" "$router" "$expected"$'\t''true' "$actual"
       fail=1
     fi
   done
@@ -55,10 +56,10 @@ for line in open(sys.argv[1], encoding="utf-8"):
     prompt = base64.b64encode(case["input"]["text"].encode()).decode()
     context = base64.b64encode(json.dumps(case["input"].get("context", []), ensure_ascii=False).encode()).decode()
     expect = case["expect"]
-    fields = [case["id"], prompt, context, expect["route"], ",".join(expect["reasons"])]
+    fields = [case["id"], prompt, context, expect["route"], ",".join(expect["reasons"]), expect["next"]["action"]]
     print("|".join(fields))
 PYEOF
 )
 
 [ "$fail" -eq 0 ] || exit 1
-echo "PASS: TypeScript and both shell routers match the golden route/reason corpus"
+echo "PASS: TypeScript and both shell routers match the golden route/reason/action corpus"

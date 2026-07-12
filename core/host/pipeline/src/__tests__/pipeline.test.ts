@@ -40,15 +40,16 @@ describe('processInstruction', () => {
   });
 
   // ── Clear instruction ──
-  it('processes clear instruction with CLEAR verdict', () => {
+  it('derives the compatibility verdict from an enriched decision', () => {
     const result = processInstruction(
       '修复 src/index.ts 第 42 行的 TypeError',
       tmpDir
     );
 
-    expect(result.verdict).toBe('CLEAR');
+    expect(result.alignmentDecision.route).toBe('enrich');
+    expect(result.verdict).toBe('GRAY');
     expect(result.instructions).toContain('[对齐]');
-    expect(result.instructions).toContain('CLEAR');
+    expect(result.instructions).toContain('route=enrich');
     expect(result.enrichedMessage).toContain('用户指令');
     expect(result.context.lessons).toContain('Always check types');
     expect(result.context.spec).toContain('TypeScript strict mode');
@@ -65,21 +66,23 @@ describe('processInstruction', () => {
 
     expect(result.verdict).toBe('VAGUE');
     expect(result.instructions).toContain('[对齐]');
-    expect(result.instructions).toContain('VAGUE');
+    expect(result.instructions).toContain('route=clarify');
     expect(result.enrichedMessage).toContain('用户指令');
   });
 
   // ── High-risk instruction ──
-  it('processes high-risk instruction with HIGH verdict', () => {
+  it('projects incomplete safety-critical requests as clarify instructions', () => {
     const result = processInstruction(
       '删除数据库中的所有用户数据',
       tmpDir
     );
 
-    expect(result.verdict).toBe('HIGH');
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(result.alignmentDecision.next.action).toBe('ask');
+    expect(result.verdict).toBe('VAGUE');
     expect(result.instructions).toContain('[对齐]');
-    expect(result.instructions).toContain('高风险');
-    expect(result.instructions).toContain('HIGH');
+    expect(result.instructions).toContain('一次只问一个问题');
+    expect(result.instructions).not.toContain('等待用户明确确认后再执行');
   });
 
   // ── Direct output changes presentation only ──
@@ -89,7 +92,8 @@ describe('processInstruction', () => {
       tmpDir
     );
 
-    expect(result.verdict).toBe('CLEAR');
+    expect(result.alignmentDecision.route).toBe('enrich');
+    expect(result.verdict).toBe('GRAY');
     expect(result.presentationMode).toBe('direct_output');
     expect(result.enrichedMessage).toContain('[直出] 这是一个简单的修改');
     expect(result.context.lessons).toContain('Always check types');
@@ -114,7 +118,8 @@ describe('processInstruction', () => {
       { bypass: true }
     );
 
-    expect(result.verdict).toBe('HIGH');
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(result.verdict).toBe('VAGUE');
     expect(result.presentationMode).toBe('direct_output');
     expect(result.enrichedMessage).toContain('删除所有文件');
   });
@@ -184,15 +189,16 @@ describe('processInstruction', () => {
   });
 
   // ── GRAY verdict (risk + edu) ──
-  it('processes risk+edu instruction with GRAY verdict', () => {
+  it('derives a pass projection for a read-only risk explanation', () => {
     const result = processInstruction(
       '解释一下删除数据库的命令',
       tmpDir
     );
 
-    expect(result.verdict).toBe('GRAY');
+    expect(result.alignmentDecision.route).toBe('pass');
+    expect(result.verdict).toBe('CLEAR');
     expect(result.instructions).toContain('[对齐]');
-    expect(result.instructions).toContain('GRAY');
+    expect(result.instructions).toContain('route=pass');
   });
 
   // ── Return type structure ──
@@ -206,6 +212,8 @@ describe('processInstruction', () => {
     expect(result).toHaveProperty('context');
     expect(result).toHaveProperty('verificationCommands');
     expect(result).toHaveProperty('presentationMode');
+    expect(result).toHaveProperty('alignmentDecision');
+    expect(result).toHaveProperty('hostProjection');
     expect(result).not.toHaveProperty('handoff');
     expect(result).not.toHaveProperty('verificationResults');
 
@@ -255,5 +263,35 @@ describe('processInstruction', () => {
       invocation: null,
       automatic: false
     }));
+  });
+
+  it.each([
+    ['claude-code', true],
+    ['codex', false],
+    ['cursor', false]
+  ] as const)('keeps route and action stable for the %s adapter', (adapter, nativeBlocking) => {
+    const request = '删除生产库 90 天未登录用户；dry-run 与备份已完成，但我尚未批准执行。';
+    const result = processInstruction(request, tmpDir, {
+      hostCapabilities: { adapter, nativeBlocking }
+    });
+
+    expect(result.alignmentDecision.route).toBe('block');
+    expect(result.alignmentDecision.next.action).toBe('wait_confirmation');
+    expect(result.hostProjection.nextAction).toBe('wait_confirmation');
+    expect(result.hostProjection.shouldBlock).toBe(nativeBlocking);
+  });
+
+  it.each(['claude-code', 'codex', 'cursor'])('executes a fully authorized safety-critical request through %s', adapter => {
+    const result = processInstruction(
+      '在开发 fixture 中删除 3 个已列名的废弃测试用户，运行 fixture 测试；已授权。',
+      tmpDir,
+      { hostCapabilities: { adapter, nativeBlocking: adapter === 'claude-code' } }
+    );
+
+    expect(result.alignmentDecision.route).toBe('enrich');
+    expect(result.alignmentDecision.next.action).toBe('execute');
+    expect(result.hostProjection.nextAction).toBe('execute');
+    expect(result.hostProjection.shouldBlock).toBe(false);
+    expect(result.instructions).not.toContain('停止执行');
   });
 });

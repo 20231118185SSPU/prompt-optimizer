@@ -28,7 +28,7 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 3. 全部 `[假设]` 在 spec.md 中保留标注，用户以后随时可改。
 4. 接入报告末尾提示："以下 N 条为默认假设，运行中如发现不符，直接告诉我即可修正。"
 
-零问模式不弱化安全红线：运行期高风险指令仍会被路由器拦截澄清。
+零问模式不弱化安全红线：运行期高风险指令仍必须经过安全路由；信息不足时 `clarify`，授权/政策/baseline 阻断时 `block`，契约与授权完整时 `enrich`。
 
 ## 输入
 
@@ -98,7 +98,7 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 ```text
 # 弱模型建议 ARBITER=off（避免仲裁本身不可靠），强模型可保持 auto
 ARBITER=auto
-# BLOCK_ON_HIGH=on 时，HIGH verdict 会 exit 2 阻断 prompt 提交（机械层硬拦截）
+# BLOCK_ON_HIGH=on 时，仅 Alignment Decision 的 next.action=wait_confirmation|stop 会 exit 2（HIGH 仅为兼容展示）
 # 默认 off：只注入警告文本，由模型自觉停下。弱模型建议 on。
 # [直出] / ALIGN_BYPASS 只改变展示，禁止跳过阻断
 BLOCK_ON_HIGH=off
@@ -117,7 +117,7 @@ BLOCK_ON_HIGH=off
    ```text
    [Alignment Protocol] 本条指令须先过三档路由评估。
    读取 .align/lessons.md → spec.md → facts.md / glossary.md / state.md；三个分类文件未齐全时同时读取 context.md，全部缺失时只读 legacy。
-   简单明确→直通；有缺口→披露后执行；高风险/总分<6→停下澄清。
+   简单明确→直通；有缺口→披露后执行；高风险信息不足/总分<6→澄清，授权/政策/baseline 阻断→停止，契约与授权完整→披露后执行。
    交付前必须自验证（R8 验证门不可跳过）。
    ```
 
@@ -246,7 +246,7 @@ Cursor 不使用 CLAUDE.md/AGENTS.md，改为注入 `.cursor/rules/align.mdc`（
 - 硬拦截：.claude/settings.json 已写入 / 已有文件请手动合并（附 fragment）
 - 澄清问题数：N（≤3 为正常）
 - 下一步：正常开发即可，每条指令会自动经过三档路由评估
-- 给氛围编程者：现在直接用大白话告诉 AI 你想做什么就行。指令模糊时 AI 会先问你一个关键问题（不是找麻烦，是防止做偏）；高风险操作（删除/生产环境）AI 会先拦住你确认。完成后 AI 会提醒你跑验证。
+- 给氛围编程者：现在直接用大白话告诉 AI 你想做什么就行。指令模糊时 AI 会先问一个关键问题；高风险信息不足时先澄清，授权受阻时等待确认，信息与授权完整时按范围执行。完成后 AI 会提醒你跑验证。
 ```
 
 ## 澄清协议

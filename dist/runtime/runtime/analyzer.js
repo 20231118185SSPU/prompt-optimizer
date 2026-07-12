@@ -121,6 +121,8 @@ function analyzeInstruction(text, context = [], contextText = '') {
         reasons.push('risk.data_mutation');
     if (irreversibleOperation)
         reasons.push('risk.irreversible_operation');
+    if (completeRiskContract && !confirmationMissing && !policyProhibited)
+        reasons.push('requirements.needs_enrichment');
     if (xyProblem)
         reasons.push('intent.xy_problem');
     if (localImpactReviewRequired)

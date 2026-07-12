@@ -22,10 +22,15 @@ fi
 
 if [ -f "$SHELL_ROUTER" ]; then
   echo '[alignment] degraded=shell host=codex level=L2 block=advisory completion=unavailable' >&2
-  projection="$(ALIGN_ARBITER=off bash "$SHELL_ROUTER" --decision "$INSTRUCTION")"
-  route="${projection%%$'\t'*}"
-  reasons="${projection#*$'\t'}"
-  printf '{"schemaVersion":"1.0.0","kind":"alignment.decision.projection","route":"%s","reasons":"%s","degraded":true}\n' "$route" "$reasons"
+  context_refs=""
+  if [ -f "$PROJECT_DIR/.align/spec.md" ] || [ -f "$PROJECT_DIR/.align/context.md" ]; then
+    context_refs="project:.align/spec.md"
+  fi
+  projection="$(ALIGN_CONTEXT_REFS="$context_refs" ALIGN_ARBITER=off bash "$SHELL_ROUTER" --decision "$INSTRUCTION")"
+  IFS=$'\t' read -r route reasons action degraded <<EOF
+$projection
+EOF
+  printf '{"schemaVersion":"1.0.0","kind":"alignment.decision.projection","route":"%s","reasons":"%s","next":{"action":"%s"},"degraded":true}\n' "$route" "$reasons" "$action"
   exit 0
 fi
 

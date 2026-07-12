@@ -1,104 +1,41 @@
-import { route, Verdict } from '../router';
-import { Classification } from '../classifier';
+import { analyzeInstruction, SourceRef } from '../analyzer';
+import { buildAlignmentDecision } from '../contract-builder';
+import { route } from '../router';
 
-describe('route', () => {
-  // ── HIGH verdict ──
-  it('returns HIGH when risk >= 1 and no edu signal', () => {
-    const classification: Classification = { risk: 1, vague: 0, specific: 0, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('HIGH');
-    expect(result.instructions).toContain('高风险指令');
-  });
+function decisionFor(text: string, context: SourceRef[] = []) {
+  return buildAlignmentDecision(analyzeInstruction(text, context));
+}
 
-  it('returns HIGH when risk >= 2 and no edu signal', () => {
-    const classification: Classification = { risk: 2, vague: 0, specific: 0, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('HIGH');
-  });
+describe('route compatibility projection', () => {
+  it.each([
+    [
+      '只修改 src/parser.ts 中的 parseUser 名称，不改 public API；完成后运行 npm test -- parser。',
+      [],
+      'pass',
+      'CLEAR',
+      'next.action=execute'
+    ],
+    [
+      '把 src/parser.ts 的 parseUser 重命名为 parseAccount，不改 public API。',
+      [{ kind: 'project', ref: '.align/spec.md#测试与验证命令' }],
+      'enrich',
+      'GRAY',
+      'next.action=execute'
+    ],
+    ['删除旧用户数据。', [], 'clarify', 'VAGUE', 'next.action=ask'],
+    [
+      '删除生产库中全部 90 天未登录用户；备份和回滚条件已定义，但尚未确认执行。',
+      [],
+      'block',
+      'HIGH',
+      'next.action=wait_confirmation'
+    ]
+  ] as const)('derives %s from the Alignment Decision', (text, context, expectedRoute, expectedVerdict, instructionMarker) => {
+    const decision = decisionFor(text, [...context]);
+    const result = route(decision);
 
-  it('returns HIGH when risk >= 1, vague >= 1, but edu = 0', () => {
-    const classification: Classification = { risk: 1, vague: 1, specific: 0, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('HIGH');
-  });
-
-  // ── GRAY verdict (risk + edu) ──
-  it('returns GRAY when risk >= 1 and edu >= 1', () => {
-    const classification: Classification = { risk: 1, vague: 0, specific: 0, edu: 1 };
-    const result = route(classification);
-    expect(result.verdict).toBe('GRAY');
-    expect(result.instructions).toContain('歧义');
-  });
-
-  // ── VAGUE verdict ──
-  it('returns VAGUE when vague >= 1 and specific = 0', () => {
-    const classification: Classification = { risk: 0, vague: 1, specific: 0, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('VAGUE');
-    expect(result.instructions).toContain('不够明确');
-  });
-
-  it('returns VAGUE when vague >= 2 and specific = 0', () => {
-    const classification: Classification = { risk: 0, vague: 2, specific: 0, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('VAGUE');
-  });
-
-  // ── GRAY verdict (vague + specific) ──
-  it('returns GRAY when vague >= 1 and specific >= 1', () => {
-    const classification: Classification = { risk: 0, vague: 1, specific: 1, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('GRAY');
-    expect(result.instructions).toContain('歧义');
-  });
-
-  // ── CLEAR verdict ──
-  it('returns CLEAR when all signals are zero', () => {
-    const classification: Classification = { risk: 0, vague: 0, specific: 0, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('CLEAR');
-    expect(result.instructions).toContain('指令清楚');
-  });
-
-  it('returns CLEAR when only specific signals present', () => {
-    const classification: Classification = { risk: 0, vague: 0, specific: 2, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('CLEAR');
-  });
-
-  it('returns CLEAR when only edu signal present', () => {
-    const classification: Classification = { risk: 0, vague: 0, specific: 0, edu: 1 };
-    const result = route(classification);
-    expect(result.verdict).toBe('CLEAR');
-  });
-
-  // ── Instructions are non-empty for all verdicts ──
-  it('always returns non-empty instructions', () => {
-    const cases: Classification[] = [
-      { risk: 1, vague: 0, specific: 0, edu: 0 },
-      { risk: 1, vague: 0, specific: 0, edu: 1 },
-      { risk: 0, vague: 1, specific: 0, edu: 0 },
-      { risk: 0, vague: 1, specific: 1, edu: 0 },
-      { risk: 0, vague: 0, specific: 0, edu: 0 },
-      { risk: 0, vague: 0, specific: 2, edu: 0 },
-    ];
-    for (const c of cases) {
-      const result = route(c);
-      expect(result.instructions.length).toBeGreaterThan(0);
-    }
-  });
-
-  // ── Edge case: HIGH takes priority over VAGUE/GRAY(vague+specific) ──
-  it('HIGH takes priority when risk >= 1 even with vague and specific signals', () => {
-    const classification: Classification = { risk: 1, vague: 1, specific: 1, edu: 0 };
-    const result = route(classification);
-    expect(result.verdict).toBe('HIGH');
-  });
-
-  // ── Edge case: risk + edu takes priority over vague-only path ──
-  it('risk + edu GRAY takes priority over vague path', () => {
-    const classification: Classification = { risk: 1, vague: 1, specific: 0, edu: 1 };
-    const result = route(classification);
-    expect(result.verdict).toBe('GRAY');
+    expect(decision.route).toBe(expectedRoute);
+    expect(result.verdict).toBe(expectedVerdict);
+    expect(result.instructions).toContain(instructionMarker);
   });
 });
