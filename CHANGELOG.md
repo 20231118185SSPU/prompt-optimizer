@@ -1,5 +1,26 @@
 # 更新日志
 
+## v3.2.0-rc.1 — Alignment Decision runtime 候选版
+
+> 当前为候选版，尚未正式发布。G5 已按独立盲评发现的修复验收路径关闭；旧 frozen gate 失败证据保留，fresh post-fix 独立盲评仍是稳定版前债务。
+
+### 核心变更
+
+- 冻结 `Alignment Decision` 机器契约、reason registry、golden corpus 和三档路由策略。
+- 增加 TypeScript decision runtime、生命周期协调、上下文分类投影及 Claude Code / Codex adapter。
+- 将常驻 skill 缩为按需加载入口，协议正文按 intent、routing、contract、verification、precipitation 拆分。
+- 建立 56 条确定性行为语料、三臂评测 runner/scorer、隐私检查和脱敏 evidence。
+- 补齐 `LICENSE`、`SECURITY.md` 和按 E2-E5 证据分级的宿主支持矩阵。
+- 增加可选 Matt Pocock Skills handoff：独立 schema、环境/setup 发现、确定性 skill 映射与纯 JSON `align-cli matt`；不改变 Alignment Decision v1 或普通 `json` 输出。
+
+### 候选版验证状态
+
+- tuned conformance set：56/56 route 命中，高风险漏拦截 0，不必要澄清 0；该结果不代表 held-out 泛化能力。
+- TypeScript 全量回归：15 suites、245 tests 通过。
+- Claude 三臂 pilot 已运行；澄清质量、验收完整性和方向安全仍属于模型自报，不作为独立 release evidence。
+- 三套一次性 held-out 与两轮独立盲评已保留；已知失败经 consumed-corpus regression 修复，未冒充新的 held-out。
+- 稳定版前仍需 fresh post-fix 独立盲评、完整三臂重复、真实执行成功率与返工轮数，以及 Codex E5 凭据修复。
+
 ## v3.1.1 — hook 强化 + 信号扩展
 
 > v3.1 发布后继续强化 hook 拦截能力，让对齐协议在执行前真正成为"默认动作"而非"可选建议"。

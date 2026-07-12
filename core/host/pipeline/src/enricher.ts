@@ -4,6 +4,9 @@ import * as path from 'path';
 export interface AlignContext {
   lessons: string;
   spec: string;
+  facts: string;
+  glossary: string;
+  state: string;
   context: string;
   decisions: string;
 }
@@ -24,6 +27,14 @@ function readFileIfExists(filePath: string): string {
   return '';
 }
 
+function fileExists(filePath: string): boolean {
+  try {
+    return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function extractLessons(content: string, maxEntries: number = 30): string {
   const lines = content.split('\n');
   const lessonLines = lines.filter(line => line.trim().startsWith('- '));
@@ -40,14 +51,19 @@ export function enrich(instruction: string, projectDir: string): EnrichmentResul
   if (!fs.existsSync(alignDir)) {
     return {
       enrichedMessage: instruction,
-      context: { lessons: '', spec: '', context: '', decisions: '' }
+      context: { lessons: '', spec: '', facts: '', glossary: '', state: '', context: '', decisions: '' }
     };
   }
 
   // Read .align/ files
   const lessonsRaw = readFileIfExists(path.join(alignDir, 'lessons.md'));
   const spec = readFileIfExists(path.join(alignDir, 'spec.md'));
-  const context = readFileIfExists(path.join(alignDir, 'context.md'));
+  const classifiedPaths = ['facts.md', 'glossary.md', 'state.md'].map(file => path.join(alignDir, file));
+  const facts = readFileIfExists(classifiedPaths[0]);
+  const glossary = readFileIfExists(classifiedPaths[1]);
+  const state = readFileIfExists(classifiedPaths[2]);
+  const hasCompleteClassifiedContext = classifiedPaths.every(fileExists);
+  const context = hasCompleteClassifiedContext ? '' : readFileIfExists(path.join(alignDir, 'context.md'));
   const decisions = readFileIfExists(path.join(alignDir, 'decisions.log.md'));
 
   // Extract and limit lessons
@@ -56,7 +72,7 @@ export function enrich(instruction: string, projectDir: string): EnrichmentResul
   // Build enriched message
   let enrichedMessage = instruction;
 
-  if (lessons || spec || context || decisions) {
+  if (lessons || spec || facts || glossary || state || context || decisions) {
     const contextParts: string[] = [];
 
     if (lessons) {
@@ -64,6 +80,15 @@ export function enrich(instruction: string, projectDir: string): EnrichmentResul
     }
     if (spec) {
       contextParts.push(`── 项目规范 ──\n${spec}`);
+    }
+    if (facts) {
+      contextParts.push(`── 项目事实 ──\n${facts}`);
+    }
+    if (glossary) {
+      contextParts.push(`── 项目术语 ──\n${glossary}`);
+    }
+    if (state) {
+      contextParts.push(`── 临时状态 ──\n${state}`);
     }
     if (context) {
       contextParts.push(`── 项目上下文 ──\n${context}`);
@@ -79,6 +104,6 @@ export function enrich(instruction: string, projectDir: string): EnrichmentResul
 
   return {
     enrichedMessage,
-    context: { lessons, spec, context, decisions }
+    context: { lessons, spec, facts, glossary, state, context, decisions }
   };
 }

@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-optimizer.dev/contracts/ecosystem-handoff/1.0.0",
+  "title": "Ecosystem Handoff v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "ecosystem",
+    "handoffId",
+    "source",
+    "status",
+    "selectedSkill",
+    "invocation",
+    "reason",
+    "automatic",
+    "prerequisite",
+    "input"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "kind": { "const": "alignment.ecosystem-handoff" },
+    "ecosystem": { "const": "matt-pocock-skills" },
+    "handoffId": { "type": "string", "pattern": "^matt-[a-f0-9]{16}$" },
+    "source": { "$ref": "#/$defs/source" },
+    "status": { "enum": ["ready", "setup_required", "unavailable", "deferred"] },
+    "selectedSkill": {
+      "enum": [
+        "ask-matt",
+        "code-review",
+        "diagnosing-bugs",
+        "grill-with-docs",
+        "implement",
+        "prototype",
+        "tdd",
+        "to-spec",
+        "to-tickets",
+        null
+      ]
+    },
+    "invocation": {
+      "enum": [
+        "/ask-matt",
+        "/code-review",
+        "/diagnosing-bugs",
+        "/grill-with-docs",
+        "/implement",
+        "/prototype",
+        "/tdd",
+        "/to-spec",
+        "/to-tickets",
+        null
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+      "maxLength": 128
+    },
+    "automatic": { "const": false },
+    "prerequisite": {
+      "oneOf": [
+        { "$ref": "#/$defs/setupPrerequisite" },
+        { "type": "null" }
+      ]
+    },
+    "input": { "$ref": "#/$defs/input" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "deferred" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "type": "object",
+            "properties": { "route": { "enum": ["clarify", "block"] } }
+          },
+          "selectedSkill": { "type": "null" },
+          "invocation": { "type": "null" },
+          "prerequisite": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "source": {
+            "type": "object",
+            "properties": { "route": { "enum": ["pass", "enrich"] } }
+          },
+          "selectedSkill": { "type": "string" },
+          "invocation": { "type": "string" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "setup_required" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "prerequisite": { "$ref": "#/$defs/setupPrerequisite" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "enum": ["ready", "unavailable", "deferred"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "prerequisite": { "type": "null" } }
+      }
+    },
+    {
+      "oneOf": [
+        { "properties": { "selectedSkill": { "const": "ask-matt" }, "invocation": { "const": "/ask-matt" } } },
+        { "properties": { "selectedSkill": { "const": "code-review" }, "invocation": { "const": "/code-review" } } },
+        { "properties": { "selectedSkill": { "const": "diagnosing-bugs" }, "invocation": { "const": "/diagnosing-bugs" } } },
+        { "properties": { "selectedSkill": { "const": "grill-with-docs" }, "invocation": { "const": "/grill-with-docs" } } },
+        { "properties": { "selectedSkill": { "const": "implement" }, "invocation": { "const": "/implement" } } },
+        { "properties": { "selectedSkill": { "const": "prototype" }, "invocation": { "const": "/prototype" } } },
+        { "properties": { "selectedSkill": { "const": "tdd" }, "invocation": { "const": "/tdd" } } },
+        { "properties": { "selectedSkill": { "const": "to-spec" }, "invocation": { "const": "/to-spec" } } },
+        { "properties": { "selectedSkill": { "const": "to-tickets" }, "invocation": { "const": "/to-tickets" } } },
+        { "properties": { "selectedSkill": { "type": "null" }, "invocation": { "type": "null" } } }
+      ]
+    }
+  ],
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "decisionId", "route"],
+      "properties": {
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "route": { "enum": ["pass", "enrich", "clarify", "block"] }
+      }
+    },
+    "setupPrerequisite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill", "invocation"],
+      "properties": {
+        "skill": { "const": "setup-matt-pocock-skills" },
+        "invocation": { "const": "/setup-matt-pocock-skills" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facts", "missing", "scope", "acceptance"],
+      "properties": {
+        "facts": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 100,
+          "items": { "type": "string", "minLength": 1, "maxLength": 2000 }
+        },
+        "missing": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 20,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "scope": { "$ref": "#/$defs/scope" },
+        "acceptance": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/acceptanceCriterion" }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include", "exclude"],
+      "properties": {
+        "include": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "exclude": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "criterion", "method"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "criterion": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "method": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "enum": ["command", "metric", "checklist", "manual"] },
+            "value": { "type": "string", "minLength": 1, "maxLength": 2000 }
+          }
+        }
+      }
+    }
+  }
+}

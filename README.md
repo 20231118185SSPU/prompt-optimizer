@@ -6,7 +6,7 @@
 
 ## 项目介绍
 
-Prompt Optimizer v3.1 是一个可注入任意项目的 **Alignment Runtime**（对齐运行时）。它通过三个 skill 实现：
+Prompt Optimizer v3.2.0-rc.1 是一个可注入任意项目的 **Alignment Runtime**（对齐运行时）。它通过三个 skill 实现：
 
 - **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief。v3 默认静默运行——简单任务直接执行（零感知），有缺口时静默补全+微披露（不等待），高风险时浮出澄清（必须拦截）。
 - **align-init**：项目接入器，为项目生成 `.align/` 运行时（开发规范+上下文+经验+决策），并注入挂载区到 CLAUDE.md/AGENTS.md。
@@ -24,13 +24,30 @@ Prompt Optimizer v3.1 是一个可注入任意项目的 **Alignment Runtime**（
 
 对齐的存在感与任务风险成正比，与任务频率成反比。简单指令零卡顿，高风险指令必拦截。
 
-### v3.1.1 发布状态
+### v3.2.0-rc.1 候选状态
+
+> 当前为候选版，尚未正式发布。G5 已按“既有独立盲评发现 + 修复后确定性回归”关闭；fresh post-fix 独立盲评和完整真实模型重复保留为稳定版前债务。
 
 - 安装闭环：PowerShell / Bash 默认覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录。
 - Adapter 路由：Codex 安装使用 `dist/codex`；Claude Code 和 `~/.agents` 使用 Claude-compatible 的 `dist/claude-code`。
+- Runtime 分发：安装器将结构化 runtime、doctor 和 Claude/Codex adapters 安装到 `~/.prompt-optimizer/`；Node 缺失时明确降级到 shell fallback。
+- 可选生态 handoff：显式 `align-cli matt` 把可执行 Alignment Decision 映射为 Matt Pocock skill 调用建议；不会复制或自动调用 skill，普通 `json` 输出不变。
+- 能力等级：Claude Code 为 L3 Native Hook；Codex 为 L2 CLI wrapper / instruction-backed，不宣称 hook parity。
 - 协议硬门槛：`[假设]>2`、`总分<6`、`D5=0`、高风险信号和 R8 验证门在 `core/` 与 `dist/` 中保持一致。
 - **hook 强化（v3.1.1）**：三个 verdict 注入升级为结构化执行协议；RISK/VAGUE 正则扩展；去掉 `2>/dev/null` 静默吞错；降级路径给出明确修复提示。
 - 回测证据：`docs/planning/BENCHMARK-V3.md` 是 18 case 协议规则推演回测，不声明为外部模型实测。
+
+### 支持矩阵
+
+| 宿主/入口 | 能力等级 | 已有证据 | 支持口径 |
+| --- | --- | --- | --- |
+| Claude Code | L3 Native Hook | 安装/升级/卸载沙箱、hook exit code、adapter E3 | 支持 native hook；真实模型 E5 尚未完成 |
+| Codex CLI | L2 CLI wrapper / instruction-backed | wrapper、doctor、安装沙箱 E3 | 支持 CLI wrapper；不宣称 hook parity |
+| Cursor | L1 project rule | 生成、预算和跨平台构建 E2 | 提供规则产物；尚无真实宿主端到端证据 |
+| Universal System Prompt | L0 copy-paste | 构建与内容门 E2 | 自包含复制入口；遵循度取决于目标模型 |
+| 其他编辑器/聊天宿主 | L0/L1 | 无宿主专属 E4/E5 | 仅提供通用说明，不宣称完整支持 |
+
+证据等级：E2=确定性 corpus，E3=沙箱集成，E4=真实宿主端到端，E5=真实模型对照 benchmark。当前 G5 的 56 条确定性行为集和 Claude 三臂 pilot 已完成；完整 E5 尚未完成，Codex pilot 因本机凭据失效而阻塞。
 
 ## 快速开始
 
@@ -83,7 +100,17 @@ Codex 使用 `dist/codex` 包；Claude Code 和 `~/.agents` 使用 Claude-compat
 
 这会输出完整 Agent Brief 文档（v2.0 兼容行为）。
 
-### 4. 其他接入方式
+### 4. 可选 Matt Pocock Skills handoff
+
+已安装 Matt Pocock Skills 时，可以显式请求一个独立 handoff envelope：
+
+```bash
+bash "$HOME/.prompt-optimizer/bin/align-cli" matt "只修改 parser 并运行 parser tests" --project-dir "$PWD"
+```
+
+stdout 只输出 `alignment.ecosystem-handoff` JSON，stderr 只披露 route/status。`ready` 仍需由用户或宿主后续调用；`clarify` / `block` 返回 `deferred`，不会绕过对齐门。详见 [USAGE.md](docs/usage/USAGE.md#8-可选-matt-pocock-skills-handoff)。
+
+### 5. 其他接入方式
 
 不支持 skills 的工具可以复制 System Prompt：
 
@@ -134,10 +161,11 @@ Codex 使用 `dist/codex` 包；Claude Code 和 `~/.agents` 使用 Claude-compat
 - [使用文档](docs/README.md#使用文档)：安装与日常使用
 - [参考文档](docs/README.md#参考文档)：外部参考取舍
 - [规划文档](docs/README.md#规划文档)：深度优化方案和会话任务拆解
+- [主代理 + 子代理改进规划](docs/planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：面向下一阶段实现的分波次执行契约与验收门
 
 ## 参考内容取舍
 
-本项目参考了 AI 自主思维模型、AI 编程开发规则手册和 `mattpocock/skills`。具体吸收了什么、没有照搬什么、为什么这样取舍，见 [REFERENCE-DIGEST.md](docs/reference/REFERENCE-DIGEST.md)。
+本项目参考了 AI 自主思维模型、AI 编程开发规则手册和 `mattpocock/skills`。具体吸收了什么、没有照搬什么、为什么这样取舍，见 [REFERENCE-DIGEST.md](docs/reference/REFERENCE-DIGEST.md)。与 OpenSpec、Superpowers、ECC、Matt Pocock Skills 的定位和机制对比见 [ECOSYSTEM-COMPARISON.md](docs/reference/ECOSYSTEM-COMPARISON.md)。
 
 ## 项目结构
 
@@ -146,7 +174,8 @@ Codex 使用 `dist/codex` 包；Claude Code 和 `~/.agents` 使用 Claude-compat
 ├── AGENTS.md
 ├── core/                          # ★ 唯一事实来源（SSOT）
 │   ├── protocol/                  # 协议内核 00-07
-│   ├── templates/                 # 14 个模板（含 4 个 ALIGN 模板）
+│   ├── contracts/                 # 公共机器契约、reason registry 与 golden corpus
+│   ├── templates/                 # 17 个模板（含 7 个 ALIGN 模板）
 │   ├── spec-kit/                  # 规范生成器素材库
 │   ├── skills/align-init/         # align-init skill 源文件
 │   └── host/                      # 宿主适配源文件（挂载区/hook/reminder）
@@ -191,4 +220,4 @@ Codex 使用 `dist/codex` 包；Claude Code 和 `~/.agents` 使用 Claude-compat
 
 ## License
 
-MIT
+[MIT](LICENSE)。安全问题请按 [SECURITY.md](SECURITY.md) 私密报告。

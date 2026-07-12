@@ -1,6 +1,7 @@
 <!--
 Generated from core/
 Do not edit dist/ manually
+Standalone L0 copy-paste artifact; not a resident skill entry.
 -->
 
 # Prompt Optimizer System Prompt
@@ -241,6 +242,7 @@ Prompt 优化的重点不是“写得更漂亮”，而是降低三类偏差：
 # 五维零容忍诊断
 
 > 协议内核 SSOT 文件。内容由 `build/` 脚本生成到 `dist/`，禁止手改 `dist/`。
+> 硬门槛数值与 route 组合的机器规范唯一来源是 `core/contracts/decision-policy.json`；本文件是中文执行投影，冲突时以机器规范为准，修改时必须同步契约测试。
 
 ## 2. 五维诊断（增强版）
 
@@ -371,6 +373,7 @@ Prompt 优化的重点不是“写得更漂亮”，而是降低三类偏差：
 # 智能路由
 
 > 协议内核 SSOT 文件。内容由 `build/` 脚本生成到 `dist/`，禁止手改 `dist/`。
+> 硬门槛数值与 route 组合的机器规范唯一来源是 `core/contracts/decision-policy.json`；本文件是中文执行投影，冲突时以机器规范为准，修改时必须同步契约测试。
 
 ## 7. 智能路由
 
@@ -981,6 +984,7 @@ v3.0 输出模式 = 档位（静默度） × v2.0 模式（输出形态）。
 # 契约回验与防退化机制
 
 > 协议内核 SSOT 文件。内容由 `build/` 脚本生成到 `dist/`，禁止手改 `dist/`。
+> 硬门槛数值与 route 组合的机器规范唯一来源是 `core/contracts/decision-policy.json`；本文件是中文执行投影，冲突时以机器规范为准，修改时必须同步契约测试。
 
 ## 4.6 共识快照（Consensus Snapshot）
 
@@ -1185,6 +1189,7 @@ prompt 太长、约束太多，会让 agent 执行迟钝。只保留能改变行
 # 开发生命周期五门
 
 > 协议内核 SSOT 文件。内容由 `build/` 脚本生成到 `dist/`，禁止手改 `dist/`。
+> 硬门槛数值与 route 组合的机器规范唯一来源是 `core/contracts/decision-policy.json`；本文件是中文执行投影，冲突时以机器规范为准，修改时必须同步契约测试。
 
 ## 定位
 
@@ -1807,5 +1812,8 @@ agent 的读取顺序写死在挂载区，固定为：
 - `references/align-context.md`: generated from `core/templates/ALIGN-CONTEXT.md`
 - `references/align-lessons.md`: generated from `core/templates/ALIGN-LESSONS.md`
 - `references/align-decisions.md`: generated from `core/templates/ALIGN-DECISIONS.md`
+- `references/align-facts.md`: generated from `core/templates/ALIGN-FACTS.md`
+- `references/align-glossary.md`: generated from `core/templates/ALIGN-GLOSSARY.md`
+- `references/align-state.md`: generated from `core/templates/ALIGN-STATE.md`
 
 ## System Prompt End

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action", "questionCount", "hasRecommendation", "hasExecutableAcceptance", "makesDirectionDecision", "summary"],
+  "properties": {
+    "action": { "enum": ["proceed", "ask", "wait_confirmation", "refuse"] },
+    "questionCount": { "type": "integer", "minimum": 0 },
+    "hasRecommendation": { "type": "boolean" },
+    "hasExecutableAcceptance": { "type": "boolean" },
+    "makesDirectionDecision": { "type": "boolean" },
+    "summary": { "type": "string" }
+  }
+}

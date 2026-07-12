@@ -1,4 +1,4 @@
-[CmdletBinding(SupportsShouldProcess = $true)]
+﻿[CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [string]$Target = "all",
   [string]$SkillsDir = "",
@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$ScriptVersion = "v3.1"
+$ScriptVersion = "v3.2.0-rc.1"
 $Skills = @("optimize-prompt", "align-init", "optimize-prompt-lite")
 $UserHome = $HOME
 if ([string]::IsNullOrWhiteSpace($UserHome)) {
@@ -21,6 +21,11 @@ if ([string]::IsNullOrWhiteSpace($UserHome)) {
 if ([string]::IsNullOrWhiteSpace($UserHome)) {
   throw "Could not resolve user home directory."
 }
+$RuntimeHome = $env:PROMPT_OPTIMIZER_HOME
+if ([string]::IsNullOrWhiteSpace($RuntimeHome)) {
+  $RuntimeHome = $UserHome
+}
+$RuntimePlanPointer = Join-Path $RuntimeHome '.prompt-optimizer-install-plan.tsv'
 
 # ── Check Node.js dependency ──
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -198,6 +203,10 @@ if ($SkillsDir) {
   $installTargets = @(Resolve-InstallTargets -Target $Target)
 }
 
+if ($env:PROMPT_OPTIMIZER_HOME -and ($Target -eq 'claude' -or $Target -eq 'all') -and (-not $Uninstall)) {
+  throw 'PROMPT_OPTIMIZER_HOME cannot be combined with Claude installation because Claude hooks resolve runtime from HOME.'
+}
+
 if ($Uninstall) {
   foreach ($target in $installTargets) {
     $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
@@ -218,10 +227,13 @@ if ($Uninstall) {
   if ($WhatIfPreference) {
     Write-Host "What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed."
     Write-Host "What if: The align-route hook would be removed from ~/.claude/settings.json."
+    Write-Host "What if: The Prompt Optimizer runtime declared by the installed plan would be removed."
   } else {
     # 移除本协议安装的 hook 条目（只删自己的，其他 hooks 与字段不触碰）
     $settingsPath = Join-Path $HOME ".claude\settings.json"
     $ourCmds = @(
+      'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
+      'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
       'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
       'bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true',
       'cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
@@ -247,6 +259,23 @@ if ($Uninstall) {
         Write-Host "No align-route hook found in settings.json (no change)."
       }
     }
+    $runtimeDestination = '.prompt-optimizer'
+    if (Test-Path -LiteralPath $RuntimePlanPointer -PathType Leaf) {
+      $installedLine = Get-Content -LiteralPath $RuntimePlanPointer | Where-Object { $_ -like "distribution`t*" } | Select-Object -First 1
+      $installedParts = @($installedLine -split "`t", 4)
+      if ($installedParts.Count -ne 4) { throw "Invalid installed runtime plan: $RuntimePlanPointer" }
+      $runtimeDestination = $installedParts[2]
+    }
+    $runtimeInstallDir = Join-Path $RuntimeHome $runtimeDestination
+    if (Test-Path -LiteralPath $runtimeInstallDir -PathType Container) {
+      $ownership = Join-Path $runtimeInstallDir '.prompt-optimizer-owned'
+      if ((-not (Test-Path -LiteralPath $ownership -PathType Leaf)) -or ((Get-Content -LiteralPath $ownership -Raw).Trim() -ne 'prompt-optimizer-runtime-v1')) {
+        throw "Refusing to remove unowned runtime directory: $runtimeInstallDir"
+      }
+      Remove-Item -LiteralPath $runtimeInstallDir -Recurse -Force
+      Remove-Item -LiteralPath $RuntimePlanPointer -Force -ErrorAction SilentlyContinue
+      Write-Host "Removed Prompt Optimizer runtime from: $runtimeInstallDir"
+    }
     Write-Host "Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed."
   }
   Write-Host "Other skills and user content were not touched."
@@ -267,6 +296,7 @@ if ($WhatIfPreference) {
   }
   Write-Host ""
   Write-Host "What if: Skills would be downloaded from $Repo"
+  Write-Host "What if: Install runtime distribution according to dist/runtime/install-plan.tsv"
   Write-Host "Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout."
   return
 }
@@ -288,6 +318,35 @@ try {
       $validatedAdapters[$adapter] = $true
     }
   }
+
+  $installPlan = Join-Path $sourceRoot "dist\runtime\install-plan.tsv"
+  if (-not (Test-Path -LiteralPath $installPlan -PathType Leaf)) {
+    throw "Missing runtime install plan: $installPlan"
+  }
+  $planLine = Get-Content -LiteralPath $installPlan | Where-Object { $_ -like "distribution`t*" } | Select-Object -First 1
+  $planParts = @($planLine -split "`t", 4)
+  if ($planParts.Count -ne 4 -or $planParts[0] -ne 'distribution') {
+    throw "Invalid runtime install plan: $installPlan"
+  }
+  if ($planParts[3] -ne 'always') {
+    throw "Unsupported install-plan requirement: $($planParts[3])"
+  }
+  $runtimeSource = Join-Path $sourceRoot ("dist\" + $planParts[1])
+  $runtimeInstallDir = Join-Path $RuntimeHome $planParts[2]
+  $sourceOwnership = Join-Path $runtimeSource '.prompt-optimizer-owned'
+  if (-not (Test-Path -LiteralPath $sourceOwnership -PathType Leaf)) {
+    throw "Runtime distribution lacks ownership marker: $runtimeSource"
+  }
+  if (Test-Path -LiteralPath $runtimeInstallDir) {
+    $ownership = Join-Path $runtimeInstallDir '.prompt-optimizer-owned'
+    if ((-not (Test-Path -LiteralPath $ownership -PathType Leaf)) -or ((Get-Content -LiteralPath $ownership -Raw).Trim() -ne 'prompt-optimizer-runtime-v1')) {
+      throw "Refusing to replace unowned runtime directory: $runtimeInstallDir"
+    }
+    Remove-Item -LiteralPath $runtimeInstallDir -Recurse -Force
+  }
+  Copy-Item -LiteralPath $runtimeSource -Destination $runtimeInstallDir -Recurse
+  Copy-Item -LiteralPath $installPlan -Destination $RuntimePlanPointer -Force
+  Write-Host "Installed Prompt Optimizer runtime to: $runtimeInstallDir"
 
   foreach ($target in $installTargets) {
     $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
@@ -328,8 +387,10 @@ try {
 
   if ($wireClaude) {
     $settingsPath = Join-Path $HOME ".claude\settings.json"
-    $hookCmd = 'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
+    $hookCmd = 'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
     $legacyCmds = @(
+      'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
+      'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
       'cat .align/HOOK-REMINDER.txt 2>/dev/null || true',
       'bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
     )

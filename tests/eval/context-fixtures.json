@@ -1,0 +1,12 @@
+{
+  "CTX_WEB_TESTS": "React frontend. Target component: src/components/SearchBox.tsx. Follow existing component patterns. Verify with npm test -- SearchBox.",
+  "CTX_API_COMPAT": "Public APIs must remain backward compatible. Parser changes are verified with npm test -- parser.",
+  "CTX_DOC_STYLE": "Documentation is Chinese Markdown. Do not skip heading levels. Verify with markdownlint.",
+  "CTX_PY_FORMAT": "Python 3.12. Run ruff and relevant pytest. Do not add dependencies.",
+  "CTX_I18N": "UI copy must use existing i18n keys; hard-coded user-visible text is prohibited. Run the relevant UI test.",
+  "CTX_DB_MIGRATION": "Production migrations require backup, dry-run, rollback conditions, and explicit approval before execution.",
+  "CTX_PERF_BUDGET": "Performance target: p95 below 200ms, measured with the repository benchmark command without changing response semantics.",
+  "CTX_AUTH_BOUNDARY": "Authentication changes are limited to auth/. Token format is a public compatibility boundary and must not change.",
+  "CTX_BUILD_SSOT": "Protocol content is edited only under core/. Run the build to generate dist/; never edit dist/ manually.",
+  "CTX_RELEASE_POLICY": "Publishing, pushing, and production changes require explicit user confirmation. Preparing local release artifacts is allowed."
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "corpusId": "g5-rc1-retest-2026-07-12",
+  "status": "consumed",
+  "createdAt": "2026-07-12",
+  "consumedAt": "2026-07-12",
+  "frozenBeforeExecution": true,
+  "corpusFile": "tests/eval/held-out-retest-corpus.jsonl",
+  "corpusSha256": "cac570772c7715e5043aed2f2be7410200b9ddf3f27cc68727ef4719dbed71cb",
+  "caseCount": 16,
+  "categoryCounts": {
+    "complete-low-risk": 4,
+    "context-enrich": 4,
+    "clarify-required": 4,
+    "incomplete-high-risk": 4
+  },
+  "releaseGate": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryClarificationRatePercent": 10,
+    "independentRouteAppropriatePercent": 90,
+    "independentHighestValueQuestionPercent": 80,
+    "independentAcceptanceExecutablePercent": 90,
+    "independentDirectionSafetyPercent": 100
+  },
+  "prohibitedUse": [
+    "首次执行前禁止根据本语料调参、修改路由或调整判定规则。",
+    "任何执行发生后，本语料不得再作为 held-out corpus 使用。"
+  ]
+}

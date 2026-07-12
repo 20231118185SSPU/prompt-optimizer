@@ -4,6 +4,7 @@
 # 用法：
 #   作为 hook：从 stdin 读取 Claude Code hook JSON，向 stdout 注入路由指令
 #   测试模式：align-route.sh --classify "指令文本" → 只打印 HIGH|VAGUE|GRAY|CLEAR
+#   决策投影：align-route.sh --decision "指令文本" → route<TAB>reason,reason
 set -u
 
 # ── 递归防护：hook 内调用 claude -p 时，子进程再触发本 hook 直接退出 ──
@@ -40,8 +41,8 @@ fi
 # ── 输入获取 ──
 MODE="hook"
 PROMPT=""
-if [ "${1:-}" = "--classify" ]; then
-  MODE="classify"
+if [ "${1:-}" = "--classify" ] || [ "${1:-}" = "--decision" ]; then
+  [ "${1:-}" = "--decision" ] && MODE="decision" || MODE="classify"
   PROMPT="${2:-}"
 else
   RAW="$(cat 2>/dev/null || true)"
@@ -66,18 +67,20 @@ except Exception: pass' 2>/dev/null || true)"
   fi
 fi
 
-# ── bypass 检测：[直出] 前缀或 ALIGN_BYPASS=1 跳过整个路由 ──
-BYPASS=0
-if [ -n "${ALIGN_BYPASS:-}" ]; then
-  BYPASS=1
-else
-  case "$PROMPT" in
-    \[直出\]*|直出*) BYPASS=1 ;;
-  esac
-fi
-if [ "$BYPASS" -eq 1 ]; then
-  echo "[对齐] [直出] 模式，跳过路由。"
+# 空 prompt 可能来自 metadata-only 或畸形 hook JSON；不得分类元数据，也不注入项目上下文。
+if [ "$MODE" = "hook" ] && [ -z "$PROMPT" ]; then
   exit 0
+fi
+
+# [直出] / legacy ALIGN_BYPASS 只改变展示，绝不绕过分析、安全阀或验证门。
+DIRECT_OUTPUT=0
+if [ -n "${ALIGN_BYPASS:-}" ]; then
+  DIRECT_OUTPUT=1
+else
+  case "$PROMPT" in \[直出\]*|直出*) DIRECT_OUTPUT=1 ;; esac
+fi
+if [ "$DIRECT_OUTPUT" -eq 1 ]; then
+  PROMPT="$(printf '%s' "$PROMPT" | sed -E 's/^[[:space:]]*(\[直出\]|直出)[[:space:]]*//')"
 fi
 
 # ── 文本清洗：剥离代码块 / 行内代码 / 引号内容（讨论≠执行）──
@@ -104,6 +107,7 @@ VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|
 SPEC_RE='[A-Za-z0-9_./\\-]+\.(sh|ps1|md|js|jsx|ts|tsx|py|json|yml|yaml|toml|go|rs|java|c|cpp|h|css|html|sql)|[A-Za-z_][A-Za-z0-9_]*\(\)|第[[:space:]]*[0-9]+[[:space:]]*行|line [0-9]+|:[0-9]+\b'
 
 count_re() { printf '%s' "$1" | grep -oiE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
+count_re_case() { printf '%s' "$1" | grep -oE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
 
 RISK=$(count_re "$SIGNAL_TEXT" "$RISK_RE")
 VAGUE=$(count_re "$SIGNAL_TEXT" "$VAGUE_RE")
@@ -114,6 +118,59 @@ SPEC=$(count_re "$PROMPT" "$SPEC_RE")
 # 教学语境：谈论风险操作 ≠ 执行风险操作（'解释一下什么是 force push'）
 EDU_RE='解释|什么是|介绍一下|翻译|explain|what is|translate'
 EDU=$(count_re "$CLEAN" "$EDU_RE")
+
+# ── Alignment Decision 最小投影（无 Node fallback）──
+if [ "$MODE" = "decision" ]; then
+  reason_add() { [ -z "$REASONS" ] && REASONS="$1" || REASONS="$REASONS,$1"; }
+  REASONS=""
+  PRODUCTION=$(count_re "$SIGNAL_TEXT" '生产环境|生产库|production|deploy to prod')
+  DATA_MUTATION=$(count_re "$SIGNAL_TEXT" '删除|删库|清空|drop table|truncate')
+  CONFIRM_MISSING=$(count_re "$SIGNAL_TEXT" '尚未确认|未确认执行|等待确认|without confirmation')
+  VERIFY=$(count_re "$SIGNAL_TEXT" '运行.+测试|npm test|验收|验证|回滚条件|test')
+  BOUNDED=$(count_re "$SIGNAL_TEXT" '不改|只修改|保持现有|全部[[:space:]]*[0-9]+[[:space:]]*天|范围|public API')
+  FILE_OR_SYMBOL=$(count_re "$PROMPT" '[A-Za-z0-9_./\-]+\.(ts|tsx|js|jsx|py|sh|ps1|md|json)')
+  SYMBOL_COUNT=$(count_re_case "$PROMPT" 'parse[A-Z][A-Za-z0-9_]*')
+  FILE_OR_SYMBOL=$((FILE_OR_SYMBOL + SYMBOL_COUNT))
+  CACHE_OPEN=$(count_re "$SIGNAL_TEXT" '加缓存.+细节你定')
+  COMPLETE_RISK=0
+  if { [ "$PRODUCTION" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ]; } && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then COMPLETE_RISK=1; fi
+
+  if [ "$CONFIRM_MISSING" -gt 0 ]; then reason_add authorization.confirmation_missing; fi
+  if [ "$PRODUCTION" -gt 0 ]; then reason_add risk.production_change; fi
+  if [ "$DATA_MUTATION" -gt 0 ]; then reason_add risk.data_mutation; fi
+  if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+  if [ "$DATA_MUTATION" -gt 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add scope.impact_unknown; fi
+  if [ "$CACHE_OPEN" -gt 0 ]; then reason_add assumption.too_many; fi
+  if [ "$VERIFY" -eq 0 ]; then reason_add verification.missing; fi
+
+  LOW_SCORE=0
+  if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then LOW_SCORE=1; fi
+  if [ "$LOW_SCORE" -eq 1 ]; then reason_add diagnosis.score_below_threshold; fi
+
+  PROJECT_CONTEXT=0
+  case "${ALIGN_CONTEXT_REFS:-}" in *project:*) PROJECT_CONTEXT=1 ;; esac
+  if [ "$VERIFY" -eq 0 ] && [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$PROJECT_CONTEXT" -eq 1 ]; then
+    REASONS="$(printf '%s' "$REASONS" | sed 's/,\{0,1\}diagnosis\.score_below_threshold//')"
+    reason_add context.resolvable_from_project
+    ROUTE=enrich
+  elif [ "$LOW_SCORE" -eq 1 ] || [ "$CACHE_OPEN" -gt 0 ]; then
+    ROUTE=clarify
+  elif [ "$CONFIRM_MISSING" -gt 0 ]; then
+    ROUTE=block
+  elif [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then
+    ROUTE=pass
+    [ -n "$REASONS" ] || reason_add requirements.sufficient
+  elif [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then
+    ROUTE=enrich
+    [ -n "$REASONS" ] || reason_add requirements.needs_enrichment
+  else
+    ROUTE=clarify
+    [ -n "$REASONS" ] || reason_add intent.ambiguous_goal
+  fi
+  if [ "$DIRECT_OUTPUT" -eq 1 ]; then reason_add override.explicit_direct_output; fi
+  printf '%s\t%s\n' "$ROUTE" "$REASONS"
+  exit 0
+fi
 
 VERDICT="CLEAR"
 if [ "${RISK:-0}" -ge 1 ]; then
@@ -158,12 +215,12 @@ case "$VERDICT" in
     if [ "$BLOCK_ON_HIGH" = "on" ]; then
       # 机械层硬拦截：exit 2 阻断 prompt 提交，stderr 显示警告
       printf '%s\n' "[对齐] ⚠️ 这条含高风险操作（删除/生产/数据库/不可逆）。已阻断提交。" >&2
-      printf '%s\n' "  如确需执行，加 [直出] 前缀或设 ALIGN_BYPASS=1 后重发。" >&2
+      printf '%s\n' "  如确需执行，请补齐影响面、回滚条件和验证方式，并明确确认执行。" >&2
       exit 2
     fi
     cat <<'EOF'
 [对齐] ⚠️ 高风险指令（判定：HIGH）。按以下对齐协议执行，禁止跳步：
-1. 先读 .align/lessons.md → spec.md → context.md（项目规范，必读）
+1. 先读 .align/lessons.md → spec.md → facts/glossary/state（三文件未齐时同时读 context.md）
 2. 列出全部影响面：哪些文件/数据/环境/调用方会被改动
 3. 输出执行方案，须包含：改动清单 / 回滚条件 / 验证方式 / 风险说明
 4. 停下等待用户明确确认后再执行——禁止在确认前做任何写操作
@@ -174,7 +231,7 @@ EOF
   VAGUE)
     cat <<'EOF'
 [对齐] 指令目标或对象不够明确（判定：VAGUE）。按以下对齐协议执行：
-1. 先读 .align/lessons.md → spec.md → context.md（项目规范，必读）
+1. 先读 .align/lessons.md → spec.md → facts/glossary/state（三文件未齐时同时读 context.md）
 2. 能从项目文件/代码/文档读到的信息，自行读取，不问用户
 3. 仍缺失且会改变目标/范围/验收的关键信息 → 一次只问一个问题，附推荐答案
 4. 意图对齐后，按 Agent Brief 八组件执行：目标/背景/范围/交付物/约束/执行策略/验收/沉淀
@@ -187,7 +244,7 @@ EOF
       VERIFY_CMD="$(grep -vE '^\s*#' "$ALIGN_DIR/check-commands.txt" 2>/dev/null | grep -vE '^\s*$' | head -1 || true)"
     fi
     printf '%s\n' '[对齐] 指令清楚（判定：CLEAR），按以下执行协议行动：'
-    printf '%s\n' '1. 先读 .align/lessons.md → spec.md → context.md（项目规范，必读）'
+    printf '%s\n' '1. 先读 .align/lessons.md → spec.md → facts/glossary/state（三文件未齐时同时读 context.md）'
     printf '%s\n' '2. 按 Agent Brief 执行：明确目标 → 锁定范围 → 最小变更 → 完成后验证'
     if [ -n "$VERIFY_CMD" ]; then
       printf '3. 完成后跑验证：%s\n' "$VERIFY_CMD"

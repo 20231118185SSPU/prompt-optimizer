@@ -1,9 +1,3 @@
-<!--
-Generated from core/skills/optimize-prompt-lite/SKILL.md
-Generated from core/
-Do not edit dist/ manually
--->
-
 ---
 name: optimize-prompt-lite
 description: Lightweight intent alignment for less capable models. Simple IF-THEN rules and fill-in templates that turn vague instructions into safe, verifiable execution. Use as a drop-in replacement for optimize-prompt when the executing model has weak instruction-following ability.

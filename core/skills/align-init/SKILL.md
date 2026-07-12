@@ -1,6 +1,8 @@
 ---
 name: align-init
 description: Initialize or upgrade the Alignment Protocol runtime for a project. Scans existing projects or interviews for new ones, generates .align/ runtime files, and injects the mount area into CLAUDE.md/AGENTS.md. Use when setting up prompt-optimizer in a new or existing project.
+generated_from: Generated from core/
+notice: Do not edit dist/ manually
 ---
 
 # Align Init
@@ -54,7 +56,7 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 1. Q1 项目一句话目标 → Q2 技术栈选型（给推荐+理由）→ Q3 质量门槛（测试策略/验证命令）→ Q4 高风险边界
 2. 每问附推荐答案，用户可以连按四次"就按推荐的"。
 3. 从 `references/spec-sections/` 选择匹配的预设，填入用户回答。
-4. 生成 `.align/` 四件套 + 项目骨架建议 + 注入挂载区。
+4. 生成 `.align/` 分类上下文 + legacy 兼容投影 + 项目骨架建议 + 注入挂载区。
 
 ## 生成文件
 
@@ -64,7 +66,10 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 目标项目/
 ├── .align/
 │   ├── spec.md            # 项目开发规范（从 ALIGN-SPEC.md 模板生成）
-│   ├── context.md         # 项目上下文契约（从 ALIGN-CONTEXT.md 模板生成）
+│   ├── facts.md           # 稳定项目事实（每项带 source ref）
+│   ├── glossary.md        # 项目特有术语，不含实现细节
+│   ├── state.md           # 临时阶段摘要（updatedAt + invalidWhen）
+│   ├── context.md         # 由分类 SSOT 生成的 legacy 兼容投影，禁止直接编辑
 │   ├── lessons.md         # 经验规则（初始为空）
 │   ├── decisions.log.md   # 重大决策日志（初始为空）
 │   ├── HOOK-REMINDER.txt  # hook 提醒文本（路由器不可用时的降级注入）
@@ -95,7 +100,7 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 ARBITER=auto
 # BLOCK_ON_HIGH=on 时，HIGH verdict 会 exit 2 阻断 prompt 提交（机械层硬拦截）
 # 默认 off：只注入警告文本，由模型自觉停下。弱模型建议 on。
-# bypass：[直出] 前缀或 ALIGN_BYPASS=1 环境变量跳过阻断
+# [直出] / ALIGN_BYPASS 只改变展示，禁止跳过阻断
 BLOCK_ON_HIGH=off
 ```
 
@@ -111,7 +116,7 @@ BLOCK_ON_HIGH=off
 
    ```text
    [Alignment Protocol] 本条指令须先过三档路由评估。
-   读取 .align/lessons.md → spec.md → context.md。
+   读取 .align/lessons.md → spec.md → facts.md / glossary.md / state.md；三个分类文件未齐全时同时读取 context.md，全部缺失时只读 legacy。
    简单明确→直通；有缺口→披露后执行；高风险/总分<6→停下澄清。
    交付前必须自验证（R8 验证门不可跳过）。
    ```
@@ -126,7 +131,7 @@ BLOCK_ON_HIGH=off
            "hooks": [
              {
                "type": "command",
-               "command": "bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" 2>/dev/null || cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" 2>/dev/null || true"
+               "command": "if [ -f \"$HOME/.prompt-optimizer/adapters/claude-code.sh\" ]; then BLOCK_ON_HIGH=on bash \"$HOME/.prompt-optimizer/adapters/claude-code.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" ]; then bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" ]; then cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\"; else printf \"%s\\n\" \"[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。\"; fi"
              }
            ]
          }
@@ -155,7 +160,7 @@ BLOCK_ON_HIGH=off
 <!-- align-protocol:begin v3.0 -->
 ## 对齐协议（Alignment Protocol）
 每条开发指令执行前，静默完成三档路由评估：
-1. 读取 .align/lessons.md → .align/spec.md → .align/context.md
+1. 读取 .align/lessons.md → .align/spec.md → .align/facts.md / glossary.md / state.md；三个分类文件未齐全时同时读取 context.md，全部缺失时只读 legacy
 2. 五维快评：简单且明确 → 直接执行（但交付前必须自验证）
 3. 有缺口但项目上下文可补全 → 开头 ≤3 行披露对齐假设，然后直接执行
 4. 高风险（见 .align/spec.md 高风险清单）或总分<6 或假设>2 条
@@ -184,7 +189,12 @@ Cursor 不使用 CLAUDE.md/AGENTS.md，改为注入 `.cursor/rules/align.mdc`（
 - **升级挂载区版本**：检测旧版本号 → 替换标记区间。
 - **增量更新 spec**：重新扫描/访谈，只更新有变化的条目，不覆盖用户手动修改的条目。
 - **不重置 lessons/decisions**：`.align/lessons.md` 和 `.align/decisions.log.md` 的已有内容保留，只追加新条目。
-- **不重复创建已有文件**：`.align/` 四件套已存在时只更新 spec.md 和 context.md。
+- **分类 SSOT 优先**：新 writer 只更新 facts/glossary/state，再生成带 digest 的 context.md 兼容投影。
+- **检测 divergent projection**：发现旧 agent 修改 context.md 时必须报警并显式合并，禁止覆盖分类 SSOT。
+- **不重复创建已有文件**：分类文件已存在时增量更新；old-only 项目无损迁移，无法分类的内容进入待确认清单。
+- **原子迁移**：old-only 升级时先生成三个临时分类文件，人工确认无法分类的条目，再一次性落盘 facts/glossary/state；三文件未齐全前 loader 必须继续读取 legacy context。
+- **重复升级**：三文件齐全且 projection digest 匹配时禁止重写分类 SSOT；digest 不匹配时停止自动迁移并报告 divergent projection。
+- **生成兼容投影**：三文件确认齐全后运行 `align-cli context-project write --project-dir <project>`；首次替换 old-only context 必须人工复核后把 `write` 改为 `--force`，禁止未经确认覆盖。
 
 ## 卸载与原位升级
 
@@ -205,7 +215,7 @@ Cursor 不使用 CLAUDE.md/AGENTS.md，改为注入 `.cursor/rules/align.mdc`（
 2. **保留标记区外内容**：用户在 CLAUDE.md/AGENTS.md 中的自有内容完全不动。
 3. **移除 skill 目录**：从 skills 目录中删除 `optimize-prompt/` 和 `align-init/`，不删除其他 skill。
 4. **移除 hook**：从 `~/.claude/settings.json` 的 `hooks.UserPromptSubmit` 中删除 `cat .align/HOOK-REMINDER.txt` 命令项，只删本协议安装的条目，其他 hooks 和字段不触碰。
-5. **保留 .align/ 目录**：`.align/` 目录中的 spec.md、context.md、lessons.md、decisions.log.md 不删除（用户可能还想保留项目规范和经验）。
+5. **保留 .align/ 目录**：spec、facts、glossary、state、legacy context、lessons 和 decisions 均不删除。
 6. **可选删除 .align/**：用户可手动 `rm -rf .align/` 完全清除。
 
 ### 零损伤保证
@@ -255,5 +265,8 @@ Cursor 不使用 CLAUDE.md/AGENTS.md，改为注入 `.cursor/rules/align.mdc`（
 - `references/spec-sections/`：规范章节库（7 个章节，每章 2-3 个预设）。
 - `references/align-spec.md`：spec.md 模板。
 - `references/align-context.md`：context.md 模板。
+- `references/align-facts.md`：facts.md 模板。
+- `references/align-glossary.md`：glossary.md 模板。
+- `references/align-state.md`：state.md 模板。
 - `references/align-lessons.md`：lessons.md 模板。
 - `references/align-decisions.md`：decisions.log.md 模板。

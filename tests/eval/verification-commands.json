@@ -1,0 +1,12 @@
+{
+  "CTX_WEB_TESTS": "npm test -- SearchBox",
+  "CTX_API_COMPAT": "npm test -- parser",
+  "CTX_DOC_STYLE": "markdownlint .",
+  "CTX_PY_FORMAT": "ruff check . && pytest",
+  "CTX_I18N": "npm test -- ui",
+  "CTX_DB_MIGRATION": "echo dry-run-and-backup-evidence-required",
+  "CTX_PERF_BUDGET": "npm run benchmark",
+  "CTX_AUTH_BOUNDARY": "npm test -- auth",
+  "CTX_BUILD_SSOT": "bash tests/verify-build-idempotence.sh",
+  "CTX_RELEASE_POLICY": "git diff --check"
+}

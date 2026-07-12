@@ -7,20 +7,40 @@
  * Converts rough user ideas into executable, verifiable, precipitable task contracts.
  */
 
-export const VERSION = '0.1.0';
+export const VERSION = '3.2.0-rc.1';
 
 // Re-export pipeline components
 export { classify, Classification } from './classifier';
 export { route, Verdict, RoutingResult } from './router';
 export { enrich, AlignContext, EnrichmentResult } from './enricher';
 export { getVerificationCommands, runVerification, VerificationResult } from './verifier';
-export { processInstruction, PipelineResult } from './pipeline';
+export {
+  processInstruction,
+  PipelineEcosystem,
+  PipelineOptions,
+  PipelineResult
+} from './pipeline';
+export { analyzeInstruction, AnalysisResult, DimensionScores, SourceRef } from './analyzer';
+export { decideRoute, DecisionRoute, RouteDecision } from './decision-engine';
+export { buildAlignmentDecision, AlignmentDecision } from './contract-builder';
+export { LifecycleCoordinator, LifecycleState } from './lifecycle';
+export { writeContextProjection, ProjectionResult } from './context-projection';
+export {
+  buildMattHandoff,
+  discoverMattEnvironment,
+  MATT_SKILLS,
+  MattEnvironment,
+  MattEnvironmentDiscoveryOptions,
+  MattHandoff,
+  MattSkill
+} from './matt-handoff';
 export { generateCopilotRules, generateAiderRules, generateWindsurfRules } from './rules/generate';
 
 // ── CLI Entry Point ──
 
 // Import for CLI use
 import { processInstruction } from './pipeline';
+import { writeContextProjection } from './context-projection';
 
 // Tool-specific output modes
 const toolModes: Record<string, (instruction: string, projectDir: string) => void> = {
@@ -29,8 +49,9 @@ const toolModes: Record<string, (instruction: string, projectDir: string) => voi
     const result = processInstruction(instruction, projectDir);
     console.log(result.instructions);
 
-    // Exit with code 2 on HIGH verdict if BLOCK_ON_HIGH is enabled
-    if (result.verdict === 'HIGH' && process.env.BLOCK_ON_HIGH === 'on') {
+    // Native hook blocking follows the frozen machine route. High-risk but
+    // incomplete contracts remain clarify; only a complete block exits 2.
+    if (result.alignmentDecision.route === 'block' && process.env.BLOCK_ON_HIGH === 'on') {
       process.exit(2);
     }
   },
@@ -72,6 +93,26 @@ const toolModes: Record<string, (instruction: string, projectDir: string) => voi
       console.log('Verification Commands:');
       result.verificationCommands.forEach(cmd => console.log(`  - ${cmd}`));
     }
+  },
+
+  'json': (instruction, projectDir) => {
+    const result = processInstruction(instruction, projectDir);
+    console.error(`[alignment] route=${result.alignmentDecision.route} reasons=${result.alignmentDecision.reasons.join(',')}`);
+    process.stdout.write(`${JSON.stringify(result.alignmentDecision)}\n`);
+  },
+
+  'matt': (instruction, projectDir) => {
+    const result = processInstruction(instruction, projectDir, { ecosystem: 'matt-pocock-skills' });
+    if (!result.handoff) {
+      throw new Error('Matt handoff was not generated.');
+    }
+    console.error(`[alignment] route=${result.alignmentDecision.route} status=${result.handoff.status}`);
+    process.stdout.write(`${JSON.stringify(result.handoff)}\n`);
+  },
+
+  'context-project': (instruction, projectDir) => {
+    const result = writeContextProjection(projectDir, instruction === '--force');
+    process.stdout.write(`${JSON.stringify(result)}\n`);
   }
 };
 
@@ -87,6 +128,9 @@ if (require.main === module) {
     console.error('  codex          Codex (CLI wrapper)');
     console.error('  cursor         Cursor (CLI wrapper)');
     console.error('  generic        Generic tool (CLI wrapper)');
+    console.error('  json           Alignment Decision JSON on stdout; disclosure on stderr');
+    console.error('  matt           Matt Pocock Skills handoff JSON on stdout; route/status on stderr');
+    console.error('  context-project  Generate legacy context.md from classified SSOT; instruction may be --force');
     process.exit(1);
   }
 

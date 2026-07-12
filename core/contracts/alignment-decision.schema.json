@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-optimizer.dev/contracts/alignment-decision/1.0.0",
+  "title": "Alignment Decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "policyVersion",
+    "requestId",
+    "decisionId",
+    "route",
+    "reasons",
+    "scores",
+    "claims",
+    "missing",
+    "scope",
+    "acceptance",
+    "presentation",
+    "next",
+    "lifecyclePlan",
+    "host"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "kind": { "const": "alignment.decision" },
+    "policyVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "route": { "enum": ["pass", "enrich", "clarify", "block"] },
+    "reasons": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed", "effective"],
+      "properties": {
+        "observed": { "$ref": "#/$defs/scores" },
+        "effective": { "$ref": "#/$defs/scores" }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/claim" }
+    },
+    "missing": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 20,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include", "exclude"],
+      "properties": {
+        "include": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "exclude": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/acceptanceCriterion" }
+    },
+    "appliedContext": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/sourceRef" }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "tier"],
+      "properties": {
+        "mode": { "enum": ["default", "direct_output", "full_brief", "interview", "project_context"] },
+        "tier": { "enum": ["A", "B", "C"] }
+      }
+    },
+    "next": { "$ref": "#/$defs/next" },
+    "lifecyclePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "completion", "precipitation"],
+      "properties": {
+        "baseline": { "enum": ["required", "not_required"] },
+        "completion": { "enum": ["required", "not_observable"] },
+        "precipitation": { "enum": ["on_signal", "disabled"] }
+      }
+    },
+    "host": { "$ref": "#/$defs/host" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "route": { "const": "pass" } }, "required": ["route"] },
+      "then": {
+        "properties": {
+          "missing": { "type": "array", "maxItems": 0 },
+          "acceptance": { "type": "array", "minItems": 1 },
+          "presentation": { "type": "object", "properties": { "tier": { "const": "A" } } },
+          "next": { "$ref": "#/$defs/executeNext" },
+          "lifecyclePlan": { "$ref": "#/$defs/executableLifecyclePlan" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "route": { "const": "enrich" } }, "required": ["route"] },
+      "then": {
+        "required": ["appliedContext"],
+        "properties": {
+          "reasons": {
+            "type": "array",
+            "contains": {
+              "enum": ["context.resolvable_from_project", "requirements.needs_enrichment"]
+            }
+          },
+          "missing": { "type": "array", "maxItems": 0 },
+          "acceptance": { "type": "array", "minItems": 1 },
+          "appliedContext": { "type": "array", "minItems": 1 },
+          "presentation": { "type": "object", "properties": { "tier": { "const": "B" } } },
+          "next": { "$ref": "#/$defs/executeNext" },
+          "lifecyclePlan": { "$ref": "#/$defs/executableLifecyclePlan" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "route": { "const": "clarify" } }, "required": ["route"] },
+      "then": {
+        "properties": {
+          "missing": { "type": "array", "minItems": 1 },
+          "presentation": { "type": "object", "properties": { "tier": { "const": "C" } } },
+          "next": { "$ref": "#/$defs/askNext" },
+          "lifecyclePlan": { "$ref": "#/$defs/nonExecutableLifecyclePlan" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "route": { "const": "block" } }, "required": ["route"] },
+      "then": {
+        "properties": {
+          "presentation": { "type": "object", "properties": { "tier": { "const": "C" } } },
+          "next": {
+            "oneOf": [
+              { "$ref": "#/$defs/waitConfirmationNext" },
+              { "$ref": "#/$defs/stopNext" }
+            ]
+          },
+          "lifecyclePlan": { "$ref": "#/$defs/nonExecutableLifecyclePlan" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "presentation": {
+            "type": "object",
+            "properties": { "mode": { "const": "direct_output" } },
+            "required": ["mode"]
+          }
+        },
+        "required": ["presentation"]
+      },
+      "then": {
+        "properties": {
+          "reasons": { "type": "array", "contains": { "const": "override.explicit_direct_output" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "reasons": { "type": "array", "contains": { "const": "override.explicit_direct_output" } }
+        },
+        "required": ["reasons"]
+      },
+      "then": {
+        "properties": {
+          "presentation": {
+            "type": "object",
+            "properties": { "mode": { "const": "direct_output" } }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["d1", "d2", "d3", "d4", "d5", "total"],
+      "properties": {
+        "d1": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "d2": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "d3": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "d4": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "d5": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "total": { "type": "integer", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": { "enum": ["user", "project", "runtime", "decision", "default"] },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "claim": {
+      "oneOf": [
+        { "$ref": "#/$defs/fact" },
+        { "$ref": "#/$defs/inference" },
+        { "$ref": "#/$defs/assumption" }
+      ]
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "statement", "sources"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "type": { "const": "fact" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/sourceRef" } }
+      }
+    },
+    "inference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "statement", "sources", "basedOn", "confidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "type": { "const": "inference" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/sourceRef" } },
+        "basedOn": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "confidence": { "enum": ["low", "medium", "high"] }
+      }
+    },
+    "assumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "statement", "sources", "impact", "mustValidateBefore"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "type": { "const": "assumption" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/sourceRef" } },
+        "impact": { "enum": ["low", "medium", "high"] },
+        "mustValidateBefore": { "enum": ["decision", "handoff"] }
+      }
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "criterion", "method"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "criterion": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "method": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "enum": ["command", "metric", "checklist", "manual"] },
+            "value": { "type": "string", "minLength": 1, "maxLength": 2000 }
+          }
+        }
+      }
+    },
+    "executeNext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action"],
+      "properties": { "action": { "const": "execute" } }
+    },
+    "askNext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "question"],
+      "properties": {
+        "action": { "const": "ask" },
+        "question": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "prompt", "why", "recommendedAnswer"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "prompt": { "type": "string", "minLength": 1, "maxLength": 2000 },
+            "why": { "type": "string", "minLength": 1, "maxLength": 2000 },
+            "recommendedAnswer": { "type": "string", "minLength": 1, "maxLength": 2000 }
+          }
+        }
+      }
+    },
+    "waitConfirmationNext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "requirement"],
+      "properties": {
+        "action": { "const": "wait_confirmation" },
+        "requirement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "prompt", "impact"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "prompt": { "type": "string", "minLength": 1, "maxLength": 2000 },
+            "impact": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    },
+    "stopNext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "reason"],
+      "properties": {
+        "action": { "const": "stop" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "next": {
+      "oneOf": [
+        { "$ref": "#/$defs/executeNext" },
+        { "$ref": "#/$defs/askNext" },
+        { "$ref": "#/$defs/waitConfirmationNext" },
+        { "$ref": "#/$defs/stopNext" }
+      ]
+    },
+    "executableLifecyclePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "completion", "precipitation"],
+      "properties": {
+        "baseline": { "const": "required" },
+        "completion": { "enum": ["required", "not_observable"] },
+        "precipitation": { "enum": ["on_signal", "disabled"] }
+      }
+    },
+    "nonExecutableLifecyclePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "completion", "precipitation"],
+      "properties": {
+        "baseline": { "const": "not_required" },
+        "completion": { "const": "not_observable" },
+        "precipitation": { "enum": ["on_signal", "disabled"] }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "level", "enforcement"],
+      "properties": {
+        "adapter": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "level": { "enum": ["L0", "L1", "L2", "L3", "L4"] },
+        "enforcement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ingress", "block", "completion"],
+          "properties": {
+            "ingress": { "enum": ["enforced", "advisory"] },
+            "block": { "enum": ["enforced", "advisory", "unavailable"] },
+            "completion": { "enum": ["enforced", "self_reported", "unavailable"] }
+          }
+        }
+      }
+    }
+  }
+}

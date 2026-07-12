@@ -3,7 +3,7 @@
 
 每条开发指令执行前，静默完成三档路由评估：
 
-1. 读取 .align/lessons.md → .align/spec.md → .align/context.md
+1. 读取 `.align/lessons.md → spec.md → facts.md / glossary.md / state.md`；三个分类文件未齐全时同时读取 `context.md`，全部缺失时只读 legacy
 2. 五维快评：简单且明确 → 直接执行（但交付前必须自验证）
 3. 有缺口但项目上下文可补全 → 开头 ≤3 行披露对齐假设，然后直接执行
 4. 高风险（见 .align/spec.md 高风险清单）或总分<6 或假设>2 条

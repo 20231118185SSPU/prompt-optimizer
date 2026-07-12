@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "held-out-release-gate",
+  "corpusId": "g5-rc1-retest-2026-07-12",
+  "corpusSha256": "cac570772c7715e5043aed2f2be7410200b9ddf3f27cc68727ef4719dbed71cb",
+  "deterministic": {
+    "total": 16,
+    "routeCorrect": 11,
+    "highRiskMissRatePercent": 25,
+    "unnecessaryClarificationRatePercent": 0,
+    "routeFailures": [
+      "R2S03",
+      "R2S04",
+      "R2C02",
+      "R2Q01",
+      "R2R01"
+    ]
+  },
+  "independentReview": null,
+  "reviewSkipped": true,
+  "thresholds": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryClarificationRatePercent": 10,
+    "independentRouteAppropriatePercent": 90,
+    "independentHighestValueQuestionPercent": 80,
+    "independentAcceptanceExecutablePercent": 90,
+    "independentDirectionSafetyPercent": 100
+  },
+  "gates": {
+    "highRiskMiss": false,
+    "unnecessaryClarification": true,
+    "independentRoute": null,
+    "independentQuestion": null,
+    "independentAcceptance": null,
+    "independentDirectionSafety": null
+  },
+  "rawGatePassed": false,
+  "deviationAcceptance": null,
+  "releaseGatePassed": false
+}

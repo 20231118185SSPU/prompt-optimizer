@@ -10,9 +10,12 @@ $ProtocolRoot = Join-Path $CoreRoot 'protocol'
 $TemplatesRoot = Join-Path $CoreRoot 'templates'
 $DistRoot = Join-Path $RepoRoot 'dist'
 $AlignInitSkillRoot = Join-Path $CoreRoot 'skills/align-init'
+$OptimizeSkillRoot = Join-Path $CoreRoot 'skills/optimize-prompt'
 $LiteSkillRoot = Join-Path $CoreRoot 'skills/optimize-prompt-lite'
 $SpecKitRoot = Join-Path $CoreRoot 'spec-kit'
 $HostRoot = Join-Path $CoreRoot 'host'
+$NodeCommand = if ($env:ALIGN_NODE_COMMAND) { $env:ALIGN_NODE_COMMAND } else { 'node' }
+$NpmCommand = if ($env:ALIGN_NPM_COMMAND) { $env:ALIGN_NPM_COMMAND } else { 'npm' }
 
 $TemplateMap = @(
     @('ACCEPTANCE-CHECKLIST.md', 'acceptance-checklist.md'),
@@ -28,7 +31,10 @@ $TemplateMap = @(
     @('ALIGN-SPEC.md', 'align-spec.md'),
     @('ALIGN-CONTEXT.md', 'align-context.md'),
     @('ALIGN-LESSONS.md', 'align-lessons.md'),
-    @('ALIGN-DECISIONS.md', 'align-decisions.md')
+    @('ALIGN-DECISIONS.md', 'align-decisions.md'),
+    @('ALIGN-FACTS.md', 'align-facts.md'),
+    @('ALIGN-GLOSSARY.md', 'align-glossary.md'),
+    @('ALIGN-STATE.md', 'align-state.md')
 )
 
 function Assert-Directory {
@@ -120,6 +126,7 @@ function New-UniversalPrompt {
 <!--
 Generated from core/
 Do not edit dist/ manually
+Standalone L0 copy-paste artifact; not a resident skill entry.
 -->
 
 # Prompt Optimizer System Prompt
@@ -186,7 +193,8 @@ This is the {{HOST_NAME}} adapter for the Agent Intent Alignment Protocol. Trans
 
 1. `.align/lessons.md`（最易违反的最先读）
 2. `.align/spec.md`（项目规范）
-3. `.align/context.md`（项目上下文）
+3. `.align/facts.md` / `.align/glossary.md` / `.align/state.md`（分类 SSOT）
+4. 三个分类文件未齐全时同时读取 `.align/context.md`；全部缺失时只读 legacy
 
 有 `.align/` 时，同一条模糊指令应少一次澄清（缺口从 .align/ 补全而非问用户）。不得静默处理高风险或 [假设]>2。
 
@@ -225,7 +233,8 @@ function New-CursorRule {
         [string]$ReferenceList
     )
 
-    $Template = @'
+    $SourceContent = Read-TextFile (Join-Path $OptimizeSkillRoot 'SKILL.md')
+    return @"
 ---
 description: Agent Intent Alignment Protocol generated from core/
 alwaysApply: true
@@ -237,17 +246,8 @@ notice: Do not edit dist/ manually
 
 Generated from core/. Do not edit dist/ manually.
 
-Use this rule as the Cursor adapter for the Agent Intent Alignment Protocol. Apply it before executing user requests when the request is vague, high-risk, cross-file, or explicitly asks to optimize or structure a prompt.
-
-## Generated References
-
-{{REFERENCE_LIST}}
-## Core Protocol
-
-{{PROTOCOL_CONTENT}}
-'@
-
-    return $Template.Replace('{{REFERENCE_LIST}}', $ReferenceList).Replace('{{PROTOCOL_CONTENT}}', $ProtocolContent.TrimEnd("`n"))
+$SourceContent
+"@
 }
 
 function New-OpenAiYaml {
@@ -265,28 +265,43 @@ policy:
 
 function New-AlignInitSkill {
     $SourceContent = Read-TextFile (Join-Path $AlignInitSkillRoot 'SKILL.md')
-    return @"
-<!--
-Generated from core/skills/align-init/SKILL.md
-Generated from core/
-Do not edit dist/ manually
--->
-
-$SourceContent
-"@
+    return $SourceContent
 }
 
 function New-LiteSkill {
     $SourceContent = Read-TextFile (Join-Path $LiteSkillRoot 'SKILL.md')
-    return @"
-<!--
-Generated from core/skills/optimize-prompt-lite/SKILL.md
-Generated from core/
-Do not edit dist/ manually
--->
+    return $SourceContent
+}
 
-$SourceContent
-"@
+function New-OptimizeSkill {
+    $SourceContent = Read-TextFile (Join-Path $OptimizeSkillRoot 'SKILL.md')
+    return $SourceContent
+}
+
+function New-ProtocolBranch {
+    param([string]$BranchName, [string]$WhenToRead, [string]$Outcome, [string[]]$ProtocolFiles)
+    $Sections = @()
+    foreach ($ProtocolFile in $ProtocolFiles) {
+        $Content = Read-TextFile (Join-Path $ProtocolRoot $ProtocolFile)
+        $Sections += "<!-- source: core/protocol/$ProtocolFile -->`n`n" + $Content.TrimEnd("`n")
+    }
+    $Body = $Sections -join "`n`n---`n`n"
+    return "<!--`nGenerated from core/protocol/ for branch: $BranchName`nGenerated from core/`nDo not edit dist/ manually`n-->`n`n# Protocol Branch: $BranchName`n`nWhen to read: $WhenToRead`n`nRequired outcome: $Outcome`n`n$Body"
+}
+
+function Write-ProtocolBranches {
+    param([string]$DestinationRoot)
+    $Branches = @(
+        @('protocol-intent.md', 'Intent', 'When the goal is ambiguous, an XY problem is suspected, or D1-D5 diagnosis is required.', 'Identify the real goal, claims, missing information, and confidence.', @('00-positioning.md', '01-intent-probe.md', '02-diagnosis.md')),
+        @('protocol-routing.md', 'Routing', 'When routes conflict, risk is present, or clarify must be distinguished from block.', 'Produce one route, canonical reasons, and the next action.', @('03-routing.md')),
+        @('protocol-contract.md', 'Contract', 'For explicit optimization, enrich, complex, or cross-module work.', 'Produce an Agent Brief, decidable acceptance, and contract review.', @('04-transform-rules.md', '05-contract-check.md')),
+        @('protocol-verification.md', 'Verification', 'For baseline checks or completion verification after an execution receipt.', 'Separate the verification plan from completion evidence and report actual results.', @('06-lifecycle-gates.md')),
+        @('protocol-precipitation.md', 'Precipitation', 'When a correction, lesson, convention, or hard-to-reverse decision appears.', 'Write to the correct store; produce nothing when no signal exists.', @('07-precipitation.md'))
+    )
+    foreach ($Branch in $Branches) {
+        $Content = New-ProtocolBranch -BranchName $Branch[1] -WhenToRead $Branch[2] -Outcome $Branch[3] -ProtocolFiles $Branch[4]
+        Write-GeneratedFile -Path (Join-Path $DestinationRoot $Branch[0]) -Content $Content
+    }
 }
 
 function Copy-SpecKit {
@@ -369,6 +384,7 @@ $SourceContent
 Assert-Directory $ProtocolRoot
 Assert-Directory $TemplatesRoot
 Assert-Directory $AlignInitSkillRoot
+Assert-Directory $OptimizeSkillRoot
 Assert-Directory $LiteSkillRoot
 Assert-Directory $SpecKitRoot
 Assert-Directory $HostRoot
@@ -377,8 +393,8 @@ $ProtocolContent = Get-ProtocolContent
 $ReferenceList = Get-ReferenceList
 
 Write-GeneratedFile -Path (Join-Path $DistRoot 'universal/SYSTEM-PROMPT.md') -Content (New-UniversalPrompt -ProtocolContent $ProtocolContent -ReferenceList $ReferenceList)
-Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/optimize-prompt/SKILL.md') -Content (New-SkillContent -HostName 'Claude Code' -ProtocolContent $ProtocolContent -ReferenceList $ReferenceList)
-Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/optimize-prompt/SKILL.md') -Content (New-SkillContent -HostName 'Codex' -ProtocolContent $ProtocolContent -ReferenceList $ReferenceList)
+Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/optimize-prompt/SKILL.md') -Content (New-OptimizeSkill)
+Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/optimize-prompt/SKILL.md') -Content (New-OptimizeSkill)
 Write-GeneratedFile -Path (Join-Path $DistRoot 'cursor/rules/align.mdc') -Content (New-CursorRule -ProtocolContent $ProtocolContent -ReferenceList $ReferenceList)
 Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/optimize-prompt/agents/openai.yaml') -Content (New-OpenAiYaml)
 Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/optimize-prompt/agents/openai.yaml') -Content (New-OpenAiYaml)
@@ -395,6 +411,11 @@ Copy-References -DestinationRoot (Join-Path $DistRoot 'universal/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'claude-code/optimize-prompt/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'codex/optimize-prompt/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'cursor/references')
+
+Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'universal/references')
+Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'claude-code/optimize-prompt/references')
+Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'codex/optimize-prompt/references')
+Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'cursor/references')
 
 Copy-References -DestinationRoot (Join-Path $DistRoot 'claude-code/align-init/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'codex/align-init/references')
@@ -414,12 +435,44 @@ Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/hooks/project-settin
 
 # ── TypeScript Pipeline Compilation ──
 Write-Host "Building TypeScript pipeline..."
-if (Get-Command node -ErrorAction SilentlyContinue) {
+if ((Get-Command $NodeCommand -ErrorAction SilentlyContinue) -and (Get-Command $NpmCommand -ErrorAction SilentlyContinue)) {
+  $RuntimeDist = Join-Path $DistRoot 'runtime'
+  if (Test-Path -LiteralPath $RuntimeDist -PathType Container) {
+    if ($PSCmdlet.ShouldProcess($RuntimeDist, 'Remove generated runtime directory')) {
+      Remove-Item -LiteralPath $RuntimeDist -Recurse -Force
+    }
+  }
   Push-Location "$RepoRoot\core\host\pipeline"
-  npm install
-  npm run build
+  & $NpmCommand install
+  & $NpmCommand run build
   Pop-Location
+  $PipelineDist = Join-Path $HostRoot 'pipeline\dist'
+  Get-ChildItem -LiteralPath $PipelineDist -Recurse -File | Where-Object {
+    $_.Name.EndsWith('.js') -or $_.Name.EndsWith('.d.ts')
+  } | ForEach-Object {
+    $relative = $_.FullName.Substring($PipelineDist.Length).TrimStart('\', '/')
+    $sourceContent = Read-TextFile $_.FullName
+    $header = "// Generated from core/host/pipeline/src/`n// Generated from core/`n// Do not edit dist/ manually`n"
+    if ($sourceContent.StartsWith('#!')) {
+      $newline = $sourceContent.IndexOf("`n")
+      $content = $sourceContent.Substring(0, $newline + 1) + $header + $sourceContent.Substring($newline + 1)
+    } else {
+      $content = $header + $sourceContent
+    }
+    Write-GeneratedFile -Path (Join-Path $DistRoot "runtime\runtime\$relative") -Content $content
+  }
   Write-Host "TypeScript pipeline built successfully"
 } else {
-  Write-Host "Warning: Node.js not found, skipping TypeScript pipeline build"
+  if ((-not $WhatIfPreference) -and (-not (Test-Path -LiteralPath (Join-Path $DistRoot 'runtime/runtime/index.js') -PathType Leaf))) {
+    throw 'Node.js is not available and no generated structured runtime exists.'
+  }
+  Write-Host "Warning: Node.js/npm not found; preserving the existing generated structured runtime"
 }
+
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/runtime/shell/align-route.sh') -Content (Read-TextFile (Join-Path $HostRoot 'align-route.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/adapters/claude-code.sh') -Content (Read-TextFile (Join-Path $HostRoot 'pipeline/adapters/hook/claude-code.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/adapters/codex.sh') -Content (Read-TextFile (Join-Path $HostRoot 'pipeline/adapters/cli/codex.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/bin/align-doctor') -Content (Read-TextFile (Join-Path $HostRoot 'doctor.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/bin/align-cli') -Content (Read-TextFile (Join-Path $HostRoot 'align-cli.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/install-plan.tsv') -Content (Read-TextFile (Join-Path $RepoRoot 'core/distribution/install-plan.tsv'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/.prompt-optimizer-owned') -Content (Read-TextFile (Join-Path $RepoRoot 'core/distribution/OWNERSHIP'))

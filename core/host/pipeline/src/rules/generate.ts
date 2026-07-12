@@ -37,7 +37,7 @@ Every instruction is classified into one of three tiers:
 
 ## Required Behavior
 
-1. ALWAYS read .align/lessons.md, .align/spec.md, .align/context.md before executing
+1. ALWAYS read .align/lessons.md and .align/spec.md, then facts/glossary/state; while any classified file is missing, also read legacy context.md
 2. ALWAYS classify instructions into HIGH/VAGUE/CLEAR
 3. ALWAYS follow the routing protocol for each tier
 4. NEVER skip verification after completion

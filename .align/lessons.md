@@ -29,3 +29,10 @@
 - [R8 具体化] 规则：验证提醒读 check-commands.txt 实际命令 → 下次执行：改 CLEAR 输出时验证 check-commands 读取链路
 - [自举同步] 规则：core/host/ 升级 route/check 脚本后 .align/ 副本不自动同步 → 下次执行：改 core/host/align-route.sh 后重跑 align-init 或 cp 同步 .align/，否则本项目自身路由跑旧版
 - [PS 脚本编码] 规则：含非 ASCII（中文注释/box-drawing）的 .ps1 源文件必须存为 UTF-8 BOM → 下次执行：PS 5.1 把无 BOM 文件按 ANSI 解析致 parse error；仅 settings.json 等 JSON 产物保持无 BOM（见上条）
+- [高成本评测] 规则：禁止无意义轮询、重复真实模型调用或无边界追加子代理 → 下次执行：优先一次性本地验证，付费实测只在用户明确批准的范围内运行
+- [runtime 证据哈希] 规则：只哈希入口文件无法感知被导入模块变化 → 下次执行：评测证据按稳定排序哈希整个 runtime JS bundle
+- [consumed corpus] 规则：修复后可复用已消费语料做 regression，但不得重标为 held-out 或 fresh blind evidence → 下次执行：保留旧 gate 并单独命名 remediation
+- [hook 空 prompt] 规则：metadata-only 或畸形 JSON 的空 prompt 不应注入路由或 lessons → 下次执行：hook 解析为空时静默退出，并跑 verify-router-input.sh
+- [handoff 请求定位] 规则：公共 decision 的 claims 顺序不构成契约 → 下次执行：按 `user + request:text` source ref 找原始请求，再回退到首个 fact
+- [英文关键词路由] 规则：裸子串会把 `preview` 误判为 `review` → 下次执行：英文技能关键词使用词边界，并添加包含关系反例
+- [生成产物提交] 规则：本地 build 通过不代表新增 `dist/` 文件可被 Git 收录 → 下次执行：分发 gate 检查 ignored 未跟踪产物，提交前核对 `git status --ignored dist`

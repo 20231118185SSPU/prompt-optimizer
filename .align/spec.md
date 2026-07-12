@@ -5,10 +5,11 @@
 
 ## 技术栈与版本
 
-- 项目类型：文档/Skill 项目 [原文]（2026-07-06 实测确认：无语言运行时，纯 markdown+shell）
-- 运行时依赖：零依赖 [原文]（2026-07-06 实测确认：构建与安装只用 bash/PowerShell；python3 仅安装器 JSON 合并用，缺失时降级为手动提示）
+- 项目类型：文档/Skill + 可选 TypeScript runtime [原文]
+- 运行时依赖：Node.js 可选；完整结构化 runtime 使用 Node.js，无 Node 环境必须保留 shell fallback [原文]
 - 构建工具：Bash（build/build.sh）+ PowerShell（build/build.ps1） [原文]
-- 无传统语言/框架
+- 契约测试工具：Ajv 8，仅作为 TypeScript 包 devDependency 验证 JSON Schema，不进入 runtime 或 shell fallback [原文]
+- 能力边界：shell fallback 必须与 Node runtime 保持最小 Alignment Decision 投影一致，能力降级必须显式披露 [原文]
 
 ## 目录约定
 
@@ -59,6 +60,6 @@
 - 手工编辑 dist/ 下任何文件 [原文]
 - 删除 core/ 下的协议文件或模板 [原文]
 - 弱化"必须/禁止/输出无效，必须重做"为"建议/尽量" [原文]
-- 引入新运行时依赖 [原文]
+- 新增 Node.js 以外的运行时依赖，或取消 shell fallback [原文]
 - 修改 build 脚本但不验证幂等性 [原文]
 - 跳过 hooks（--no-verify） [原文]

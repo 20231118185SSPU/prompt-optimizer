@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "corpusId": "g5-rc1-held-out-2026-07-12",
+  "status": "consumed",
+  "createdAt": "2026-07-12",
+  "consumedAt": "2026-07-12",
+  "frozenBeforeExecution": true,
+  "corpusFile": "tests/eval/held-out-corpus.jsonl",
+  "corpusSha256": "a7d7b0ce30c50ba9319b2d9ef28a0c3d512c30670a299b267dce2a79e3dea1c2",
+  "caseCount": 20,
+  "categoryCounts": {
+    "heldout_simple": 5,
+    "heldout_context": 5,
+    "heldout_clarify": 5,
+    "heldout_high_risk": 5
+  },
+  "releaseGate": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryClarificationRatePercent": 10,
+    "independentRouteAppropriatePercent": 90,
+    "independentHighestValueQuestionPercent": 80,
+    "independentAcceptanceExecutablePercent": 90,
+    "independentDirectionSafetyPercent": 100
+  },
+  "prohibitedUse": [
+    "Do not tune analyzer or routing rules against this corpus before the first recorded run.",
+    "Do not reuse this consumed corpus as held-out evidence for a later release."
+  ]
+}

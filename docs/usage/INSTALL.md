@@ -1,6 +1,6 @@
 # 安装说明
 
-> 本项目没有运行时依赖。所谓“安装”，本质是把这套意图对齐协议接入你正在使用的 AI 工具。
+> 安装器会同时安装 skills、shell fallback 和可选 Node.js 结构化 runtime。没有 Node.js 时仍可使用 shell 路由，但能力会明确降级。
 
 推荐只看第一种方式。其他方式是为不支持 skills 的工具准备的。
 
@@ -19,6 +19,13 @@
 - agents-style 工具：`~/.agents/skills`
 
 安装后可以用 `$optimize-prompt` 或 `/optimize-prompt` 调用意图对齐器，用 `/align-init` 接入项目。
+
+runtime 安装到 `~/.prompt-optimizer/`：
+
+- `bin/align-doctor`：检查 Node、runtime、项目 router 副本和宿主能力等级。
+- `bin/align-cli`：结构化 Alignment Decision 与可选生态 handoff CLI，需要 Node.js。
+- `adapters/claude-code.sh`：Claude Code L3 Native Hook adapter。
+- `adapters/codex.sh`：Codex L2 CLI wrapper；无 Node 时输出显式降级的 shell 投影。
 
 ### Windows PowerShell
 
@@ -68,10 +75,20 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 - Claude Code：来自 [dist/claude-code/](../../dist/claude-code/)
 - `~/.agents/skills`：来自 [dist/claude-code/](../../dist/claude-code/)，因为 agents-style 工具消费 Claude-compatible skill layout
 
-每个 adapter 都包含两个自包含 skill 包：
+每个 adapter 都包含三个自包含 skill 包：
 
 - `optimize-prompt/`：意图对齐器，内置方法论和模板引用
 - `align-init/`：项目接入器，内置扫描协议、访谈决策树和规范章节库
+- `optimize-prompt-lite/`：无 hook 或弱模型宿主的轻量协议
+
+### 宿主能力等级
+
+| 宿主 | 等级 | 入口约束 | 阻断 | Completion |
+| --- | --- | --- | --- | --- |
+| Claude Code | L3 Native Hook | enforced | enforced | self-reported |
+| Codex | L2 CLI wrapper / instruction-backed | enforced | advisory | unavailable |
+
+Codex 不具备 Claude Code 的 native hook parity。禁止把 L2 描述为强制阻断。
 
 ### 预览和版本
 
@@ -131,7 +148,7 @@ bash scripts/install-skill.sh --uninstall
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1 -Uninstall
 ```
 
-默认卸载会覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录，只移除 `optimize-prompt/` 和 `align-init/` 两个 skill 目录，不触碰其他 skill。`.align/` 目录保留（用户可能还想保留项目规范和经验）。
+默认卸载会覆盖 Codex、Claude Code、`~/.agents` 三个 skills 目录，只移除本项目的三个 skill 和 `~/.prompt-optimizer/` runtime，不触碰其他 skill。项目内 `.align/` 目录保留。
 
 **升级 skill**（重新安装最新版）：
 
@@ -257,6 +274,14 @@ git clone https://github.com/20231118185SSPU/prompt-optimizer.git
 - [META.md](../../core/templates/META.md)：总结解释教学
 
 ## 验证是否安装成功
+
+先运行 doctor：
+
+```bash
+bash ~/.prompt-optimizer/bin/align-doctor
+```
+
+`Structured runtime: installed` 表示 runtime 已安装；`Node.js: missing` 表示当前使用 shell fallback，不得视为完整结构化 runtime。
 
 用下面这句话测试：
 

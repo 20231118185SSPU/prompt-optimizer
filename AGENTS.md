@@ -75,6 +75,8 @@ prompt-optimizer/
 - `README.md`：项目入口
 - `AGENTS.md`：开发规范（本文件）
 - `CHANGELOG.md`：变更日志（例外，随版本更新）
+- `LICENSE`：开源许可证（例外，随发布策略更新）
+- `SECURITY.md`：安全报告与支持边界（例外，随发布策略更新）
 - `CLAUDE.md`：align-init 自举生成的挂载区（运行时产物，非手写）
 
 开发文档必须放入 `docs/`，按类型分类：
@@ -344,5 +346,4 @@ bash -n scripts/install-skill.sh
 
 硬性红线：高风险静默假设 = 无效输出；交付前不验证 = 无效输出。
 <!-- align-protocol:end -->
-
 

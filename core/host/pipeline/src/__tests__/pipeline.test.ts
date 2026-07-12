@@ -53,10 +53,7 @@ describe('processInstruction', () => {
     expect(result.context.lessons).toContain('Always check types');
     expect(result.context.spec).toContain('TypeScript strict mode');
     expect(result.verificationCommands).toContain('echo "test passed"');
-    expect(result.verificationResults).toHaveLength(1);
-    expect(result.verificationResults[0].command).toBe('echo "test passed"');
-    expect(result.verificationResults[0].success).toBe(true);
-    expect(result.verificationResults[0].output).toContain('test passed');
+    expect(result.presentationMode).toBe('default');
   });
 
   // ── Vague instruction ──
@@ -85,44 +82,41 @@ describe('processInstruction', () => {
     expect(result.instructions).toContain('HIGH');
   });
 
-  // ── Bypass with [直出] prefix ──
-  it('bypasses with [直出] prefix', () => {
+  // ── Direct output changes presentation only ──
+  it('keeps [直出] inside the alignment pipeline', () => {
     const result = processInstruction(
       '[直出] 这是一个简单的修改',
       tmpDir
     );
 
-    expect(result.verdict).toBe('BYPASS');
-    expect(result.instructions).toContain('[直出]');
-    expect(result.enrichedMessage).toBe('[直出] 这是一个简单的修改');
-    expect(result.context.lessons).toBe('');
-    expect(result.context.spec).toBe('');
-    expect(result.verificationCommands).toEqual([]);
+    expect(result.verdict).toBe('CLEAR');
+    expect(result.presentationMode).toBe('direct_output');
+    expect(result.enrichedMessage).toContain('[直出] 这是一个简单的修改');
+    expect(result.context.lessons).toContain('Always check types');
+    expect(result.verificationCommands).toContain('echo "test passed"');
   });
 
-  // ── Bypass with 直出 prefix (no brackets) ──
-  it('bypasses with 直出 prefix without brackets', () => {
+  it('keeps direct output requests subject to clarification', () => {
     const result = processInstruction(
       '直出 写个 README',
       tmpDir
     );
 
-    expect(result.verdict).toBe('BYPASS');
-    expect(result.instructions).toContain('[直出]');
-    expect(result.enrichedMessage).toBe('直出 写个 README');
+    expect(result.verdict).toBe('VAGUE');
+    expect(result.presentationMode).toBe('direct_output');
+    expect(result.enrichedMessage).toContain('直出 写个 README');
   });
 
-  // ── Bypass with options.bypass flag ──
-  it('bypasses when options.bypass is true', () => {
+  it('does not let the legacy bypass option skip high-risk analysis', () => {
     const result = processInstruction(
       '删除所有文件',
       tmpDir,
       { bypass: true }
     );
 
-    expect(result.verdict).toBe('BYPASS');
-    expect(result.instructions).toContain('[直出]');
-    expect(result.enrichedMessage).toBe('删除所有文件');
+    expect(result.verdict).toBe('HIGH');
+    expect(result.presentationMode).toBe('direct_output');
+    expect(result.enrichedMessage).toContain('删除所有文件');
   });
 
   // ── Enrich message with .align/ context ──
@@ -173,9 +167,20 @@ describe('processInstruction', () => {
     );
 
     expect(result.verificationCommands).toEqual(['echo "test passed"']);
-    expect(result.verificationResults).toHaveLength(1);
-    expect(result.verificationResults[0].command).toBe('echo "test passed"');
-    expect(result.verificationResults[0].success).toBe(true);
+  });
+
+  it('does not execute completion verification during intake', () => {
+    const markerPath = path.join(tmpDir, 'verification-ran.txt');
+    fs.writeFileSync(
+      path.join(tmpDir, '.align', 'check-commands.txt'),
+      `node -e "require('fs').writeFileSync('${markerPath.replace(/\\/g, '\\\\')}', 'ran')"\n`,
+      'utf-8'
+    );
+
+    const result = processInstruction('修改 src/index.ts', tmpDir);
+
+    expect(result.verificationCommands).toHaveLength(1);
+    expect(fs.existsSync(markerPath)).toBe(false);
   });
 
   // ── GRAY verdict (risk + edu) ──
@@ -200,7 +205,9 @@ describe('processInstruction', () => {
     expect(result).toHaveProperty('enrichedMessage');
     expect(result).toHaveProperty('context');
     expect(result).toHaveProperty('verificationCommands');
-    expect(result).toHaveProperty('verificationResults');
+    expect(result).toHaveProperty('presentationMode');
+    expect(result).not.toHaveProperty('handoff');
+    expect(result).not.toHaveProperty('verificationResults');
 
     // Verify types
     expect(typeof result.verdict).toBe('string');
@@ -208,6 +215,45 @@ describe('processInstruction', () => {
     expect(typeof result.enrichedMessage).toBe('string');
     expect(typeof result.context).toBe('object');
     expect(Array.isArray(result.verificationCommands)).toBe(true);
-    expect(Array.isArray(result.verificationResults)).toBe(true);
+    expect(['default', 'direct_output']).toContain(result.presentationMode);
+  });
+
+  it('adds a Matt handoff only when the ecosystem is explicitly requested', () => {
+    const skillDir = path.join(tmpDir, '.agents', 'skills', 'implement');
+    const setupDir = path.join(tmpDir, 'docs', 'agents');
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.mkdirSync(setupDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# Implement\n', 'utf-8');
+    for (const file of ['issue-tracker.md', 'triage-labels.md', 'domain.md']) {
+      fs.writeFileSync(path.join(setupDir, file), `# ${file}\n`, 'utf-8');
+    }
+
+    const instruction = '只修改 src/parser.ts 中的解析逻辑，不改 public API；实现后运行 npm test -- parser。';
+    const plain = processInstruction(instruction, tmpDir);
+    const withMatt = processInstruction(instruction, tmpDir, {
+      ecosystem: 'matt-pocock-skills'
+    });
+
+    expect(plain).not.toHaveProperty('handoff');
+    expect(withMatt.handoff).toEqual(expect.objectContaining({
+      status: 'ready',
+      selectedSkill: 'implement',
+      invocation: '/implement',
+      automatic: false
+    }));
+  });
+
+  it('does not let a Matt handoff bypass clarification', () => {
+    const result = processInstruction('优化一下这个项目', tmpDir, {
+      ecosystem: 'matt-pocock-skills'
+    });
+
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(result.handoff).toEqual(expect.objectContaining({
+      status: 'deferred',
+      selectedSkill: null,
+      invocation: null,
+      automatic: false
+    }));
   });
 });

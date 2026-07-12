@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" || cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" 2>/dev/null || printf '%s\\n' '[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。'"
+            "command": "if [ -f \"$HOME/.prompt-optimizer/adapters/claude-code.sh\" ]; then BLOCK_ON_HIGH=on bash \"$HOME/.prompt-optimizer/adapters/claude-code.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" ]; then bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" ]; then cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\"; else printf \"%s\\n\" \"[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。\"; fi"
           }
         ]
       }

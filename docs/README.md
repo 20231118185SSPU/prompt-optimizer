@@ -7,21 +7,30 @@
 ## 核心来源
 
 - [`core/protocol/`](../core/protocol/)：协议内核 00-07（定位、意图探查、诊断、路由、转换规则、契约回验、生命周期门、沉淀）。
-- [`core/templates/`](../core/templates/)：14 个模板（含 4 个 ALIGN 模板，唯一来源）。
+- [`core/contracts/`](../core/contracts/)：Alignment Decision schema、reason registry、生命周期契约、上下文分类与 golden corpus（公共机器契约 SSOT）。
+- [`core/templates/`](../core/templates/)：17 个模板（含 7 个 ALIGN 模板，唯一来源）。
 - [`dist/universal/SYSTEM-PROMPT.md`](../dist/universal/SYSTEM-PROMPT.md)：可复制到其他 AI 工具中的 System Prompt（构建产物）。
 
 ## 使用文档
 
 - [INSTALL.md](usage/INSTALL.md)：安装方式、预览、版本、卸载和升级。
-- [USAGE.md](usage/USAGE.md)：v3.0 日常使用——接入项目、三档路由、显式模式、.align/ 运行时、五门。
+- [USAGE.md](usage/USAGE.md)：v3.2 日常使用——接入项目、三档路由、显式模式、.align/ 运行时、五门与可选生态 handoff。
 - [MIGRATION.md](usage/MIGRATION.md)：v2 用户迁移指南——新旧能力对照、迁移步骤、常见问题。
+- [`SECURITY.md`](../SECURITY.md)：支持范围、私密漏洞报告与敏感信息规则。
 
 ## 参考文档
 
 - [REFERENCE-DIGEST.md](reference/REFERENCE-DIGEST.md)：外部参考内容的吸收、取舍和后续改进方向。
+- [ECOSYSTEM-COMPARISON.md](reference/ECOSYSTEM-COMPARISON.md)：与 OpenSpec、Superpowers、ECC、Matt Pocock Skills 的定位、机制、成熟度和可借鉴项对比。
 
 ## 规划文档
 
+- [MULTI-AGENT-IMPROVEMENT-PLAN.md](planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：基于主代理 + 子代理协作的完整改进规划，包含 Agent Brief、目标架构、执行波次、依赖、验收门和启动模板。
+- [MULTI-AGENT-BASELINE.md](planning/MULTI-AGENT-BASELINE.md)：波次 0 可信基线，记录 Git/版本面、协议差异、Runtime/分发能力等级、测试证据和 blocker 清单。
+- [MULTI-AGENT-G1-CONTRACT-FREEZE.md](planning/MULTI-AGENT-G1-CONTRACT-FREEZE.md)：G1 公共 schema、route/reason、生命周期和上下文分类冻结报告。
+- [MULTI-AGENT-G4-PROTOCOL-AUDIT.md](planning/MULTI-AGENT-G4-PROTOCOL-AUDIT.md)：G4 协议 duplication/no-op/sediment/sprawl 审计、SSOT 映射和 Universal 范围决策。
+- [MULTI-AGENT-G5-EVALUATION-REPORT.md](planning/MULTI-AGENT-G5-EVALUATION-REPORT.md)：G5 冻结语料、独立盲评、修复后 regression、真实模型 pilot 与关闭口径。
+- [MULTI-AGENT-G6-MATT-HANDOFF.md](planning/MULTI-AGENT-G6-MATT-HANDOFF.md)：G6 Matt Pocock Skills 独立 envelope、映射、setup 发现、CLI 和 gate 证据。
 - [BENCHMARK.md](planning/BENCHMARK.md)：P3 回测基准，记录 10 个真实指令的路由、澄清和验收推演。含 P0 SSOT 重构后回归验证报告（10/10 一致）。
 - [BENCHMARK-V3.md](planning/BENCHMARK-V3.md)：v3.0 全量回测报告，18 case（10 v2 + 8 v3）逐个推演，三个卡顿指标逐项验收，18/18 通过。
 - [BENCHMARK-V3-DRAFT.md](planning/BENCHMARK-V3-DRAFT.md)：历史草案，仅保留 P1-4 的 8 个新增 case 设计背景；完成态以 `BENCHMARK-V3.md` 为准。

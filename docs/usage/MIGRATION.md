@@ -29,7 +29,7 @@
 ### 3. 项目状态：从"冷启动"到"持久化"
 
 - **v2**：每次都是冷启动，没有项目规范和经验积累。
-- **v3**：`/align-init` 生成 `.align/` 运行时（spec.md + context.md + lessons.md + decisions.log.md），随 git 提交，团队和所有 agent 共享。越用越懂项目。
+- **v3**：`/align-init` 生成 `.align/` 分类运行时（spec/facts/glossary/state/lessons/decisions）并保留 `context.md` 兼容投影，随 git 提交，团队和所有 agent 共享。
 
 ### 4. 内容维护：从"手工同步"到"SSOT 构建"
 
@@ -71,6 +71,26 @@ v3 安装三个 skill：`optimize-prompt`（升级版）、`align-init`（新增
 `align-init` 会扫描项目生成 `.align/` 运行时，并注入挂载区到 CLAUDE.md/AGENTS.md。
 
 如果已有 CLAUDE.md/AGENTS.md，挂载区会追加到末尾，**不覆盖已有内容**。
+
+#### context 分类迁移矩阵
+
+| 升级前状态 | `/align-init --upgrade` 行为 | loader 行为 |
+| --- | --- | --- |
+| 只有 `context.md` | 分类生成 facts/glossary/state，无法判定的条目必须人工确认；三个文件一次性落盘 | 三文件落盘前继续读取 legacy context |
+| 只有 facts/glossary/state | 保持分类文件不变，生成带 digest 的 `context.md` 兼容投影 | 只读取分类 SSOT |
+| 两套内容一致 | digest 匹配时不重写分类文件，可重复安全运行 | 只读取分类 SSOT，避免重复注入 |
+| 两套内容分歧 | 禁止覆盖任一侧；报告 divergent projection，显式合并后再生成投影 | 三个分类文件齐全时以分类 SSOT 为准 |
+| 只有部分分类文件 | 补齐缺失分类前不得宣告迁移完成 | 同时读取已有分类文件和 legacy context，避免内容丢失 |
+
+回滚 minor 版本时必须保留 `context.md` 兼容投影。只有 major 版本、迁移工具、弃用提示和 old-only 回归全部齐全时，才允许移除 legacy 文件。
+
+分类文件确认无误后生成兼容投影：
+
+```bash
+align-cli context-project write --project-dir .
+```
+
+如果现有 `context.md` 没有 projection digest，命令会拒绝覆盖。人工完成分类和内容复核后，首次迁移可显式执行 `align-cli context-project --force --project-dir .`。后续重复运行是幂等的；检测到投影被手工修改时会再次拒绝覆盖。
 
 ### 步骤 3：习惯静默对齐
 

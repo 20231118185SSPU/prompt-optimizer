@@ -140,24 +140,22 @@ describe('Integration Tests — real .align/ directory', () => {
     });
   });
 
-  // ── Full pipeline (bypass only, to avoid slow verification execution) ──
+  // ── Full pipeline intake does not execute completion verification ──
 
-  describe('pipeline bypass', () => {
-    test('[直出] prefix → BYPASS verdict', () => {
+  describe('pipeline direct presentation', () => {
+    test('[直出] prefix keeps routing active', () => {
       const result = processInstruction('[直出] 简单修改', realProjectDir);
 
-      expect(result.verdict).toBe('BYPASS');
-      expect(result.instructions).toContain('[直出]');
-      expect(result.enrichedMessage).toBe('[直出] 简单修改');
-      expect(result.context.lessons).toBe('');
-      expect(result.verificationCommands).toEqual([]);
+      expect(result.verdict).not.toBe('BYPASS');
+      expect(result.presentationMode).toBe('direct_output');
+      expect(result.context.lessons).toBeTruthy();
     });
 
-    test('options.bypass → BYPASS verdict', () => {
+    test('legacy bypass option cannot skip high-risk routing', () => {
       const result = processInstruction('删除所有文件', realProjectDir, { bypass: true });
 
-      expect(result.verdict).toBe('BYPASS');
-      expect(result.instructions).toContain('[直出]');
+      expect(result.verdict).toBe('HIGH');
+      expect(result.presentationMode).toBe('direct_output');
     });
   });
 });

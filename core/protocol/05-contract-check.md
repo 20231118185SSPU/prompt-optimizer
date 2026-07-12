@@ -1,6 +1,7 @@
 # 契约回验与防退化机制
 
 > 协议内核 SSOT 文件。内容由 `build/` 脚本生成到 `dist/`，禁止手改 `dist/`。
+> 硬门槛数值与 route 组合的机器规范唯一来源是 `core/contracts/decision-policy.json`；本文件是中文执行投影，冲突时以机器规范为准，修改时必须同步契约测试。
 
 ## 4.6 共识快照（Consensus Snapshot）
 

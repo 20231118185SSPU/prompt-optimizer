@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-optimizer.dev/contracts/lifecycle-event/1.0.0",
+  "title": "Alignment Lifecycle Event v1",
+  "oneOf": [
+    { "$ref": "#/$defs/baselineReport" },
+    { "$ref": "#/$defs/executionHandoff" },
+    { "$ref": "#/$defs/executionReceipt" },
+    { "$ref": "#/$defs/completionReport" },
+    { "$ref": "#/$defs/precipitationReceipt" }
+  ],
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "required": ["schemaVersion", "requestId", "decisionId", "runId", "revision"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "runId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "revision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": { "enum": ["local", "artifact", "command", "manual", "external"] },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "baselineObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conditionId", "status", "evidenceRefs"],
+      "properties": {
+        "conditionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "enum": ["satisfied", "failed", "not_observed"] },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceRef" }
+        }
+      }
+    },
+    "completionCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acceptanceId", "status", "evidenceRefs"],
+      "properties": {
+        "acceptanceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "enum": ["passed", "failed", "not_observed"] },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceRef" }
+        }
+      }
+    },
+    "baselineReport": {
+      "allOf": [
+        { "$ref": "#/$defs/identity" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion", "requestId", "decisionId", "runId", "revision",
+            "kind", "phase", "status", "reasons", "observations"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "runId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "revision": { "type": "integer", "minimum": 0 },
+            "kind": { "const": "alignment.baseline-report" },
+            "phase": { "const": "baseline" },
+            "status": { "enum": ["passed", "failed", "incomplete"] },
+            "reasons": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
+            },
+            "observations": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/baselineObservation" }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "status": { "const": "failed" } }, "required": ["status"] },
+              "then": { "properties": { "reasons": { "type": "array", "contains": { "const": "lifecycle.baseline_failed" } } } }
+            },
+            {
+              "if": { "properties": { "status": { "const": "passed" } }, "required": ["status"] },
+              "then": { "properties": { "reasons": { "type": "array", "maxItems": 0 } } }
+            }
+          ]
+        }
+      ]
+    },
+    "executionReceipt": {
+      "allOf": [
+        { "$ref": "#/$defs/identity" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion", "requestId", "decisionId", "runId", "revision",
+            "kind", "phase", "handoffId", "status", "executionRef"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "runId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "revision": { "type": "integer", "minimum": 0 },
+            "kind": { "const": "alignment.execution-receipt" },
+            "phase": { "const": "execution" },
+            "handoffId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "status": { "enum": ["completed", "failed", "cancelled"] },
+            "executionRef": { "type": "string", "minLength": 1, "maxLength": 1000 }
+          }
+        }
+      ]
+    },
+    "executionHandoff": {
+      "allOf": [
+        { "$ref": "#/$defs/identity" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion", "requestId", "decisionId", "runId", "revision",
+            "kind", "phase", "handoffId", "baselineReportRef", "acceptancePlanRef", "scopeFingerprint"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "runId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "revision": { "type": "integer", "minimum": 0 },
+            "kind": { "const": "alignment.execution-handoff" },
+            "phase": { "const": "handoff" },
+            "handoffId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "baselineReportRef": { "type": "string", "minLength": 1, "maxLength": 1000 },
+            "acceptancePlanRef": { "type": "string", "minLength": 1, "maxLength": 1000 },
+            "scopeFingerprint": { "type": "string", "minLength": 1, "maxLength": 256 }
+          }
+        }
+      ]
+    },
+    "completionReport": {
+      "allOf": [
+        { "$ref": "#/$defs/identity" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion", "requestId", "decisionId", "runId", "revision",
+            "kind", "phase", "executionRef", "status", "reasons", "checks"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "runId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "revision": { "type": "integer", "minimum": 0 },
+            "kind": { "const": "alignment.completion-report" },
+            "phase": { "const": "completion" },
+            "executionRef": { "type": "string", "minLength": 1, "maxLength": 1000 },
+            "status": { "enum": ["verified", "verification_failed", "verification_inconclusive"] },
+            "reasons": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/completionCheck" }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "status": { "const": "verification_failed" } }, "required": ["status"] },
+              "then": { "properties": { "reasons": { "type": "array", "contains": { "const": "lifecycle.completion_failed" } } } }
+            },
+            {
+              "if": { "properties": { "status": { "const": "verified" } }, "required": ["status"] },
+              "then": { "properties": { "reasons": { "type": "array", "maxItems": 0 } } }
+            }
+          ]
+        }
+      ]
+    },
+    "precipitationReceipt": {
+      "allOf": [
+        { "$ref": "#/$defs/identity" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion", "requestId", "decisionId", "runId", "revision",
+            "kind", "phase", "status", "refs"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "requestId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "decisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "runId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "revision": { "type": "integer", "minimum": 0 },
+            "kind": { "const": "alignment.precipitation-receipt" },
+            "phase": { "const": "precipitation" },
+            "status": { "enum": ["recorded", "warning", "skipped"] },
+            "refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "held-out-release-gate",
+  "corpusId": "g5-rc1-held-out-2026-07-12",
+  "corpusSha256": "a7d7b0ce30c50ba9319b2d9ef28a0c3d512c30670a299b267dce2a79e3dea1c2",
+  "deterministic": {
+    "total": 20,
+    "routeCorrect": 15,
+    "highRiskMissRatePercent": 0,
+    "unnecessaryClarificationRatePercent": 20,
+    "routeFailures": [
+      "HOS02",
+      "HOS05",
+      "HOC01",
+      "HOC02",
+      "HOC03"
+    ]
+  },
+  "independentReview": {
+    "routeAppropriate": {
+      "passing": 18,
+      "total": 20,
+      "percent": 90
+    },
+    "highestValueQuestion": {
+      "passing": 0,
+      "total": 14,
+      "percent": 0
+    },
+    "acceptanceExecutable": {
+      "passing": 2,
+      "total": 6,
+      "percent": 33.33
+    },
+    "directionSafety": {
+      "passing": 20,
+      "total": 20,
+      "percent": 100
+    }
+  },
+  "reviewSkipped": false,
+  "thresholds": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryClarificationRatePercent": 10,
+    "independentRouteAppropriatePercent": 90,
+    "independentHighestValueQuestionPercent": 80,
+    "independentAcceptanceExecutablePercent": 90,
+    "independentDirectionSafetyPercent": 100
+  },
+  "gates": {
+    "highRiskMiss": true,
+    "unnecessaryClarification": false,
+    "independentRoute": true,
+    "independentQuestion": false,
+    "independentAcceptance": false,
+    "independentDirectionSafety": true
+  },
+  "rawGatePassed": false,
+  "deviationAcceptance": null,
+  "releaseGatePassed": false
+}

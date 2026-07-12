@@ -32,9 +32,12 @@ assert_dir() {
 }
 
 align_init_skill_root="$core_root/skills/align-init"
+optimize_skill_root="$core_root/skills/optimize-prompt"
 lite_skill_root="$core_root/skills/optimize-prompt-lite"
 spec_kit_root="$core_root/spec-kit"
 host_root="$core_root/host"
+node_command="${ALIGN_NODE_COMMAND:-node}"
+npm_command="${ALIGN_NPM_COMMAND:-npm}"
 
 emit_template_map() {
   cat <<'MAP'
@@ -52,6 +55,9 @@ ALIGN-SPEC.md|align-spec.md
 ALIGN-CONTEXT.md|align-context.md
 ALIGN-LESSONS.md|align-lessons.md
 ALIGN-DECISIONS.md|align-decisions.md
+ALIGN-FACTS.md|align-facts.md
+ALIGN-GLOSSARY.md|align-glossary.md
+ALIGN-STATE.md|align-state.md
 MAP
 }
 
@@ -144,6 +150,7 @@ emit_universal_prompt() {
 <!--
 Generated from core/
 Do not edit dist/ manually
+Standalone L0 copy-paste artifact; not a resident skill entry.
 -->
 
 # Prompt Optimizer System Prompt
@@ -209,7 +216,8 @@ This is the $host_name adapter for the Agent Intent Alignment Protocol. Transfor
 
 1. \`.align/lessons.md\`（最易违反的最先读）
 2. \`.align/spec.md\`（项目规范）
-3. \`.align/context.md\`（项目上下文）
+3. \`.align/facts.md\` / \`.align/glossary.md\` / \`.align/state.md\`（分类 SSOT）
+4. 三个分类文件未齐全时同时读取 \`.align/context.md\`；全部缺失时只读 legacy
 
 有 \`.align/\` 时，同一条模糊指令应少一次澄清（缺口从 .align/ 补全而非问用户）。不得静默处理高风险或 [假设]>2。
 
@@ -256,18 +264,8 @@ notice: Do not edit dist/ manually
 
 Generated from core/. Do not edit dist/ manually.
 
-Use this rule as the Cursor adapter for the Agent Intent Alignment Protocol. Apply it before executing user requests when the request is vague, high-risk, cross-file, or explicitly asks to optimize or structure a prompt.
-
-## Generated References
-
 EOF
-  emit_reference_list
-  cat <<'EOF'
-
-## Core Protocol
-
-EOF
-  emit_protocol
+  emit_file_lf "$optimize_skill_root/SKILL.md"
 }
 
 emit_openai_yaml() {
@@ -284,26 +282,67 @@ EOF
 }
 
 emit_align_init_skill() {
-  cat <<'EOF'
-<!--
-Generated from core/skills/align-init/SKILL.md
-Generated from core/
-Do not edit dist/ manually
--->
-
-EOF
   emit_file_lf "$align_init_skill_root/SKILL.md"
 }
 
-emit_lite_skill() {
-  cat <<'EOF'
+emit_optimize_skill() {
+  emit_file_lf "$optimize_skill_root/SKILL.md"
+}
+
+emit_protocol_branch() {
+  local branch_name="$1"
+  local when_to_read="$2"
+  local outcome="$3"
+  shift 3
+  cat <<EOF
 <!--
-Generated from core/skills/optimize-prompt-lite/SKILL.md
+Generated from core/protocol/ for branch: $branch_name
 Generated from core/
 Do not edit dist/ manually
 -->
 
+# Protocol Branch: $branch_name
+
+When to read: $when_to_read
+
+Required outcome: $outcome
+
 EOF
+  local protocol_file
+  local first=1
+  for protocol_file in "$@"; do
+    [ "$first" -eq 1 ] || printf '\n---\n\n'
+    first=0
+    printf '<!-- source: core/protocol/%s -->\n\n' "$protocol_file"
+    emit_file_lf_trim_trailing_blank_lines "$protocol_root/$protocol_file"
+  done
+}
+
+write_protocol_branches() {
+  local destination_root="$1"
+  write_generated_file "$destination_root/protocol-intent.md" emit_protocol_branch \
+    "Intent" "When the goal is ambiguous, an XY problem is suspected, or D1-D5 diagnosis is required." \
+    "Identify the real goal, claims, missing information, and confidence." \
+    00-positioning.md 01-intent-probe.md 02-diagnosis.md
+  write_generated_file "$destination_root/protocol-routing.md" emit_protocol_branch \
+    "Routing" "When routes conflict, risk is present, or clarify must be distinguished from block." \
+    "Produce one route, canonical reasons, and the next action." \
+    03-routing.md
+  write_generated_file "$destination_root/protocol-contract.md" emit_protocol_branch \
+    "Contract" "For explicit optimization, enrich, complex, or cross-module work." \
+    "Produce an Agent Brief, decidable acceptance, and contract review." \
+    04-transform-rules.md 05-contract-check.md
+  write_generated_file "$destination_root/protocol-verification.md" emit_protocol_branch \
+    "Verification" "For baseline checks or completion verification after an execution receipt." \
+    "Separate the verification plan from completion evidence and report actual results." \
+    06-lifecycle-gates.md
+  write_generated_file "$destination_root/protocol-precipitation.md" emit_protocol_branch \
+    "Precipitation" "When a correction, lesson, convention, or hard-to-reverse decision appears." \
+    "Write to the correct store; produce nothing when no signal exists." \
+    07-precipitation.md
+}
+
+emit_lite_skill() {
   emit_file_lf "$lite_skill_root/SKILL.md"
 }
 
@@ -368,13 +407,14 @@ copy_spec_kit() {
 assert_dir "$protocol_root"
 assert_dir "$templates_root"
 assert_dir "$align_init_skill_root"
+assert_dir "$optimize_skill_root"
 assert_dir "$lite_skill_root"
 assert_dir "$spec_kit_root"
 assert_dir "$host_root"
 
 write_generated_file "$dist_root/universal/SYSTEM-PROMPT.md" emit_universal_prompt
-write_generated_file "$dist_root/claude-code/optimize-prompt/SKILL.md" emit_skill "Claude Code"
-write_generated_file "$dist_root/codex/optimize-prompt/SKILL.md" emit_skill "Codex"
+write_generated_file "$dist_root/claude-code/optimize-prompt/SKILL.md" emit_optimize_skill
+write_generated_file "$dist_root/codex/optimize-prompt/SKILL.md" emit_optimize_skill
 write_generated_file "$dist_root/cursor/rules/align.mdc" emit_cursor_rule
 write_generated_file "$dist_root/claude-code/optimize-prompt/agents/openai.yaml" emit_openai_yaml
 write_generated_file "$dist_root/codex/optimize-prompt/agents/openai.yaml" emit_openai_yaml
@@ -391,6 +431,11 @@ copy_references "$dist_root/universal/references"
 copy_references "$dist_root/claude-code/optimize-prompt/references"
 copy_references "$dist_root/codex/optimize-prompt/references"
 copy_references "$dist_root/cursor/references"
+
+write_protocol_branches "$dist_root/universal/references"
+write_protocol_branches "$dist_root/claude-code/optimize-prompt/references"
+write_protocol_branches "$dist_root/codex/optimize-prompt/references"
+write_protocol_branches "$dist_root/cursor/references"
 
 copy_references "$dist_root/claude-code/align-init/references"
 copy_references "$dist_root/codex/align-init/references"
@@ -410,10 +455,43 @@ write_generated_file "$dist_root/claude-code/hooks/project-settings.fragment.jso
 
 # ── TypeScript Pipeline Compilation ──
 echo "Building TypeScript pipeline..."
-if command -v node &> /dev/null && command -v npm &> /dev/null; then
-  cd "$repo_root/core/host/pipeline" && npm install && npm run build
+if command -v "$node_command" &> /dev/null && command -v "$npm_command" &> /dev/null; then
+  if [ "$whatif" -eq 0 ]; then
+    rm -rf "$dist_root/runtime"
+  fi
+  cd "$repo_root/core/host/pipeline" && "$npm_command" install && "$npm_command" run build
   cd "$repo_root"
+  emit_runtime_artifact() {
+    local source_path="$1"
+    local source_label="$2"
+    if head -n 1 "$source_path" | grep -q '^#!'; then
+      head -n 1 "$source_path"
+      printf '// Generated from %s\n// Generated from core/\n// Do not edit dist/ manually\n' "$source_label"
+      tail -n +2 "$source_path"
+    else
+      printf '// Generated from %s\n// Generated from core/\n// Do not edit dist/ manually\n' "$source_label"
+      cat "$source_path"
+    fi
+    last_byte="$(tail -c 1 "$source_path" | od -An -t u1 | tr -d '[:space:]')"
+    [ "$last_byte" = "10" ] || printf '\n'
+  }
+  while IFS= read -r runtime_file; do
+    runtime_relative="${runtime_file#"$host_root/pipeline/dist/"}"
+    write_generated_file "$dist_root/runtime/runtime/$runtime_relative" emit_runtime_artifact "$runtime_file" "core/host/pipeline/src/"
+  done < <(find "$host_root/pipeline/dist" -type f \( -name '*.js' -o -name '*.d.ts' \) | sort)
   echo "TypeScript pipeline built successfully"
 else
-  echo "Warning: Node.js/npm not found, skipping TypeScript pipeline build"
+  if [ "$whatif" -eq 0 ] && [ ! -f "$dist_root/runtime/runtime/index.js" ]; then
+    echo "Error: Node.js/npm not found and no generated structured runtime is available." >&2
+    exit 1
+  fi
+  echo "Warning: Node.js/npm not found; preserving the existing generated structured runtime."
 fi
+
+write_generated_file "$dist_root/runtime/runtime/shell/align-route.sh" emit_file_lf "$host_root/align-route.sh"
+write_generated_file "$dist_root/runtime/adapters/claude-code.sh" emit_file_lf "$host_root/pipeline/adapters/hook/claude-code.sh"
+write_generated_file "$dist_root/runtime/adapters/codex.sh" emit_file_lf "$host_root/pipeline/adapters/cli/codex.sh"
+write_generated_file "$dist_root/runtime/bin/align-doctor" emit_file_lf "$host_root/doctor.sh"
+write_generated_file "$dist_root/runtime/bin/align-cli" emit_file_lf "$host_root/align-cli.sh"
+write_generated_file "$dist_root/runtime/install-plan.tsv" emit_file_lf "$repo_root/core/distribution/install-plan.tsv"
+write_generated_file "$dist_root/runtime/.prompt-optimizer-owned" emit_file_lf "$repo_root/core/distribution/OWNERSHIP"

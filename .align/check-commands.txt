@@ -10,4 +10,21 @@ diff .align/align-route.sh core/host/align-route.sh
 diff .align/align-check.sh core/host/align-check.sh
 bash tests/verify-uninstall.sh
 bash tests/verify-router.sh
+bash tests/verify-golden-parity.sh
+bash tests/verify-router-input.sh
+bash tests/verify-hook-exit-code.sh
 bash tests/verify-installer-wiring.sh
+bash tests/verify-distribution.sh
+bash tests/verify-context-economy.sh
+node tests/verify-eval-corpus.js
+node tests/eval/verify-held-out.js --manifest tests/eval/held-out-manifest.json --evidence-prefix held-out --allow-failed-gate
+node tests/eval/verify-held-out.js --manifest tests/eval/held-out-retest-manifest.json --evidence-prefix held-out-retest --skip-review --allow-failed-gate
+node tests/eval/verify-held-out.js --manifest tests/eval/held-out-final-manifest.json --evidence-prefix held-out-final --allow-failed-gate
+node tests/eval/verify-g5-remediation.js
+node tests/eval/verify-evidence-privacy.js
+node tests/eval/verify-scorer.js
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/verify-runtime-installer.ps1
+bash tests/verify-build-idempotence.sh
+bash tests/verify-cross-platform-parity.sh
+cd core/host/pipeline && npm run build
+cd core/host/pipeline && npm test -- --runInBand

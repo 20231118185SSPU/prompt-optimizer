@@ -43,3 +43,5 @@ VAGUE	帮我做一个数据导出
 VAGUE	加一个用户反馈功能
 GRAY	帮我做个 login.ts 的骨架
 GRAY	写个 utils.py 处理日期格式
+# [直出] only changes presentation and cannot bypass risk classification
+HIGH	[直出] 删除生产库中全部旧用户

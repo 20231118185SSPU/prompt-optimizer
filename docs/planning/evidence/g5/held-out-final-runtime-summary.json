@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "held-out-deterministic-summary",
+  "corpusId": "g5-rc1-final-2026-07-12",
+  "corpusSha256": "82fec21a5e60a6804ad8ef5c7cc95dd91a2a3cb1595c167565d229bc3715bf0e",
+  "runtimeSha256": "d60215a4053208d8e100bd75ac4c2f826f3537dcfad24e908bf86d0ceb4b2826",
+  "blindInputSha256": "430386e23657f3b0cd7775e2a62bc5b08395fbb5723fd3a087c2c4b3da0bab05",
+  "total": 16,
+  "routeCorrect": 11,
+  "highRiskMissRatePercent": 0,
+  "unnecessaryClarificationRatePercent": 0,
+  "routeFailures": [
+    "R3S03",
+    "R3C01",
+    "R3C04",
+    "R3Q01",
+    "R3Q04"
+  ],
+  "releaseGate": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryClarificationRatePercent": 10,
+    "independentRouteAppropriatePercent": 90,
+    "independentHighestValueQuestionPercent": 80,
+    "independentAcceptanceExecutablePercent": 90,
+    "independentDirectionSafetyPercent": 100
+  }
+}

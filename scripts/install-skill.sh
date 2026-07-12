@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# v3.1: Install optimize-prompt, align-init, and optimize-prompt-lite skills
+# v3.2.0-rc.1: Install optimize-prompt, align-init, and optimize-prompt-lite skills
 
-VERSION="v3.1"
+VERSION="v3.2.0-rc.1"
+RUNTIME_HOME="${PROMPT_OPTIMIZER_HOME:-$HOME}"
+RUNTIME_PLAN_POINTER="$RUNTIME_HOME/.prompt-optimizer-install-plan.tsv"
 TARGET="all"
 REPO_ZIP="${PROMPT_OPTIMIZER_ZIP:-https://github.com/20231118185SSPU/prompt-optimizer/archive/refs/heads/main.zip}"
 WHAT_IF=0
@@ -36,6 +38,11 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+if [ -n "${PROMPT_OPTIMIZER_HOME:-}" ] && { [ "$TARGET" = "claude" ] || [ "$TARGET" = "all" ]; } && [ "$UNINSTALL" -eq 0 ]; then
+  echo "PROMPT_OPTIMIZER_HOME cannot be combined with Claude installation because Claude hooks resolve runtime from HOME." >&2
+  exit 2
+fi
 
 # ── Check Node.js dependency ──
 if ! command -v node &> /dev/null; then
@@ -105,6 +112,7 @@ EOF
   if [ "$WHAT_IF" -eq 1 ]; then
     echo 'What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed.'
     echo 'What if: The align-route hook would be removed from ~/.claude/settings.json.'
+    echo 'What if: The Prompt Optimizer runtime declared by the installed plan would be removed.'
   else
     # 移除本协议安装的 hook 条目（只删自己的，其他 hooks 与字段不触碰）
     SETTINGS_FILE="$HOME/.claude/settings.json"
@@ -114,6 +122,8 @@ import json, os
 
 settings_path = os.environ["SETTINGS"]
 ours = (
+    'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
+    'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
     'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
     "bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true",
     "cat .align/HOOK-REMINDER.txt 2>/dev/null || true",
@@ -146,6 +156,22 @@ PYEOF
       echo "Note: python3 not found — could not auto-remove the align-route hook."
       echo "      Remove the UserPromptSubmit entry manually from $SETTINGS_FILE."
     fi
+    RUNTIME_DEST_REL=".prompt-optimizer"
+    if [ -f "$RUNTIME_PLAN_POINTER" ]; then
+      RUNTIME_DEST_REL="$(awk -F '\t' '$1 == "distribution" { print $3; exit }' "$RUNTIME_PLAN_POINTER")"
+    fi
+    [ -n "$RUNTIME_DEST_REL" ] || { echo "Invalid installed runtime plan: $RUNTIME_PLAN_POINTER" >&2; exit 1; }
+    RUNTIME_INSTALL_DIR="$RUNTIME_HOME/$RUNTIME_DEST_REL"
+    if [ -d "$RUNTIME_INSTALL_DIR" ]; then
+      if [ ! -f "$RUNTIME_INSTALL_DIR/.prompt-optimizer-owned" ] ||
+         [ "$(tr -d '\r\n' < "$RUNTIME_INSTALL_DIR/.prompt-optimizer-owned")" != "prompt-optimizer-runtime-v1" ]; then
+        echo "Refusing to remove unowned runtime directory: $RUNTIME_INSTALL_DIR" >&2
+        exit 1
+      fi
+      rm -rf "$RUNTIME_INSTALL_DIR"
+      rm -f "$RUNTIME_PLAN_POINTER"
+      echo "Removed Prompt Optimizer runtime from: $RUNTIME_INSTALL_DIR"
+    fi
     echo 'Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed.'
   fi
   echo 'Other skills and user content were not touched.'
@@ -163,6 +189,7 @@ $INSTALL_TARGETS
 EOF
   echo
   echo 'What if: Skills would be downloaded from' "$REPO_ZIP"
+  echo 'What if: Install runtime distribution according to dist/runtime/install-plan.tsv'
   echo 'Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout.'
   exit 0
 fi
@@ -230,6 +257,46 @@ done <<EOF
 $INSTALL_TARGETS
 EOF
 
+install_distribution() {
+  local plan="$SOURCE_ROOT/dist/runtime/install-plan.tsv"
+  if [ ! -f "$plan" ]; then
+    echo "Invalid or missing runtime install plan: $plan" >&2
+    exit 1
+  fi
+  local plan_line
+  plan_line="$(awk -F '\t' '$1 == "distribution" { print; exit }' "$plan")"
+  local plan_id source_rel destination_rel requirement
+  IFS=$'\t' read -r plan_id source_rel destination_rel requirement <<EOF
+$plan_line
+EOF
+  if [ "$plan_id" != "distribution" ] || [ -z "$source_rel" ] || [ -z "$destination_rel" ]; then
+    echo "Invalid distribution entry in install plan: $plan" >&2
+    exit 1
+  fi
+  if [ "$requirement" != "always" ]; then
+    echo "Unsupported install-plan requirement: $requirement" >&2
+    exit 1
+  fi
+  local source="$SOURCE_ROOT/dist/$source_rel"
+  local destination="$RUNTIME_HOME/$destination_rel"
+  if [ ! -f "$source/.prompt-optimizer-owned" ]; then
+    echo "Runtime distribution lacks ownership marker: $source" >&2
+    exit 1
+  fi
+  if [ -e "$destination" ] && { [ ! -f "$destination/.prompt-optimizer-owned" ] ||
+     [ "$(tr -d '\r\n' < "$destination/.prompt-optimizer-owned")" != "prompt-optimizer-runtime-v1" ]; }; then
+    echo "Refusing to replace unowned runtime directory: $destination" >&2
+    exit 1
+  fi
+  rm -rf "$destination"
+  cp -R "$source" "$destination"
+  cp "$plan" "$RUNTIME_PLAN_POINTER"
+  find "$destination/bin" "$destination/adapters" "$destination/runtime/shell" -type f -exec chmod +x {} + 2>/dev/null || true
+  echo "Installed Prompt Optimizer runtime to: $destination"
+}
+
+install_distribution
+
 while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
   [ -n "$SKILLS_DIR" ] || continue
   DIST_SOURCE="$SOURCE_ROOT/dist/$ADAPTER"
@@ -247,7 +314,9 @@ EOF
 # ── Claude Code hook 自动接线（幂等：已存在则跳过；只增不删既有字段）──
 wire_claude_hooks() {
   local settings="$HOME/.claude/settings.json"
-  local hook_cmd='bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
+  local hook_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+  local old_anchored_cmd='bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
+  local project_only_cmd='if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi'
   local legacy_cmd='cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
   local old_relative_cmd='bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
 
@@ -262,13 +331,13 @@ wire_claude_hooks() {
     cp "$settings" "$settings.bak-$(date +%Y%m%d%H%M%S)"
   fi
 
-  HOOK_CMD="$hook_cmd" LEGACY_CMD="$legacy_cmd" OLD_CMD="$old_relative_cmd" SETTINGS="$settings" python3 - <<'PYEOF'
+  HOOK_CMD="$hook_cmd" LEGACY_CMD="$legacy_cmd" OLD_ANCHORED_CMD="$old_anchored_cmd" PROJECT_ONLY_CMD="$project_only_cmd" OLD_CMD="$old_relative_cmd" SETTINGS="$settings" python3 - <<'PYEOF'
 import json, os
 
 settings_path = os.environ["SETTINGS"]
 hook_cmd = os.environ["HOOK_CMD"]
 # 旧形态（纯提醒 hook、CWD 相对路径 hook）都识别并原地升级到锚定版
-legacy = (os.environ["LEGACY_CMD"], os.environ["OLD_CMD"])
+legacy = (os.environ["LEGACY_CMD"], os.environ["OLD_ANCHORED_CMD"], os.environ["PROJECT_ONLY_CMD"], os.environ["OLD_CMD"])
 
 data = {}
 if os.path.exists(settings_path):

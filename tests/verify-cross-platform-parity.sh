@@ -6,6 +6,8 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
+SNAPSHOT="$(mktemp -d)"
+trap 'rm -rf "$SNAPSHOT"' EXIT
 
 # ── 检测 PowerShell ──
 PS_BIN=""
@@ -21,18 +23,18 @@ fi
 
 echo "=== Step 1: build.sh ==="
 bash build/build.sh >/dev/null 2>&1 || { echo "FAIL: build.sh failed"; exit 1; }
-git add dist/ 2>/dev/null
+cp -R dist/. "$SNAPSHOT/"
 
 echo "=== Step 2: build.ps1 ($PS_BIN) ==="
 "$PS_BIN" -NoProfile -ExecutionPolicy Bypass -File build/build.ps1 >/dev/null 2>&1 || { echo "FAIL: build.ps1 failed"; exit 1; }
 
 echo "=== Step 3: Compare dist/ ==="
-if git diff --exit-code --stat dist/ >/dev/null 2>&1; then
+if diff -qr "$SNAPSHOT" dist >/dev/null 2>&1; then
   echo "PASS: build.sh and build.ps1 produce identical dist/"
   exit 0
 else
   echo "FAIL: dist/ differs between build.sh and build.ps1"
-  git diff --stat dist/ 2>/dev/null | head -20
+  diff -qr "$SNAPSHOT" dist 2>/dev/null | head -20
   echo ""
   echo "Run 'git diff dist/' to see the differences."
   exit 1
