@@ -26,6 +26,11 @@ export interface AlignmentDecision {
   };
 }
 
+export interface ContextContribution {
+  statement: string;
+  source: SourceRef;
+}
+
 const idFor = (prefix: string, value: string): string =>
   `${prefix}-${createHash('sha256').update(value).digest('hex').slice(0, 16)}`;
 
@@ -241,13 +246,23 @@ function clarificationFor(analysis: AnalysisResult): Clarification {
 
 export function buildAlignmentDecision(
   analysis: AnalysisResult,
-  options: { adapter?: string; nativeHook?: boolean; verificationCommands?: string[] } = {}
+  options: {
+    adapter?: string;
+    nativeHook?: boolean;
+    verificationCommands?: string[];
+    contextContributions?: ContextContribution[];
+  } = {}
 ): AlignmentDecision {
   const decision = decideRoute(analysis);
   const executable = decision.route === 'pass' || decision.route === 'enrich';
   const verificationCommands = options.verificationCommands ?? [];
   const explicitCommands = extractVerificationCommands(analysis.text);
   const acceptanceCommands = explicitCommands.length > 0 ? explicitCommands : verificationCommands.slice(0, 1);
+  const acceptanceSource: SourceRef = explicitCommands.length > 0
+    ? { kind: 'user', ref: 'request:text' }
+    : verificationCommands.length > 0
+      ? { kind: 'project', ref: '.align/check-commands.txt' }
+      : { kind: 'default', ref: 'policy:acceptance-from-request' };
   const threshold = performanceThreshold(analysis);
   const runCount = benchmarkRunCount(analysis);
   const acceptance = executable
@@ -275,6 +290,35 @@ export function buildAlignmentDecision(
         ? { action: 'stop', reason: '策略禁止执行该操作。' }
         : { action: 'execute' };
   const tier = decision.route === 'pass' ? 'A' : decision.route === 'enrich' ? 'B' : 'C';
+  const claims: Array<Record<string, unknown>> = [
+    { id: 'claim-user-request', type: 'fact', statement: analysis.text, sources: [{ kind: 'user', ref: 'request:text' }] }
+  ];
+  if (decision.route === 'enrich') {
+    for (const [index, contribution] of (options.contextContributions ?? []).entries()) {
+      claims.push({
+        id: `receipt-context-${index + 1}`,
+        type: 'fact',
+        statement: contribution.statement,
+        sources: [contribution.source]
+      });
+    }
+    if (explicitCommands.length === 0) {
+      claims.push({
+        id: 'receipt-acceptance',
+        type: 'fact',
+        statement: acceptance.map(item => item.criterion).join('；'),
+        sources: [acceptanceSource]
+      });
+    }
+  }
+  const appliedContext = [...analysis.appliedContext];
+  if (decision.route === 'enrich' && acceptanceSource.kind === 'project' &&
+      !appliedContext.some(source => source.kind === acceptanceSource.kind && source.ref === acceptanceSource.ref)) {
+    appliedContext.push(acceptanceSource);
+  }
+  if (decision.route === 'enrich' && appliedContext.length === 0) {
+    appliedContext.push({ kind: 'user', ref: 'request:text' });
+  }
 
   return {
     schemaVersion: '1.0.0',
@@ -285,15 +329,13 @@ export function buildAlignmentDecision(
     route: decision.route,
     reasons: analysis.reasons,
     scores: { observed: analysis.observed, effective: analysis.effective },
-    claims: [{ id: 'claim-user-request', type: 'fact', statement: analysis.text, sources: [{ kind: 'user', ref: 'request:text' }] }],
+    claims,
     missing,
     scope: { include: [analysis.text], exclude: [] },
     acceptance,
     ...(decision.route === 'enrich'
       ? {
-          appliedContext: analysis.appliedContext.length > 0
-            ? analysis.appliedContext
-            : [{ kind: 'user', ref: 'request:text' }]
+          appliedContext
         }
       : {}),
     presentation: { mode: analysis.presentationMode, tier },

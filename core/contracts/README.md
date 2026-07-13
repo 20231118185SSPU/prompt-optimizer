@@ -49,7 +49,7 @@ Alignment Decision 只包含 lifecycle plan，禁止包含 baseline 或 completi
 - 已产生改动时只先报告影响，未经用户确认不得自动回滚。
 - `[直出]` 不得隐藏补全回执，因为它只改变 presentation 偏好，不取消用户对执行契约补全的知情权。
 
-补全回执属于 HostProjection 展示数据，由 Alignment Decision 的 `appliedContext` 与 `acceptance` 确定性生成，不增加第二套路由语义。
+补全回执属于 HostProjection 展示数据，由 Alignment Decision 中带精确 `SourceRef` 的 `receipt-context-*` / `receipt-acceptance` claims 确定性生成，不增加第二套路由语义。用户原文已经声明的验收不算补全项，也不得错误归因给项目上下文。
 
 ## 可选生态 handoff
 

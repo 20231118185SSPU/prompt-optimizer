@@ -16,6 +16,13 @@ const analyzer_1 = require("./analyzer");
 const contract_builder_1 = require("./contract-builder");
 const host_projection_1 = require("./host-projection");
 const matt_handoff_1 = require("./matt-handoff");
+function contextExcerpt(content) {
+    const line = content
+        .split(/\r?\n/)
+        .map(item => item.trim())
+        .find(item => item && !item.startsWith('#') && !item.startsWith('<!--') && !item.startsWith('```'));
+    return (line ?? content.trim()).replace(/^-\s+/, '').slice(0, 240);
+}
 /**
  * Process a user instruction through the align pipeline.
  *
@@ -36,7 +43,7 @@ function processInstruction(instruction, projectDir, options = {}) {
     // Step 2: Build the completion verification plan. Execution happens only
     // after an execution receipt is registered by the lifecycle coordinator.
     const verificationCommands = (0, verifier_1.getVerificationCommands)(projectDir);
-    const semanticContext = [
+    const contextEntries = [
         ['lessons', context.lessons],
         ['spec', context.spec],
         ['facts', context.facts],
@@ -44,22 +51,28 @@ function processInstruction(instruction, projectDir, options = {}) {
         ['state', context.state],
         ['context', context.context],
         ['decisions.log', context.decisions]
-    ]
-        .filter(([, content]) => Boolean(content))
-        .map(([name]) => ({ kind: 'project', ref: `.align/${name}.md` }));
+    ].filter(([, content]) => Boolean(content));
+    const semanticContext = contextEntries.map(([name]) => ({
+        kind: 'project',
+        ref: `.align/${name}.md`
+    }));
+    const contextContributions = contextEntries.map(([name, content]) => ({
+        statement: contextExcerpt(content),
+        source: { kind: 'project', ref: `.align/${name}.md` }
+    }));
     const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
         .filter(Boolean)
         .join('\n');
     const analysis = (0, analyzer_1.analyzeInstruction)(instruction, semanticContext, contextText);
-    if (verificationCommands.length > 0) {
-        analysis.appliedContext.push({ kind: 'project', ref: '.align/check-commands.txt' });
-    }
     const alignmentDecision = (0, contract_builder_1.buildAlignmentDecision)(analysis, {
         verificationCommands,
+        contextContributions,
         adapter: options.hostCapabilities?.adapter,
         nativeHook: options.hostCapabilities?.nativeBlocking
     });
-    const hostProjection = (0, host_projection_1.projectAlignmentDecision)(alignmentDecision);
+    const hostProjection = analysis.enrichmentUndoIds.length > 0
+        ? (0, host_projection_1.projectEnrichmentUndo)(alignmentDecision, analysis.enrichmentUndoIds)
+        : (0, host_projection_1.projectAlignmentDecision)(alignmentDecision);
     const result = {
         verdict: hostProjection.verdict,
         presentationMode,

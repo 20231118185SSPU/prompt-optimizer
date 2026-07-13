@@ -64,7 +64,7 @@ describe('processInstruction', () => {
       items: [
         expect.objectContaining({
           id: 'B1',
-          addition: expect.stringContaining('项目上下文'),
+          addition: expect.stringMatching(/项目上下文：.*Always check types.*Use TypeScript strict mode/),
           sources: [
             { kind: 'project', ref: '.align/lessons.md' },
             { kind: 'project', ref: '.align/spec.md' }
@@ -84,6 +84,33 @@ describe('processInstruction', () => {
     expect(result.instructions).toContain('[B1]');
     expect(result.instructions).toContain('项目:.align/spec.md');
     expect(result.instructions).toContain('撤销补全 <ID>');
+  });
+
+  it('does not attribute a user-provided acceptance command to project context', () => {
+    const result = processInstruction(
+      '修复 src/index.ts 第 42 行的 TypeError，完成后运行 bash -n build/build.sh。',
+      tmpDir
+    );
+
+    expect(result.alignmentDecision.route).toBe('enrich');
+    expect(result.alignmentDecision.acceptance[0].method.value).toBe('bash -n build/build.sh');
+    expect(result.alignmentDecision.appliedContext).not.toContainEqual({
+      kind: 'project',
+      ref: '.align/check-commands.txt'
+    });
+    expect(result.hostProjection.enrichmentReceipt?.items).toHaveLength(1);
+    expect(result.instructions).not.toContain('来源：项目:.align/check-commands.txt');
+  });
+
+  it('routes an enrichment undo command back to reanalysis', () => {
+    const result = processInstruction('撤销补全 B1', tmpDir);
+
+    expect(result.alignmentDecision.route).toBe('pass');
+    expect(result.hostProjection.enrichmentUndo).toEqual({ ids: ['B1'] });
+    expect(result.instructions).toContain('[补全撤销] ids=B1');
+    expect(result.instructions).toContain('排除已撤销项目后重新执行 analyze -> decide');
+    expect(result.instructions).toContain('未经用户确认不得自动回滚');
+    expect(result.instructions).not.toContain('可判定的验收方式');
   });
 
   // ── Vague instruction ──

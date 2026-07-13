@@ -8,8 +8,13 @@
 import { enrich, AlignContext } from './enricher';
 import { getVerificationCommands } from './verifier';
 import { analyzeInstruction } from './analyzer';
-import { AlignmentDecision, buildAlignmentDecision } from './contract-builder';
-import { CompatibilityVerdict, HostProjection, projectAlignmentDecision } from './host-projection';
+import { AlignmentDecision, buildAlignmentDecision, ContextContribution } from './contract-builder';
+import {
+  CompatibilityVerdict,
+  HostProjection,
+  projectAlignmentDecision,
+  projectEnrichmentUndo
+} from './host-projection';
 import { buildMattHandoff, discoverMattEnvironment, MattHandoff } from './matt-handoff';
 
 export type PresentationMode = 'default' | 'direct_output';
@@ -34,6 +39,14 @@ export interface PipelineResult {
   alignmentDecision: AlignmentDecision;
   hostProjection: HostProjection;
   handoff?: MattHandoff;
+}
+
+function contextExcerpt(content: string): string {
+  const line = content
+    .split(/\r?\n/)
+    .map(item => item.trim())
+    .find(item => item && !item.startsWith('#') && !item.startsWith('<!--') && !item.startsWith('```'));
+  return (line ?? content.trim()).replace(/^-\s+/, '').slice(0, 240);
 }
 
 /**
@@ -63,7 +76,7 @@ export function processInstruction(
   // Step 2: Build the completion verification plan. Execution happens only
   // after an execution receipt is registered by the lifecycle coordinator.
   const verificationCommands = getVerificationCommands(projectDir);
-  const semanticContext = [
+  const contextEntries = [
     ['lessons', context.lessons],
     ['spec', context.spec],
     ['facts', context.facts],
@@ -71,22 +84,28 @@ export function processInstruction(
     ['state', context.state],
     ['context', context.context],
     ['decisions.log', context.decisions]
-  ]
-    .filter(([, content]) => Boolean(content))
-    .map(([name]) => ({ kind: 'project' as const, ref: `.align/${name}.md` }));
+  ].filter(([, content]) => Boolean(content));
+  const semanticContext = contextEntries.map(([name]) => ({
+    kind: 'project' as const,
+    ref: `.align/${name}.md`
+  }));
+  const contextContributions: ContextContribution[] = contextEntries.map(([name, content]) => ({
+    statement: contextExcerpt(content),
+    source: { kind: 'project', ref: `.align/${name}.md` }
+  }));
   const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
     .filter(Boolean)
     .join('\n');
   const analysis = analyzeInstruction(instruction, semanticContext, contextText);
-  if (verificationCommands.length > 0) {
-    analysis.appliedContext.push({ kind: 'project', ref: '.align/check-commands.txt' });
-  }
   const alignmentDecision = buildAlignmentDecision(analysis, {
     verificationCommands,
+    contextContributions,
     adapter: options.hostCapabilities?.adapter,
     nativeHook: options.hostCapabilities?.nativeBlocking
   });
-  const hostProjection = projectAlignmentDecision(alignmentDecision);
+  const hostProjection = analysis.enrichmentUndoIds.length > 0
+    ? projectEnrichmentUndo(alignmentDecision, analysis.enrichmentUndoIds)
+    : projectAlignmentDecision(alignmentDecision);
 
   const result: PipelineResult = {
     verdict: hostProjection.verdict,

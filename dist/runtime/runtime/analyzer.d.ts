@@ -22,6 +22,7 @@ export interface AnalysisResult {
     effective: DimensionScores;
     assumptionCount: number;
     appliedContext: SourceRef[];
+    enrichmentUndoIds: string[];
 }
 export declare function isLocalReleasePreparation(text: string): boolean;
 export declare function analyzeInstruction(text: string, context?: SourceRef[], contextText?: string): AnalysisResult;

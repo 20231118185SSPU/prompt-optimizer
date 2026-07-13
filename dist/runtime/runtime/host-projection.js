@@ -3,6 +3,7 @@
 // Do not edit dist/ manually
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.projectEnrichmentUndo = projectEnrichmentUndo;
 exports.projectAlignmentDecision = projectAlignmentDecision;
 const ROUTE_ACTIONS = {
     pass: ['execute'],
@@ -44,31 +45,60 @@ function sourceLabel(source) {
     }[source.kind];
     return `${kind}:${source.ref}`;
 }
+function receiptClaim(claim, prefix) {
+    if (typeof claim.id !== 'string' || !claim.id.startsWith(prefix) || typeof claim.statement !== 'string') {
+        return undefined;
+    }
+    if (!Array.isArray(claim.sources))
+        return undefined;
+    const sources = claim.sources.filter((source) => {
+        if (!source || typeof source !== 'object')
+            return false;
+        const candidate = source;
+        return typeof candidate.kind === 'string' && typeof candidate.ref === 'string';
+    });
+    return sources.length > 0 ? { id: claim.id, statement: claim.statement, sources } : undefined;
+}
 function buildEnrichmentReceipt(decision) {
     if (decision.route !== 'enrich')
         return undefined;
-    const appliedContext = decision.appliedContext ?? [{ kind: 'user', ref: 'request:text' }];
-    const verificationSources = appliedContext.filter(source => source.ref.endsWith('check-commands.txt'));
-    const semanticSources = appliedContext.filter(source => !source.ref.endsWith('check-commands.txt'));
-    const boundarySources = semanticSources.length > 0
-        ? semanticSources
+    const contextClaims = decision.claims
+        .map(claim => receiptClaim(claim, 'receipt-context-'))
+        .filter((claim) => Boolean(claim));
+    const acceptanceClaim = decision.claims
+        .map(claim => receiptClaim(claim, 'receipt-acceptance'))
+        .find((claim) => Boolean(claim));
+    const boundarySources = contextClaims.length > 0
+        ? contextClaims.flatMap(claim => claim.sources)
         : [{ kind: 'user', ref: 'request:text' }];
-    const contextAddition = boundarySources.some(source => source.kind === 'project')
-        ? `项目上下文：采用 ${boundarySources.map(source => source.ref).join('、')} 中与当前请求相关的信息和规则。`
+    const contextAddition = contextClaims.length > 0
+        ? `项目上下文：${contextClaims.map(claim => `${claim.sources.map(sourceLabel).join('、')} → ${claim.statement}`).join('；')}`
         : '执行边界：沿用用户请求中已声明的范围、恢复条件与授权。';
+    const items = [
+        { id: 'B1', addition: contextAddition, sources: boundarySources }
+    ];
+    if (acceptanceClaim) {
+        items.push({
+            id: 'B2',
+            addition: `验收：${acceptanceClaim.statement}`,
+            sources: acceptanceClaim.sources
+        });
+    }
     return {
-        items: [
-            { id: 'B1', addition: contextAddition, sources: boundarySources },
-            {
-                id: 'B2',
-                addition: `验收：${decision.acceptance.map(item => item.criterion).join('；')}`,
-                sources: verificationSources.length > 0 ? verificationSources : boundarySources
-            }
-        ],
+        items,
         undo: {
             command: '撤销补全 <ID>',
             effect: '立即停止沿用该项并重新分析；若已产生改动，先报告影响，未经确认不自动回滚。'
         }
+    };
+}
+function projectEnrichmentUndo(decision, ids) {
+    return {
+        verdict: ROUTE_VERDICTS[decision.route],
+        nextAction: 'execute',
+        shouldBlock: false,
+        enrichmentUndo: { ids },
+        instructions: `[补全撤销] ids=${ids.join(',')}\n1. 立即停止沿用当前会话最近一条补全回执中的这些项目；找不到对应回执时，只问用户粘贴该回执。\n2. 回到原始请求，排除已撤销项目后重新执行 analyze -> decide；禁止沿用旧决定直接继续。\n3. 若已产生改动，先报告受影响文件和状态；未经用户确认不得自动回滚。`
     };
 }
 function renderEnrichmentReceipt(receipt) {

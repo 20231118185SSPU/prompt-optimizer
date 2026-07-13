@@ -11,6 +11,7 @@ export interface HostProjection {
     nextAction: HostNextAction;
     shouldBlock: boolean;
     enrichmentReceipt?: EnrichmentReceipt;
+    enrichmentUndo?: EnrichmentUndo;
 }
 export interface EnrichmentReceiptItem {
     id: `B${number}`;
@@ -24,5 +25,9 @@ export interface EnrichmentReceipt {
         effect: string;
     };
 }
+export interface EnrichmentUndo {
+    ids: string[];
+}
+export declare function projectEnrichmentUndo(decision: AlignmentDecision, ids: string[]): HostProjection;
 export declare function projectAlignmentDecision(decision: AlignmentDecision): HostProjection;
 //# sourceMappingURL=host-projection.d.ts.map
