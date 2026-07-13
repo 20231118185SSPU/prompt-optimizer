@@ -14,6 +14,22 @@ else
   SHELL_ROUTER="$INSTALL_ROOT/runtime/shell/align-route.sh"
 fi
 NODE_COMMAND="${ALIGN_NODE_COMMAND:-node}"
+RAW="$(cat 2>/dev/null || true)"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+
+run_shell_fallback() {
+  if [ -f "$SHELL_ROUTER" ]; then
+    context_refs=""
+    if [ -f "$PROJECT_DIR/.align/spec.md" ] || [ -f "$PROJECT_DIR/.align/context.md" ]; then
+      context_refs="project:.align/spec.md"
+    fi
+    printf '%s' "$RAW" | ALIGN_CONTEXT_REFS="$context_refs" bash "$SHELL_ROUTER"
+  elif [ -f "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt" ]; then
+    cat "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt"
+  else
+    echo "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"
+  fi
+}
 
 # ── 递归防护：hook 内调用 claude -p 时，子进程再触发本 hook 直接退出 ──
 if [ -n "${ALIGN_ROUTE_INNER:-}" ]; then
@@ -25,23 +41,14 @@ fi
 # Check if Node.js is available
 if ! command -v "$NODE_COMMAND" &> /dev/null; then
   echo "[对齐] Warning: Node.js not found, falling back to shell router"
-  if [ -f "$SHELL_ROUTER" ]; then
-    exec bash "$SHELL_ROUTER"
-  elif [ -f "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt" ]; then
-    cat "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt"
-  else
-    echo "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"
-  fi
+  run_shell_fallback
   exit 0
 fi
-
-# Read hook JSON from stdin
-RAW="$(cat 2>/dev/null || true)"
 
 # ── 输入提取：python3 → jq → sed 降级（与 align-route.sh 保持一致）──
 PROMPT=""
 if command -v python3 &> /dev/null; then
-  PROMPT="$(printf '%s' "$RAW" | python3 -c 'import json,sys
+  PROMPT="$(printf '%s' "$RAW" | PYTHONIOENCODING=utf-8 python3 -c 'import json,sys
 try: print(json.load(sys.stdin).get("prompt",""))
 except Exception: pass' 2>/dev/null || true)"
 fi
@@ -66,9 +73,6 @@ if [ -z "$PROMPT" ]; then
   echo "[对齐] Could not extract prompt from hook input"
   exit 0
 fi
-
-# Get project directory from Claude Code
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 # Call align-cli (safe: pass args positionally, not interpolated)
 TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
@@ -95,11 +99,5 @@ if [ -n "$RESULT" ]; then
   echo "$RESULT"
 else
   echo "[对齐] Pipeline execution failed, falling back to shell router"
-  if [ -f "$SHELL_ROUTER" ]; then
-    exec bash "$SHELL_ROUTER"
-  elif [ -f "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt" ]; then
-    cat "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt"
-  else
-    echo "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"
-  fi
+  run_shell_fallback
 fi

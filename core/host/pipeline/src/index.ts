@@ -23,6 +23,14 @@ export {
 export { analyzeInstruction, AnalysisResult, DimensionScores, SourceRef } from './analyzer';
 export { decideRoute, DecisionRoute, RouteDecision } from './decision-engine';
 export { buildAlignmentDecision, AlignmentDecision } from './contract-builder';
+export {
+  projectAlignmentDecision,
+  CompatibilityVerdict,
+  EnrichmentReceipt,
+  EnrichmentReceiptItem,
+  HostNextAction,
+  HostProjection
+} from './host-projection';
 export { LifecycleCoordinator, LifecycleState } from './lifecycle';
 export { writeContextProjection, ProjectionResult } from './context-projection';
 export {
@@ -46,19 +54,24 @@ import { writeContextProjection } from './context-projection';
 const toolModes: Record<string, (instruction: string, projectDir: string) => void> = {
   'claude-code': (instruction, projectDir) => {
     // Claude Code hook mode: output hook-compatible format
-    const result = processInstruction(instruction, projectDir);
+    const result = processInstruction(instruction, projectDir, {
+      hostCapabilities: {
+        adapter: 'claude-code',
+        nativeBlocking: process.env.BLOCK_ON_HIGH === 'on'
+      }
+    });
     console.log(result.instructions);
 
-    // Native hook blocking follows the frozen machine route. High-risk but
-    // incomplete contracts remain clarify; only a complete block exits 2.
-    if (result.alignmentDecision.route === 'block' && process.env.BLOCK_ON_HIGH === 'on') {
+    if (result.hostProjection.shouldBlock) {
       process.exit(2);
     }
   },
 
   'codex': (instruction, projectDir) => {
     // Codex CLI wrapper mode: inject alignment context
-    const result = processInstruction(instruction, projectDir);
+    const result = processInstruction(instruction, projectDir, {
+      hostCapabilities: { adapter: 'codex' }
+    });
     console.log('=== Alignment Context ===');
     console.log(result.instructions);
     console.log('');
@@ -68,7 +81,9 @@ const toolModes: Record<string, (instruction: string, projectDir: string) => voi
 
   'cursor': (instruction, projectDir) => {
     // Cursor CLI wrapper mode: inject alignment context
-    const result = processInstruction(instruction, projectDir);
+    const result = processInstruction(instruction, projectDir, {
+      hostCapabilities: { adapter: 'cursor' }
+    });
     console.log('=== Alignment Context ===');
     console.log(result.instructions);
     console.log('');

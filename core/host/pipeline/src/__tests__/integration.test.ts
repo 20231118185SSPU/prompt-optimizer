@@ -3,6 +3,8 @@ import { route } from '../router';
 import { enrich } from '../enricher';
 import { getVerificationCommands } from '../verifier';
 import { processInstruction } from '../pipeline';
+import { analyzeInstruction } from '../analyzer';
+import { buildAlignmentDecision } from '../contract-builder';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -50,35 +52,36 @@ describe('Integration Tests — real .align/ directory', () => {
 
   describe('router', () => {
     test('clear signal → CLEAR verdict', () => {
-      const classification = classify('修改 src/index.ts 的 main 函数');
-      const result = route(classification);
+      const decision = buildAlignmentDecision(analyzeInstruction(
+        '只修改 src/index.ts 的 main 函数，不改 public API；完成后运行 npm test。'
+      ));
+      const result = route(decision);
       expect(result.verdict).toBe('CLEAR');
       expect(result.instructions).toContain('[对齐]');
-      expect(result.instructions).toContain('CLEAR');
+      expect(result.instructions).toContain('route=pass');
     });
 
     test('vague signal → VAGUE verdict', () => {
-      const classification = classify('优化一下');
-      const result = route(classification);
+      const result = route(buildAlignmentDecision(analyzeInstruction('优化一下')));
       expect(result.verdict).toBe('VAGUE');
       expect(result.instructions).toContain('[对齐]');
-      expect(result.instructions).toContain('VAGUE');
+      expect(result.instructions).toContain('route=clarify');
     });
 
     test('risk signal → HIGH verdict', () => {
-      const classification = classify('删除这个文件');
-      const result = route(classification);
+      const result = route(buildAlignmentDecision(analyzeInstruction(
+        '删除生产库中全部 90 天未登录用户；备份和回滚条件已定义，但尚未确认执行。'
+      )));
       expect(result.verdict).toBe('HIGH');
-      expect(result.instructions).toContain('高风险');
-      expect(result.instructions).toContain('HIGH');
+      expect(result.instructions).toContain('route=block');
+      expect(result.instructions).toContain('next.action=wait_confirmation');
     });
 
     test('risk + edu signal → GRAY verdict', () => {
-      const classification = classify('解释一下删除数据库的命令');
-      const result = route(classification);
-      expect(result.verdict).toBe('GRAY');
+      const result = route(buildAlignmentDecision(analyzeInstruction('解释一下删除数据库的命令')));
+      expect(result.verdict).toBe('CLEAR');
       expect(result.instructions).toContain('[对齐]');
-      expect(result.instructions).toContain('GRAY');
+      expect(result.instructions).toContain('route=pass');
     });
   });
 
@@ -91,7 +94,8 @@ describe('Integration Tests — real .align/ directory', () => {
       expect(result.enrichedMessage).toContain('用户指令');
       expect(result.enrichedMessage).toContain('帮我优化这个项目');
       expect(result.context.lessons).toBeTruthy();
-      expect(result.context.lessons).toContain('[安装验收]');
+      expect(result.context.lessons).toMatch(/^- \[[^\]]+\] 规则：/m);
+      expect(result.enrichedMessage).toContain('项目经验规则');
     });
 
     test('enriches message with real spec', () => {
@@ -154,7 +158,8 @@ describe('Integration Tests — real .align/ directory', () => {
     test('legacy bypass option cannot skip high-risk routing', () => {
       const result = processInstruction('删除所有文件', realProjectDir, { bypass: true });
 
-      expect(result.verdict).toBe('HIGH');
+      expect(result.alignmentDecision.route).toBe('clarify');
+      expect(result.verdict).toBe('VAGUE');
       expect(result.presentationMode).toBe('direct_output');
     });
   });

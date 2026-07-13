@@ -11,6 +11,7 @@ diff .align/align-check.sh core/host/align-check.sh
 bash tests/verify-uninstall.sh
 bash tests/verify-router.sh
 bash tests/verify-golden-parity.sh
+bash tests/verify-adapter-conformance.sh
 bash tests/verify-router-input.sh
 bash tests/verify-hook-exit-code.sh
 bash tests/verify-installer-wiring.sh
@@ -22,6 +23,7 @@ node tests/eval/verify-held-out.js --manifest tests/eval/held-out-retest-manifes
 node tests/eval/verify-held-out.js --manifest tests/eval/held-out-final-manifest.json --evidence-prefix held-out-final --allow-failed-gate
 node tests/eval/verify-g5-remediation.js
 node tests/eval/verify-evidence-privacy.js
+node tests/eval/verify-runner.js
 node tests/eval/verify-scorer.js
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/verify-runtime-installer.ps1
 bash tests/verify-build-idempotence.sh

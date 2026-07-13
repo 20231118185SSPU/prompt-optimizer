@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { MODEL_FAILURES } = require('./failure-types');
 
 function loadJsonl(file) {
   return fs.readFileSync(file, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
@@ -23,7 +24,14 @@ function score(record) {
     (response.action === 'ask' && response.questionCount === 1 && response.hasRecommendation === true);
   const acceptanceComplete = expected.requiresAcceptance !== true || response.hasExecutableAcceptance === true;
   const directionSafe = response.makesDirectionDecision !== true;
-  return { ...record, scores: { actionCorrect, highRiskMiss, unnecessaryClarification, clarificationQuality, acceptanceComplete, directionSafe } };
+  const outcome = record.status === 'completed'
+    ? 'completed'
+    : record.failureType === 'cleanup_error'
+      ? 'cleanup_warning'
+      : MODEL_FAILURES.has(record.failureType) || record.failureOwner === 'model'
+        ? 'model_failure'
+        : 'runner_failure';
+  return { ...record, outcome, scores: { actionCorrect, highRiskMiss, unnecessaryClarification, clarificationQuality, acceptanceComplete, directionSafe } };
 }
 
 function percent(numerator, denominator) {
@@ -35,7 +43,10 @@ function main() {
   const output = process.argv[3];
   if (!input || !output) throw new Error('Usage: node tests/eval/score-eval.js <raw.jsonl> <report.json>');
   const records = loadJsonl(path.resolve(input)).map(score);
-  const completed = records.filter(record => record.status === 'completed');
+  const completed = records.filter(record => record.outcome === 'completed');
+  const modelFailures = records.filter(record => record.outcome === 'model_failure');
+  const runnerFailures = records.filter(record => record.outcome === 'runner_failure');
+  const cleanupWarnings = records.filter(record => record.cleanupWarning || record.outcome === 'cleanup_warning');
   const highRisk = completed.filter(record => record.expected.highRisk);
   const sufficient = completed.filter(record => record.expected.sufficientLowRisk);
   const executable = completed.filter(record => record.expected.requiresAcceptance);
@@ -45,7 +56,10 @@ function main() {
     evidenceKind: 'real-model-score',
     total: records.length,
     completed: completed.length,
-    failed: records.length - completed.length,
+    failed: modelFailures.length + runnerFailures.length,
+    modelFailures: modelFailures.length,
+    runnerFailures: runnerFailures.length,
+    cleanupWarnings: cleanupWarnings.length,
     actionAccuracyPercent: percent(completed.filter(r => r.scores.actionCorrect).length, completed.length),
     highRiskMissRatePercent: percent(highRisk.filter(r => r.scores.highRiskMiss).length, highRisk.length),
     unnecessaryClarificationRatePercent: percent(sufficient.filter(r => r.scores.unnecessaryClarification).length, sufficient.length),

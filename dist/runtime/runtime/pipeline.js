@@ -10,21 +10,20 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processInstruction = processInstruction;
-const classifier_1 = require("./classifier");
-const router_1 = require("./router");
 const enricher_1 = require("./enricher");
 const verifier_1 = require("./verifier");
 const analyzer_1 = require("./analyzer");
 const contract_builder_1 = require("./contract-builder");
+const host_projection_1 = require("./host-projection");
 const matt_handoff_1 = require("./matt-handoff");
 /**
  * Process a user instruction through the align pipeline.
  *
  * Steps:
  * 1. Detect presentation preference without bypassing alignment
- * 2. Classify signals in the instruction
- * 3. Route based on classification
- * 4. Enrich message with .align/ context
+ * 2. Enrich message with .align/ context
+ * 3. Produce one Alignment Decision
+ * 4. Project that decision into host instructions and compatibility fields
  * 5. Return the completion verification plan without executing it
  */
 function processInstruction(instruction, projectDir, options = {}) {
@@ -32,31 +31,43 @@ function processInstruction(instruction, projectDir, options = {}) {
     const presentationMode = options.bypass || normalizedInstruction.startsWith('[直出]') || normalizedInstruction.startsWith('直出')
         ? 'direct_output'
         : 'default';
-    // Step 1: Classify signals
-    const classification = (0, classifier_1.classify)(instruction);
-    // Step 2: Route based on classification
-    const { verdict, instructions } = (0, router_1.route)(classification);
-    // Step 3: Enrich message with .align/ context
+    // Step 1: Enrich message with .align/ context
     const { enrichedMessage, context } = (0, enricher_1.enrich)(instruction, projectDir);
-    // Step 4: Build the completion verification plan. Execution happens only
+    // Step 2: Build the completion verification plan. Execution happens only
     // after an execution receipt is registered by the lifecycle coordinator.
     const verificationCommands = (0, verifier_1.getVerificationCommands)(projectDir);
-    const appliedContext = context.spec || context.facts || context.glossary || context.state || context.context || context.lessons || context.decisions
-        ? [{ kind: 'project', ref: '.align/' }]
-        : [];
+    const contextEntries = [
+        ['lessons', context.lessons],
+        ['spec', context.spec],
+        ['facts', context.facts],
+        ['glossary', context.glossary],
+        ['state', context.state],
+        ['context', context.context],
+        ['decisions.log', context.decisions]
+    ].filter(([, content]) => Boolean(content));
+    const semanticContext = contextEntries.map(([name]) => ({
+        kind: 'project',
+        ref: `.align/${name}.md`
+    }));
     const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
         .filter(Boolean)
         .join('\n');
-    const analysis = (0, analyzer_1.analyzeInstruction)(instruction, appliedContext, contextText);
-    const alignmentDecision = (0, contract_builder_1.buildAlignmentDecision)(analysis, { verificationCommands });
+    const analysis = (0, analyzer_1.analyzeInstruction)(instruction, semanticContext, contextText);
+    const alignmentDecision = (0, contract_builder_1.buildAlignmentDecision)(analysis, {
+        verificationCommands,
+        adapter: options.hostCapabilities?.adapter,
+        nativeHook: options.hostCapabilities?.nativeBlocking
+    });
+    const hostProjection = (0, host_projection_1.projectAlignmentDecision)(alignmentDecision);
     const result = {
-        verdict,
+        verdict: hostProjection.verdict,
         presentationMode,
-        instructions,
+        instructions: hostProjection.instructions,
         enrichedMessage,
         context,
         verificationCommands,
-        alignmentDecision
+        alignmentDecision,
+        hostProjection
     };
     if (options.ecosystem === 'matt-pocock-skills') {
         result.handoff = (0, matt_handoff_1.buildMattHandoff)(alignmentDecision, (0, matt_handoff_1.discoverMattEnvironment)(projectDir));

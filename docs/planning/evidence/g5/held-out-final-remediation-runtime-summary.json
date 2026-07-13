@@ -4,7 +4,7 @@
   "corpusId": "g5-rc1-final-2026-07-12",
   "corpusSha256": "82fec21a5e60a6804ad8ef5c7cc95dd91a2a3cb1595c167565d229bc3715bf0e",
   "runtimeHashKind": "runtime-js-bundle-v1",
-  "runtimeSha256": "87ddc0a80d1d1ca354c8f05e52bf278d85425f0f4aa90d9d3b85d8eb2b2073e3",
+  "runtimeSha256": "4869b5e34f5d44435cd587d9fd98e5bd1afb47f228c569ec8076805fe1a4137b",
   "blindInputSha256": "d1ce9d7c5fa7b20b3ac06fea11e70613951e2cd9a5dc94b4e5662b9a0be8a249",
   "total": 16,
   "routeCorrect": 13,
