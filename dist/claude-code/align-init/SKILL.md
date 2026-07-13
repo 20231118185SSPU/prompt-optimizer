@@ -117,7 +117,7 @@ BLOCK_ON_HIGH=off
    ```text
    [Alignment Protocol] 本条指令须先过三档路由评估。
    读取 .align/lessons.md → spec.md → facts.md / glossary.md / state.md；三个分类文件未齐全时同时读取 context.md，全部缺失时只读 legacy。
-   简单明确→直通；有缺口→披露后执行；高风险信息不足/总分<6→澄清，授权/政策/baseline 阻断→停止，契约与授权完整→披露后执行。
+   简单明确→直通；有缺口→补全回执后执行；高风险信息不足/总分<6→澄清，授权/政策/baseline 阻断→停止，契约与授权完整→补全回执后执行。
    交付前必须自验证（R8 验证门不可跳过）。
    ```
 
@@ -162,7 +162,7 @@ BLOCK_ON_HIGH=off
 每条开发指令执行前，静默完成三档路由评估：
 1. 读取 .align/lessons.md → .align/spec.md → .align/facts.md / glossary.md / state.md；三个分类文件未齐全时同时读取 context.md，全部缺失时只读 legacy
 2. 五维快评：简单且明确 → 直接执行（但交付前必须自验证）
-3. 有缺口但项目上下文可补全 → 开头 ≤3 行披露对齐假设，然后直接执行
+3. 有缺口但项目上下文可补全 → 开头展示 ≤3 行补全回执（补全内容 + 来源 + `撤销补全 <ID>`），然后直接执行
 4. 高风险（见 .align/spec.md 高风险清单）或总分<6 或假设>2 条
    → 停下澄清，一次只问一个问题并给推荐答案
 5. 任务结束：有踩坑/纠正/新约定 → 追加到 .align/lessons.md

@@ -55,6 +55,35 @@ describe('processInstruction', () => {
     expect(result.context.spec).toContain('TypeScript strict mode');
     expect(result.verificationCommands).toContain('echo "test passed"');
     expect(result.presentationMode).toBe('default');
+    expect(result.alignmentDecision.appliedContext).toEqual([
+      { kind: 'project', ref: '.align/lessons.md' },
+      { kind: 'project', ref: '.align/spec.md' },
+      { kind: 'project', ref: '.align/check-commands.txt' }
+    ]);
+    expect(result.hostProjection.enrichmentReceipt).toEqual({
+      items: [
+        expect.objectContaining({
+          id: 'B1',
+          addition: expect.stringContaining('项目上下文'),
+          sources: [
+            { kind: 'project', ref: '.align/lessons.md' },
+            { kind: 'project', ref: '.align/spec.md' }
+          ]
+        }),
+        expect.objectContaining({
+          id: 'B2',
+          addition: expect.stringContaining('命令通过：echo "test passed"'),
+          sources: [{ kind: 'project', ref: '.align/check-commands.txt' }]
+        })
+      ],
+      undo: {
+        command: '撤销补全 <ID>',
+        effect: expect.stringContaining('未经确认不自动回滚')
+      }
+    });
+    expect(result.instructions).toContain('[B1]');
+    expect(result.instructions).toContain('项目:.align/spec.md');
+    expect(result.instructions).toContain('撤销补全 <ID>');
   });
 
   // ── Vague instruction ──
@@ -164,6 +193,26 @@ describe('processInstruction', () => {
     }
   });
 
+  it('attributes an authorized enrich receipt to the user without project context', () => {
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pipeline-authorized-'));
+
+    try {
+      const result = processInstruction(
+        '在开发 fixture 中删除 3 个已列名的废弃测试用户，运行 fixture 测试；已授权。',
+        emptyDir
+      );
+
+      expect(result.alignmentDecision.route).toBe('enrich');
+      expect(result.hostProjection.enrichmentReceipt?.items[0]).toEqual({
+        id: 'B1',
+        addition: '执行边界：沿用用户请求中已声明的范围、恢复条件与授权。',
+        sources: [{ kind: 'user', ref: 'request:text' }]
+      });
+    } finally {
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    }
+  });
+
   // ── Verification commands are returned ──
   it('returns verification commands from check-commands.txt', () => {
     const result = processInstruction(
@@ -199,6 +248,8 @@ describe('processInstruction', () => {
     expect(result.verdict).toBe('CLEAR');
     expect(result.instructions).toContain('[对齐]');
     expect(result.instructions).toContain('route=pass');
+    expect(result.hostProjection.enrichmentReceipt).toBeUndefined();
+    expect(result.instructions).not.toContain('补全回执');
   });
 
   // ── Return type structure ──

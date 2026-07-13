@@ -17,7 +17,7 @@ export { processInstruction, PipelineEcosystem, PipelineOptions, PipelineResult 
 export { analyzeInstruction, AnalysisResult, DimensionScores, SourceRef } from './analyzer';
 export { decideRoute, DecisionRoute, RouteDecision } from './decision-engine';
 export { buildAlignmentDecision, AlignmentDecision } from './contract-builder';
-export { projectAlignmentDecision, CompatibilityVerdict, HostNextAction, HostProjection } from './host-projection';
+export { projectAlignmentDecision, CompatibilityVerdict, EnrichmentReceipt, EnrichmentReceiptItem, HostNextAction, HostProjection } from './host-projection';
 export { LifecycleCoordinator, LifecycleState } from './lifecycle';
 export { writeContextProjection, ProjectionResult } from './context-projection';
 export { buildMattHandoff, discoverMattEnvironment, MATT_SKILLS, MattEnvironment, MattEnvironmentDiscoveryOptions, MattHandoff, MattSkill } from './matt-handoff';

@@ -34,12 +34,53 @@ function nestedString(container, key, nestedKey) {
     const value = nested[nestedKey];
     return typeof value === 'string' ? value : '';
 }
-function instructionsFor(decision, action) {
+function sourceLabel(source) {
+    const kind = {
+        user: '用户',
+        project: '项目',
+        runtime: '运行时',
+        decision: '决策',
+        default: '默认规则'
+    }[source.kind];
+    return `${kind}:${source.ref}`;
+}
+function buildEnrichmentReceipt(decision) {
+    if (decision.route !== 'enrich')
+        return undefined;
+    const appliedContext = decision.appliedContext ?? [{ kind: 'user', ref: 'request:text' }];
+    const verificationSources = appliedContext.filter(source => source.ref.endsWith('check-commands.txt'));
+    const semanticSources = appliedContext.filter(source => !source.ref.endsWith('check-commands.txt'));
+    const boundarySources = semanticSources.length > 0
+        ? semanticSources
+        : [{ kind: 'user', ref: 'request:text' }];
+    const contextAddition = boundarySources.some(source => source.kind === 'project')
+        ? `项目上下文：采用 ${boundarySources.map(source => source.ref).join('、')} 中与当前请求相关的信息和规则。`
+        : '执行边界：沿用用户请求中已声明的范围、恢复条件与授权。';
+    return {
+        items: [
+            { id: 'B1', addition: contextAddition, sources: boundarySources },
+            {
+                id: 'B2',
+                addition: `验收：${decision.acceptance.map(item => item.criterion).join('；')}`,
+                sources: verificationSources.length > 0 ? verificationSources : boundarySources
+            }
+        ],
+        undo: {
+            command: '撤销补全 <ID>',
+            effect: '立即停止沿用该项并重新分析；若已产生改动，先报告影响，未经确认不自动回滚。'
+        }
+    };
+}
+function renderEnrichmentReceipt(receipt) {
+    const itemLines = receipt.items.map(item => `[${item.id}] ${item.addition} 来源：${item.sources.map(sourceLabel).join('、')}`);
+    return [...itemLines, `撤销：回复“${receipt.undo.command}”。${receipt.undo.effect}`].join('\n');
+}
+function instructionsFor(decision, action, enrichmentReceipt) {
     if (action === 'execute') {
-        const disclosure = decision.route === 'enrich'
-            ? '先披露由可信上下文、约束或安全路由补全的内容，再按已确认范围执行。'
-            : '按请求中已明确的目标、范围和约束直接执行。';
-        return `[对齐] route=${decision.route} next.action=execute\n1. ${disclosure}\n2. 只执行 Alignment Decision scope.include，禁止扩大范围。\n3. 完成后按 acceptance 验证；未验证不得交付。`;
+        if (enrichmentReceipt) {
+            return `[对齐] route=enrich next.action=execute\n执行前向用户原样展示以下补全回执，然后直接执行，不等待确认：\n${renderEnrichmentReceipt(enrichmentReceipt)}\n执行规则：只执行 Alignment Decision scope.include，禁止扩大范围；完成后按 acceptance 验证，未验证不得交付。`;
+        }
+        return `[对齐] route=pass next.action=execute\n1. 按请求中已明确的目标、范围和约束直接执行。\n2. 只执行 Alignment Decision scope.include，禁止扩大范围。\n3. 完成后按 acceptance 验证；未验证不得交付。`;
     }
     if (action === 'ask') {
         const prompt = nestedString(decision.next, 'question', 'prompt');
@@ -55,12 +96,14 @@ function instructionsFor(decision, action) {
 }
 function projectAlignmentDecision(decision) {
     const action = nextAction(decision);
+    const enrichmentReceipt = buildEnrichmentReceipt(decision);
     return {
         verdict: ROUTE_VERDICTS[decision.route],
-        instructions: instructionsFor(decision, action),
+        instructions: instructionsFor(decision, action, enrichmentReceipt),
         nextAction: action,
         shouldBlock: decision.host.enforcement.block === 'enforced' &&
-            (action === 'wait_confirmation' || action === 'stop')
+            (action === 'wait_confirmation' || action === 'stop'),
+        ...(enrichmentReceipt ? { enrichmentReceipt } : {})
     };
 }
 //# sourceMappingURL=host-projection.js.map

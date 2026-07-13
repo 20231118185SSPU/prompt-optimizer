@@ -63,13 +63,24 @@ export function processInstruction(
   // Step 2: Build the completion verification plan. Execution happens only
   // after an execution receipt is registered by the lifecycle coordinator.
   const verificationCommands = getVerificationCommands(projectDir);
-  const appliedContext = context.spec || context.facts || context.glossary || context.state || context.context || context.lessons || context.decisions
-    ? [{ kind: 'project' as const, ref: '.align/' }]
-    : [];
+  const semanticContext = [
+    ['lessons', context.lessons],
+    ['spec', context.spec],
+    ['facts', context.facts],
+    ['glossary', context.glossary],
+    ['state', context.state],
+    ['context', context.context],
+    ['decisions.log', context.decisions]
+  ]
+    .filter(([, content]) => Boolean(content))
+    .map(([name]) => ({ kind: 'project' as const, ref: `.align/${name}.md` }));
   const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
     .filter(Boolean)
     .join('\n');
-  const analysis = analyzeInstruction(instruction, appliedContext, contextText);
+  const analysis = analyzeInstruction(instruction, semanticContext, contextText);
+  if (verificationCommands.length > 0) {
+    analysis.appliedContext.push({ kind: 'project', ref: '.align/check-commands.txt' });
+  }
   const alignmentDecision = buildAlignmentDecision(analysis, {
     verificationCommands,
     adapter: options.hostCapabilities?.adapter,

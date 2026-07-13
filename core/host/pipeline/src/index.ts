@@ -26,6 +26,8 @@ export { buildAlignmentDecision, AlignmentDecision } from './contract-builder';
 export {
   projectAlignmentDecision,
   CompatibilityVerdict,
+  EnrichmentReceipt,
+  EnrichmentReceiptItem,
   HostNextAction,
   HostProjection
 } from './host-projection';

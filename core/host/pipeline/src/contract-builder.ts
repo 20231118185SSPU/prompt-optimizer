@@ -289,7 +289,13 @@ export function buildAlignmentDecision(
     missing,
     scope: { include: [analysis.text], exclude: [] },
     acceptance,
-    ...(decision.route === 'enrich' ? { appliedContext: analysis.appliedContext } : {}),
+    ...(decision.route === 'enrich'
+      ? {
+          appliedContext: analysis.appliedContext.length > 0
+            ? analysis.appliedContext
+            : [{ kind: 'user', ref: 'request:text' }]
+        }
+      : {}),
     presentation: { mode: analysis.presentationMode, tier },
     next,
     lifecyclePlan: {

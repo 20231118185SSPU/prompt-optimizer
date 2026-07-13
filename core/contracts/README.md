@@ -40,6 +40,17 @@ Alignment Decision 只包含 lifecycle plan，禁止包含 baseline 或 completi
 
 只有 `pass` 和 `enrich` 可以产生 execution handoff。`[直出]` 只映射到 `presentation.mode=direct_output` 和 `override.explicit_direct_output`，禁止产生 bypass route。
 
+### B 档展示投影
+
+宿主把 `enrich` 投影给用户时，必须先展示最多 3 行补全回执，再继续执行：
+
+- 每个补全项包含稳定 ID、实际补全内容和 `SourceRef` 来源。
+- 最后一行提供 `撤销补全 <ID>` 口令；撤销后重新进入 `analyze -> decide`，禁止沿用旧补全。
+- 已产生改动时只先报告影响，未经用户确认不得自动回滚。
+- `[直出]` 不得隐藏补全回执，因为它只改变 presentation 偏好，不取消用户对执行契约补全的知情权。
+
+补全回执属于 HostProjection 展示数据，由 Alignment Decision 的 `appliedContext` 与 `acceptance` 确定性生成，不增加第二套路由语义。
+
 ## 可选生态 handoff
 
 `alignment.ecosystem-handoff` 是 Alignment Decision 之后的独立 envelope。当前只冻结 `matt-pocock-skills`：

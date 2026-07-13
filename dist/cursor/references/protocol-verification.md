@@ -28,7 +28,7 @@ Required outcome: Separate the verification plan from completion evidence and re
 - `[假设]>2 转澄清`
 - `高风险必探查`
 - 任何档位不得跳过验证门（R8）
-- 档位 B 披露超 5 行必须升档 C
+- 档位 B 补全回执超 3 行或缺少来源/撤销方式必须升档 C
 
 ---
 
@@ -37,7 +37,7 @@ Required outcome: Separate the verification plan from completion evidence and re
 ```text
 门 1【需求门】指令进入时
   动作：三档路由评估（见 03-routing.md）
-  静默度：A 档全静默，B 档 3 行披露，C 档浮出
+  静默度：A 档全静默，B 档最多 3 行补全回执，C 档浮出
 
 门 2【设计门】动手写代码前
   动作：涉及 3+ 文件或跨模块时，先输出 5 行以内的微方案
@@ -81,7 +81,7 @@ Required outcome: Separate the verification plan from completion evidence and re
 ### 静默度
 
 - **A 档**：全静默，直接执行。用户零感知。
-- **B 档**：开头 1-3 行披露关键对齐假设，然后直接执行。无停顿。
+- **B 档**：开头展示最多 3 行补全回执，逐项包含补全内容、来源和撤销方式，然后直接执行。无停顿。
 - **C 档**：浮出澄清，一次只问一个问题并给推荐答案。用户被中断。
 
 ### 跳过条件
