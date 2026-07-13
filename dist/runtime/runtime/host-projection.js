@@ -3,7 +3,6 @@
 // Do not edit dist/ manually
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.projectEnrichmentUndo = projectEnrichmentUndo;
 exports.projectAlignmentDecision = projectAlignmentDecision;
 const ROUTE_ACTIONS = {
     pass: ['execute'],
@@ -62,18 +61,17 @@ function receiptClaim(claim, prefix) {
 function buildEnrichmentReceipt(decision) {
     if (decision.route !== 'enrich')
         return undefined;
-    const contextClaims = decision.claims
-        .map(claim => receiptClaim(claim, 'receipt-context-'))
-        .filter((claim) => Boolean(claim));
     const acceptanceClaim = decision.claims
         .map(claim => receiptClaim(claim, 'receipt-acceptance'))
         .find((claim) => Boolean(claim));
-    const boundarySources = contextClaims.length > 0
-        ? contextClaims.flatMap(claim => claim.sources)
+    const projectSources = (decision.appliedContext ?? [])
+        .filter(source => source.kind === 'project' && source.ref !== '.align/check-commands.txt');
+    const boundarySources = projectSources.length > 0
+        ? projectSources
         : [{ kind: 'user', ref: 'request:text' }];
-    const contextAddition = contextClaims.length > 0
-        ? `项目上下文：${contextClaims.map(claim => `${claim.sources.map(sourceLabel).join('、')} → ${claim.statement}`).join('；')}`
-        : '执行边界：沿用用户请求中已声明的范围、恢复条件与授权。';
+    const contextAddition = projectSources.length > 0
+        ? `上下文注入：向执行提示词附加 ${projectSources.map(source => source.ref).join('、')}；只允许采用其中与当前请求相关的内容。`
+        : '执行边界：把用户已声明的范围、恢复条件与授权固化为执行约束，未新增方向性决定。';
     const items = [
         { id: 'B1', addition: contextAddition, sources: boundarySources }
     ];
@@ -92,15 +90,6 @@ function buildEnrichmentReceipt(decision) {
         }
     };
 }
-function projectEnrichmentUndo(decision, ids) {
-    return {
-        verdict: ROUTE_VERDICTS[decision.route],
-        nextAction: 'execute',
-        shouldBlock: false,
-        enrichmentUndo: { ids },
-        instructions: `[补全撤销] ids=${ids.join(',')}\n1. 立即停止沿用当前会话最近一条补全回执中的这些项目；找不到对应回执时，只问用户粘贴该回执。\n2. 回到原始请求，排除已撤销项目后重新执行 analyze -> decide；禁止沿用旧决定直接继续。\n3. 若已产生改动，先报告受影响文件和状态；未经用户确认不得自动回滚。`
-    };
-}
 function renderEnrichmentReceipt(receipt) {
     const itemLines = receipt.items.map(item => `[${item.id}] ${item.addition} 来源：${item.sources.map(sourceLabel).join('、')}`);
     return [...itemLines, `撤销：回复“${receipt.undo.command}”。${receipt.undo.effect}`].join('\n');
@@ -108,7 +97,7 @@ function renderEnrichmentReceipt(receipt) {
 function instructionsFor(decision, action, enrichmentReceipt) {
     if (action === 'execute') {
         if (enrichmentReceipt) {
-            return `[对齐] route=enrich next.action=execute\n执行前向用户原样展示以下补全回执，然后直接执行，不等待确认：\n${renderEnrichmentReceipt(enrichmentReceipt)}\n执行规则：只执行 Alignment Decision scope.include，禁止扩大范围；完成后按 acceptance 验证，未验证不得交付。`;
+            return `[对齐] route=enrich next.action=execute\n执行前向用户展示以下补全回执，然后直接执行，不等待确认。若实际采用上下文中的具体规则，必须在 B1 中列明规则及来源；若仅加载未采用，保留“上下文注入”表述，禁止把候选来源伪装成已采用规则：\n${renderEnrichmentReceipt(enrichmentReceipt)}\n执行规则：只执行 Alignment Decision scope.include，禁止扩大范围；完成后按 acceptance 验证，未验证不得交付。`;
         }
         return `[对齐] route=pass next.action=execute\n1. 按请求中已明确的目标、范围和约束直接执行。\n2. 只执行 Alignment Decision scope.include，禁止扩大范围。\n3. 完成后按 acceptance 验证；未验证不得交付。`;
     }

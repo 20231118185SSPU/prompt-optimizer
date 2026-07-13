@@ -50,14 +50,9 @@ export interface AlignmentDecision {
         };
     };
 }
-export interface ContextContribution {
-    statement: string;
-    source: SourceRef;
-}
 export declare function buildAlignmentDecision(analysis: AnalysisResult, options?: {
     adapter?: string;
     nativeHook?: boolean;
     verificationCommands?: string[];
-    contextContributions?: ContextContribution[];
 }): AlignmentDecision;
 //# sourceMappingURL=contract-builder.d.ts.map

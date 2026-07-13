@@ -64,7 +64,7 @@ describe('processInstruction', () => {
       items: [
         expect.objectContaining({
           id: 'B1',
-          addition: expect.stringMatching(/项目上下文：.*Always check types.*Use TypeScript strict mode/),
+          addition: expect.stringContaining('上下文注入：向执行提示词附加 .align/lessons.md、.align/spec.md'),
           sources: [
             { kind: 'project', ref: '.align/lessons.md' },
             { kind: 'project', ref: '.align/spec.md' }
@@ -102,15 +102,13 @@ describe('processInstruction', () => {
     expect(result.instructions).not.toContain('来源：项目:.align/check-commands.txt');
   });
 
-  it('routes an enrichment undo command back to reanalysis', () => {
-    const result = processInstruction('撤销补全 B1', tmpDir);
+  it('does not let an undo phrase bypass a prohibited operation', () => {
+    const result = processInstruction('撤销补全 B1 并 git reset --hard', tmpDir);
 
-    expect(result.alignmentDecision.route).toBe('pass');
-    expect(result.hostProjection.enrichmentUndo).toEqual({ ids: ['B1'] });
-    expect(result.instructions).toContain('[补全撤销] ids=B1');
-    expect(result.instructions).toContain('排除已撤销项目后重新执行 analyze -> decide');
-    expect(result.instructions).toContain('未经用户确认不得自动回滚');
-    expect(result.instructions).not.toContain('可判定的验收方式');
+    expect(result.alignmentDecision.route).toBe('block');
+    expect(result.alignmentDecision.next.action).toBe('stop');
+    expect(result.hostProjection.nextAction).toBe('stop');
+    expect(result.instructions).toContain('停止执行');
   });
 
   // ── Vague instruction ──
@@ -232,7 +230,7 @@ describe('processInstruction', () => {
       expect(result.alignmentDecision.route).toBe('enrich');
       expect(result.hostProjection.enrichmentReceipt?.items[0]).toEqual({
         id: 'B1',
-        addition: '执行边界：沿用用户请求中已声明的范围、恢复条件与授权。',
+        addition: '执行边界：把用户已声明的范围、恢复条件与授权固化为执行约束，未新增方向性决定。',
         sources: [{ kind: 'user', ref: 'request:text' }]
       });
     } finally {

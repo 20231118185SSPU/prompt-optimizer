@@ -8,13 +8,8 @@
 import { enrich, AlignContext } from './enricher';
 import { getVerificationCommands } from './verifier';
 import { analyzeInstruction } from './analyzer';
-import { AlignmentDecision, buildAlignmentDecision, ContextContribution } from './contract-builder';
-import {
-  CompatibilityVerdict,
-  HostProjection,
-  projectAlignmentDecision,
-  projectEnrichmentUndo
-} from './host-projection';
+import { AlignmentDecision, buildAlignmentDecision } from './contract-builder';
+import { CompatibilityVerdict, HostProjection, projectAlignmentDecision } from './host-projection';
 import { buildMattHandoff, discoverMattEnvironment, MattHandoff } from './matt-handoff';
 
 export type PresentationMode = 'default' | 'direct_output';
@@ -39,14 +34,6 @@ export interface PipelineResult {
   alignmentDecision: AlignmentDecision;
   hostProjection: HostProjection;
   handoff?: MattHandoff;
-}
-
-function contextExcerpt(content: string): string {
-  const line = content
-    .split(/\r?\n/)
-    .map(item => item.trim())
-    .find(item => item && !item.startsWith('#') && !item.startsWith('<!--') && !item.startsWith('```'));
-  return (line ?? content.trim()).replace(/^-\s+/, '').slice(0, 240);
 }
 
 /**
@@ -89,23 +76,16 @@ export function processInstruction(
     kind: 'project' as const,
     ref: `.align/${name}.md`
   }));
-  const contextContributions: ContextContribution[] = contextEntries.map(([name, content]) => ({
-    statement: contextExcerpt(content),
-    source: { kind: 'project', ref: `.align/${name}.md` }
-  }));
   const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
     .filter(Boolean)
     .join('\n');
   const analysis = analyzeInstruction(instruction, semanticContext, contextText);
   const alignmentDecision = buildAlignmentDecision(analysis, {
     verificationCommands,
-    contextContributions,
     adapter: options.hostCapabilities?.adapter,
     nativeHook: options.hostCapabilities?.nativeBlocking
   });
-  const hostProjection = analysis.enrichmentUndoIds.length > 0
-    ? projectEnrichmentUndo(alignmentDecision, analysis.enrichmentUndoIds)
-    : projectAlignmentDecision(alignmentDecision);
+  const hostProjection = projectAlignmentDecision(alignmentDecision);
 
   const result: PipelineResult = {
     verdict: hostProjection.verdict,

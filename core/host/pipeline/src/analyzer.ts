@@ -21,7 +21,6 @@ export interface AnalysisResult {
   effective: DimensionScores;
   assumptionCount: number;
   appliedContext: SourceRef[];
-  enrichmentUndoIds: string[];
 }
 
 const has = (text: string, pattern: RegExp): boolean => pattern.test(text);
@@ -37,10 +36,6 @@ export function isLocalReleasePreparation(text: string): boolean {
 export function analyzeInstruction(text: string, context: SourceRef[] = [], contextText: string = ''): AnalysisResult {
   const direct = /^\s*(?:\[直出\]|直出)/.test(text);
   const normalized = text.replace(/^\s*(?:\[直出\]|直出)\s*/, '').trim();
-  const enrichmentUndoIds = [...new Set(
-    (normalized.match(/\bB\d+\b/gi) ?? []).map(id => id.toUpperCase())
-  )];
-  const enrichmentUndo = /撤销补全/i.test(normalized) && enrichmentUndoIds.length > 0;
   const stripped = normalized
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`[^`]*`/g, '')
@@ -112,9 +107,7 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
     !xyProblem && !directionChoiceAmbiguous && (!safetyCritical || completeRiskContract);
 
   let observed: DimensionScores;
-  if (enrichmentUndo) {
-    observed = score(2, 2, 2, 1, 1);
-  } else if (policyProhibited) {
+  if (policyProhibited) {
     observed = score(2, 2, 2, 1, 1);
   } else if (completeRiskContract) {
     observed = score(2, 2, 2, 1, 1);
@@ -175,7 +168,6 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
     observed,
     effective,
     assumptionCount,
-    appliedContext,
-    enrichmentUndoIds: enrichmentUndo ? enrichmentUndoIds : []
+    appliedContext
   };
 }

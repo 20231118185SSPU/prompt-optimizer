@@ -26,11 +26,6 @@ export interface AlignmentDecision {
   };
 }
 
-export interface ContextContribution {
-  statement: string;
-  source: SourceRef;
-}
-
 const idFor = (prefix: string, value: string): string =>
   `${prefix}-${createHash('sha256').update(value).digest('hex').slice(0, 16)}`;
 
@@ -250,7 +245,6 @@ export function buildAlignmentDecision(
     adapter?: string;
     nativeHook?: boolean;
     verificationCommands?: string[];
-    contextContributions?: ContextContribution[];
   } = {}
 ): AlignmentDecision {
   const decision = decideRoute(analysis);
@@ -294,14 +288,6 @@ export function buildAlignmentDecision(
     { id: 'claim-user-request', type: 'fact', statement: analysis.text, sources: [{ kind: 'user', ref: 'request:text' }] }
   ];
   if (decision.route === 'enrich') {
-    for (const [index, contribution] of (options.contextContributions ?? []).entries()) {
-      claims.push({
-        id: `receipt-context-${index + 1}`,
-        type: 'fact',
-        statement: contribution.statement,
-        sources: [contribution.source]
-      });
-    }
     if (explicitCommands.length === 0) {
       claims.push({
         id: 'receipt-acceptance',

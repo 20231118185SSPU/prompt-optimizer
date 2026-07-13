@@ -247,14 +247,6 @@ function buildAlignmentDecision(analysis, options = {}) {
         { id: 'claim-user-request', type: 'fact', statement: analysis.text, sources: [{ kind: 'user', ref: 'request:text' }] }
     ];
     if (decision.route === 'enrich') {
-        for (const [index, contribution] of (options.contextContributions ?? []).entries()) {
-            claims.push({
-                id: `receipt-context-${index + 1}`,
-                type: 'fact',
-                statement: contribution.statement,
-                sources: [contribution.source]
-            });
-        }
         if (explicitCommands.length === 0) {
             claims.push({
                 id: 'receipt-acceptance',

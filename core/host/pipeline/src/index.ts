@@ -22,14 +22,12 @@ export {
 } from './pipeline';
 export { analyzeInstruction, AnalysisResult, DimensionScores, SourceRef } from './analyzer';
 export { decideRoute, DecisionRoute, RouteDecision } from './decision-engine';
-export { buildAlignmentDecision, AlignmentDecision, ContextContribution } from './contract-builder';
+export { buildAlignmentDecision, AlignmentDecision } from './contract-builder';
 export {
   projectAlignmentDecision,
-  projectEnrichmentUndo,
   CompatibilityVerdict,
   EnrichmentReceipt,
   EnrichmentReceiptItem,
-  EnrichmentUndo,
   HostNextAction,
   HostProjection
 } from './host-projection';

@@ -16,8 +16,6 @@ function isLocalReleasePreparation(text) {
 function analyzeInstruction(text, context = [], contextText = '') {
     const direct = /^\s*(?:\[直出\]|直出)/.test(text);
     const normalized = text.replace(/^\s*(?:\[直出\]|直出)\s*/, '').trim();
-    const enrichmentUndoIds = [...new Set((normalized.match(/\bB\d+\b/gi) ?? []).map(id => id.toUpperCase()))];
-    const enrichmentUndo = /撤销补全/i.test(normalized) && enrichmentUndoIds.length > 0;
     const stripped = normalized
         .replace(/```[\s\S]*?```/g, '')
         .replace(/`[^`]*`/g, '')
@@ -76,10 +74,7 @@ function analyzeInstruction(text, context = [], contextText = '') {
         (explicitAction || diagnosticAuthorized || explicitlyDelegatedChoice || localReleasePreparation || boundedPerformanceChange || explicitLayoutGoal || (vague && normalized.length > 8)) &&
         !xyProblem && !directionChoiceAmbiguous && (!safetyCritical || completeRiskContract);
     let observed;
-    if (enrichmentUndo) {
-        observed = score(2, 2, 2, 1, 1);
-    }
-    else if (policyProhibited) {
+    if (policyProhibited) {
         observed = score(2, 2, 2, 1, 1);
     }
     else if (completeRiskContract) {
@@ -160,8 +155,7 @@ function analyzeInstruction(text, context = [], contextText = '') {
         observed,
         effective,
         assumptionCount,
-        appliedContext,
-        enrichmentUndoIds: enrichmentUndo ? enrichmentUndoIds : []
+        appliedContext
     };
 }
 //# sourceMappingURL=analyzer.js.map

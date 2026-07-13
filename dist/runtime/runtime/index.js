@@ -10,7 +10,7 @@
  * Converts rough user ideas into executable, verifiable, precipitable task contracts.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateWindsurfRules = exports.generateAiderRules = exports.generateCopilotRules = exports.MATT_SKILLS = exports.discoverMattEnvironment = exports.buildMattHandoff = exports.writeContextProjection = exports.LifecycleCoordinator = exports.projectEnrichmentUndo = exports.projectAlignmentDecision = exports.buildAlignmentDecision = exports.decideRoute = exports.analyzeInstruction = exports.processInstruction = exports.runVerification = exports.getVerificationCommands = exports.enrich = exports.route = exports.classify = exports.VERSION = void 0;
+exports.generateWindsurfRules = exports.generateAiderRules = exports.generateCopilotRules = exports.MATT_SKILLS = exports.discoverMattEnvironment = exports.buildMattHandoff = exports.writeContextProjection = exports.LifecycleCoordinator = exports.projectAlignmentDecision = exports.buildAlignmentDecision = exports.decideRoute = exports.analyzeInstruction = exports.processInstruction = exports.runVerification = exports.getVerificationCommands = exports.enrich = exports.route = exports.classify = exports.VERSION = void 0;
 exports.VERSION = '3.2.0-rc.1';
 // Re-export pipeline components
 var classifier_1 = require("./classifier");
@@ -32,7 +32,6 @@ var contract_builder_1 = require("./contract-builder");
 Object.defineProperty(exports, "buildAlignmentDecision", { enumerable: true, get: function () { return contract_builder_1.buildAlignmentDecision; } });
 var host_projection_1 = require("./host-projection");
 Object.defineProperty(exports, "projectAlignmentDecision", { enumerable: true, get: function () { return host_projection_1.projectAlignmentDecision; } });
-Object.defineProperty(exports, "projectEnrichmentUndo", { enumerable: true, get: function () { return host_projection_1.projectEnrichmentUndo; } });
 var lifecycle_1 = require("./lifecycle");
 Object.defineProperty(exports, "LifecycleCoordinator", { enumerable: true, get: function () { return lifecycle_1.LifecycleCoordinator; } });
 var context_projection_1 = require("./context-projection");
