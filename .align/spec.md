@@ -24,12 +24,12 @@
 - `docs/`：文档（usage/ + reference/ + planning/） [推断]
 - `examples/`：示例 [推断]
 - `scripts/`：安装脚本 [推断]
-- `tests/`：卸载零损伤测试 fixture [推断]
+- `tests/`：契约、路由、分发、安装、上下文与评测回归测试 [原文]
 
 ## 分支与提交规范
 
-- 提交格式：type: description [推断]
-- type 必须：feat | fix | docs | refactor | chore [推断]
+- 最近提交通常使用 `type(scope): description` 或 `type: description` [推断]
+- 最近 20 条提交出现的 type：chore | merge | fix | feat | docs | refactor | test [推断]
 - 禁止自动 commit 和 push [原文]
 - 禁止使用 git reset --hard 或 git checkout -- [原文]
 

@@ -1,4 +1,4 @@
 [Alignment Protocol] 本条指令须先过三档路由评估。
-读取 .align/lessons.md → spec.md → context.md。
+读取 .align/lessons.md → spec.md → facts.md / glossary.md / state.md；三个分类文件未齐全时同时读取 context.md，全部缺失时只读 legacy。
 简单明确→直通；有缺口→披露后执行；高风险/总分<6→停下澄清。
 交付前必须自验证（R8 验证门不可跳过）。
