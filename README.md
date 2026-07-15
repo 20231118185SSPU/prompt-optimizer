@@ -186,6 +186,7 @@ stdout 只输出 `alignment.ecosystem-handoff` JSON，stderr 只披露 route/sta
 - [使用文档](docs/README.md#使用文档)：安装与日常使用
 - [参考文档](docs/README.md#参考文档)：外部参考取舍
 - [规划文档](docs/README.md#规划文档)：深度优化方案和会话任务拆解
+- [v4 专精化执行方案](docs/planning/V4-FOCUS-IMPROVEMENT-PLAN.md)：执行前契约门定位、核心不变量、架构收敛、W0-W7 波次和量化 Gate
 - [v3.2 稳定版执行方案](docs/planning/V3.2-STABLE-IMPROVEMENT-PLAN.md)：单一路由、评测可靠性、远程 evidence 和发布 Gate
 - [G0-G6 改进规划](docs/planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：本次 Alignment Decision runtime 大更新的分波次执行契约
 - [G5 评测报告](docs/planning/MULTI-AGENT-G5-EVALUATION-REPORT.md)：确定性语料、盲评、修复回归与证据边界
