@@ -22,9 +22,9 @@
 
 runtime 安装到 `~/.prompt-optimizer/`：
 
-- `bin/align-doctor`：检查 Node、runtime、项目 router 副本和宿主能力等级。
+- `bin/align-doctor`：检查 Node、runtime、项目 router、副本上下文、verification chain、Stop hook 和宿主能力等级。
 - `bin/align-cli`：结构化 Alignment Decision 与可选生态 handoff CLI，需要 Node.js。
-- `adapters/claude-code.sh`：Claude Code L3 Native Hook adapter。
+- `adapters/claude-code.sh`：Claude Code L3 Native Hook adapter；UserPromptSubmit 记录 Decision/handoff，Stop 记录 receipt 后才运行 completion verification。
 - `adapters/codex.sh`：Codex L2 CLI wrapper；无 Node 时输出显式降级的 shell 投影。
 
 ### Windows PowerShell
@@ -85,10 +85,11 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 
 | 宿主 | 等级 | 入口约束 | 阻断 | Completion |
 | --- | --- | --- | --- | --- |
-| Claude Code | L3 Native Hook | enforced | enforced | self-reported |
+| Claude Code | L3 Native Hook | enforced | enforced | Stop receipt 后生成脱敏 evidence（synthetic adapter integration E3） |
 | Codex | L2 CLI wrapper / instruction-backed | enforced | advisory | unavailable |
 
 Codex 不具备 Claude Code 的 native hook parity。禁止把 L2 描述为强制阻断。
+Claude Code 的真实宿主 E4 尚未验证；当前证据不得表述为真实 Claude Code 端到端闭环。
 
 ### 预览和版本
 

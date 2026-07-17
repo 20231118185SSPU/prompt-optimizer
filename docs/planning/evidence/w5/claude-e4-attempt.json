@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "real-host-e4-attempt",
+  "status": "blocked",
+  "blocker": "isolated claude -p did not expose the project hook to the production adapter; no public lifecycle artifacts were observed",
+  "provider": "claude-cli/first-party",
+  "requestedModel": "sonnet",
+  "paidModelExecutions": 2,
+  "authorizedBudgetUsd": 1,
+  "committedCostUsd": 0.12463,
+  "retry": false,
+  "cases": [
+    {
+      "caseRef": "high-risk-a",
+      "modelCalls": 1,
+      "actualModels": ["mimo-v2.5"],
+      "costUsd": 0.003315,
+      "durationMs": 1710,
+      "exitStatus": 0,
+      "hookObserved": false,
+      "publicLifecycleArtifactCount": 0
+    },
+    {
+      "caseRef": "high-risk-b",
+      "modelCalls": 1,
+      "actualModels": ["mimo-v2.5", "mimo-v2.5-pro[1M]"],
+      "costUsd": 0.121315,
+      "durationMs": 7930,
+      "exitStatus": 1,
+      "hookObserved": false,
+      "publicLifecycleArtifactCount": 0
+    }
+  ],
+  "realSettings": {
+    "sha256Before": "a95ff9606ea1792568af52d4bbd09bbb880cff2831a20ac2f92cac3ad7cc9a45",
+    "sha256After": "a95ff9606ea1792568af52d4bbd09bbb880cff2831a20ac2f92cac3ad7cc9a45",
+    "length": 1904,
+    "unchanged": true
+  },
+  "privacy": {
+    "promptStored": false,
+    "sessionIdStored": false,
+    "transcriptStored": false,
+    "tokenStored": false,
+    "absolutePathStored": false
+  }
+}

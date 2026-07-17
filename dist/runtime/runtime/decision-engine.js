@@ -3,25 +3,30 @@
 // Do not edit dist/ manually
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.evaluateRouteDecision = evaluateRouteDecision;
 exports.decideRoute = decideRoute;
+const policy_evaluator_1 = require("./policy-evaluator");
+function policyReasons(analysis) {
+    const reasons = [...analysis.reasons];
+    const applied = new Set(analysis.appliedContext.map(source => `${source.kind}:${source.ref}`));
+    const hasAppliedEvidence = analysis.contextEvidence.some(evidence => applied.has(`${evidence.source.kind}:${evidence.source.ref}`));
+    if (hasAppliedEvidence && reasons.includes('requirements.needs_enrichment')) {
+        reasons.push('context.resolvable_from_project');
+    }
+    return [...new Set(reasons)];
+}
+function evaluateRouteDecision(analysis) {
+    return (0, policy_evaluator_1.evaluateDecisionPolicy)({
+        reasons: policyReasons(analysis),
+        scores: {
+            observed: analysis.observed,
+            effective: analysis.effective,
+        },
+        assumptionCount: analysis.assumptionCount,
+    });
+}
 function decideRoute(analysis) {
-    const reasons = new Set(analysis.reasons);
-    if (reasons.has('policy.operation_prohibited'))
-        return { route: 'block', action: 'stop' };
-    if (analysis.effective.total < 6 ||
-        Math.min(analysis.effective.d1, analysis.effective.d2, analysis.effective.d3, analysis.effective.d4, analysis.effective.d5) < 1 ||
-        analysis.assumptionCount > 2 ||
-        ['intent.ambiguous_goal', 'scope.impact_unknown', 'scope.too_broad'].some(reason => reasons.has(reason))) {
-        return { route: 'clarify', action: 'ask' };
-    }
-    if (reasons.has('authorization.confirmation_missing'))
-        return { route: 'block', action: 'wait_confirmation' };
-    if ([...reasons].some(reason => reason.startsWith('risk.')) ||
-        reasons.has('context.resolvable_from_project') ||
-        reasons.has('requirements.needs_enrichment') ||
-        analysis.observed.total < 8) {
-        return { route: 'enrich', action: 'execute' };
-    }
-    return { route: 'pass', action: 'execute' };
+    const decision = evaluateRouteDecision(analysis);
+    return { route: decision.route, action: decision.action };
 }
 //# sourceMappingURL=decision-engine.js.map

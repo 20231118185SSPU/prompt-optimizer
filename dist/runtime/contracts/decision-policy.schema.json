@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-optimizer.dev/contracts/decision-policy/1.0.0",
+  "title": "Alignment Decision Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "kind", "evaluation", "unknownOperator",
+    "thresholds", "routePrecedence", "annotationRules"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "kind": { "const": "alignment.decision-policy" },
+    "evaluation": { "const": "first_match_wins" },
+    "unknownOperator": { "const": "fail_closed" },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passMinimumTotal", "executionMinimumTotal",
+        "executionMinimumDimension", "maximumAssumptionsForExecution"
+      ],
+      "properties": {
+        "passMinimumTotal": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "executionMinimumTotal": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "executionMinimumDimension": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "maximumAssumptionsForExecution": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "routePrecedence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/routeRule" }
+    },
+    "annotationRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/annotationRule" }
+    }
+  },
+  "$defs": {
+    "routeRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "priority", "when", "route", "nextActions"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "priority": { "type": "integer", "minimum": 0 },
+        "when": { "$ref": "#/$defs/condition" },
+        "route": { "enum": ["pass", "enrich", "clarify", "block"] },
+        "nextActions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["execute", "ask", "wait_confirmation", "stop"] }
+        }
+      }
+    },
+    "condition": {
+      "oneOf": [
+        { "$ref": "#/$defs/alwaysCondition" },
+        { "$ref": "#/$defs/reasonAnyCondition" },
+        { "$ref": "#/$defs/scoreScalarCondition" },
+        { "$ref": "#/$defs/scoreBetweenCondition" },
+        { "$ref": "#/$defs/minimumDimensionCondition" },
+        { "$ref": "#/$defs/assumptionCountCondition" },
+        { "$ref": "#/$defs/booleanCondition" },
+        { "$ref": "#/$defs/compoundCondition" },
+        { "$ref": "#/$defs/notCondition" }
+      ]
+    },
+    "alwaysCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op"],
+      "properties": { "op": { "const": "always" } }
+    },
+    "reasonAnyCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "codes"],
+      "properties": {
+        "op": { "const": "reason_any" },
+        "codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
+        }
+      }
+    },
+    "scoreScalarCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "source", "comparator", "value"],
+      "properties": {
+        "op": { "const": "score_total" },
+        "source": { "enum": ["observed", "effective"] },
+        "comparator": { "enum": ["lt", "gte"] },
+        "value": { "type": "integer", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "scoreBetweenCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "source", "comparator", "min", "max"],
+      "properties": {
+        "op": { "const": "score_total" },
+        "source": { "enum": ["observed", "effective"] },
+        "comparator": { "const": "between" },
+        "min": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "max": { "type": "integer", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "minimumDimensionCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "source", "comparator", "value"],
+      "properties": {
+        "op": { "const": "minimum_dimension" },
+        "source": { "enum": ["observed", "effective"] },
+        "comparator": { "enum": ["lt", "gte"] },
+        "value": { "type": "integer", "minimum": 0, "maximum": 2 }
+      }
+    },
+    "assumptionCountCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "comparator", "value"],
+      "properties": {
+        "op": { "const": "assumption_count" },
+        "comparator": { "enum": ["gt", "lte"] },
+        "value": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "booleanCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "value"],
+      "properties": {
+        "op": { "enum": ["scores_equal", "safety_critical"] },
+        "value": { "type": "boolean" }
+      }
+    },
+    "compoundCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "conditions"],
+      "properties": {
+        "op": { "enum": ["all", "any"] },
+        "conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/condition" }
+        }
+      }
+    },
+    "notCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "condition"],
+      "properties": {
+        "op": { "const": "not" },
+        "condition": { "$ref": "#/$defs/condition" }
+      }
+    },
+    "annotationRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "presentationMode", "requiresReason", "bidirectional", "changesRoute"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "presentationMode": { "const": "direct_output" },
+        "requiresReason": { "const": "override.explicit_direct_output" },
+        "bidirectional": { "const": true },
+        "changesRoute": { "const": false }
+      }
+    }
+  }
+}

@@ -2,8 +2,13 @@
 // Generated from core/
 // Do not edit dist/ manually
 import { AlignmentDecision } from './contract-builder';
-import { VerificationResult } from './verifier';
-export type LifecycleState = 'decided' | 'baseline_passed' | 'executing' | 'executed' | 'verified' | 'verification_failed';
+import type { VerificationResult } from './verifier';
+/** @internal Lifecycle state machine used by explicit host execution receipts. */
+export type LifecycleState = 'decided' | 'baseline_passed' | 'executing' | 'executed' | 'verified' | 'verification_failed' | 'verification_inconclusive';
+export interface ExecutionReceipt {
+    executionRef: string;
+    status: 'completed' | 'failed' | 'cancelled';
+}
 export declare class LifecycleCoordinator {
     readonly decision: AlignmentDecision;
     private state;
@@ -12,6 +17,7 @@ export declare class LifecycleCoordinator {
     recordBaseline(passed: boolean): void;
     handoffExecution(): void;
     recordExecution(status: 'completed' | 'failed' | 'cancelled'): void;
-    recordCompletion(verification: VerificationResult): 'verified' | 'verification_failed';
+    recordExecutionReceipt(receipt: ExecutionReceipt): void;
+    recordCompletion(verification: VerificationResult): 'verified' | 'verification_failed' | 'verification_inconclusive';
 }
 //# sourceMappingURL=lifecycle.d.ts.map

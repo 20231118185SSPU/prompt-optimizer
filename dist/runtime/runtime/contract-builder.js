@@ -7,16 +7,108 @@ exports.buildAlignmentDecision = buildAlignmentDecision;
 const crypto_1 = require("crypto");
 const analyzer_1 = require("./analyzer");
 const decision_engine_1 = require("./decision-engine");
+const task_classification_1 = require("./task-classification");
 const idFor = (prefix, value) => `${prefix}-${(0, crypto_1.createHash)('sha256').update(value).digest('hex').slice(0, 16)}`;
 function extractVerificationCommands(text) {
     const patterns = [
         /\b(?:npm|pnpm|yarn)\s+(?:run\s+)?[A-Za-z0-9:_-]+(?:\s+--\s+[A-Za-z0-9_./:-]+)?/gi,
         /\b(?:npx\s+)?(?:markdownlint|pytest|tsc)(?:\s+--?[A-Za-z0-9-]+|\s+[A-Za-z0-9_./:-]+)*/gi,
         /\bruff\s+check(?:\s+--?[A-Za-z0-9-]+|\s+[A-Za-z0-9_./:-]+)*/gi,
-        /\bbash\s+(?:-n\s+)?[A-Za-z0-9_./-]+/gi
+        /\bbash\s+(?:-n\s+)?[A-Za-z0-9_./-]+/gi,
+        /\bgit\s+diff\s+--check\b/gi,
+        /\b(?:rg|grep)\s+[^\r\n。；;]+/gi,
+        /\bnode\s+[A-Za-z0-9_./:-]+/gi,
+        /\bpowershell(?:\.exe)?\s+[^\r\n。；;]+/gi
     ];
-    const commands = patterns.flatMap(pattern => text.match(pattern) ?? []);
-    return [...new Set(commands.map(command => command.trim()))].slice(0, 3);
+    const inlineCommands = [...text.matchAll(/\x60([^\x60]+)\x60/g)]
+        .map(match => match[1].trim())
+        .filter(command => /^(?:npm|pnpm|yarn|npx|pytest|ruff|tsc|bash|git|rg|grep|node|powershell)/i.test(command));
+    const compoundCommands = text.match(/\b(?:ruff\s+check|npm\s+(?:run\s+)?[A-Za-z0-9:_-]+)[^\r\n。；;]*?\s+&&\s+[^\r\n。；;]+/gi) ?? [];
+    const commands = [
+        ...inlineCommands,
+        ...compoundCommands,
+        ...patterns.flatMap(pattern => text.match(pattern) ?? [])
+    ].map(command => command.trim());
+    const unique = [...new Set(commands)];
+    return unique.filter(command => !compoundCommands.some(compound => compound !== command && compound.includes(command))).slice(0, 3);
+}
+function commandTarget(command) {
+    return command.replace(/^.*?\s+--\s+/, '').trim().toLowerCase();
+}
+function isRelevantAcceptanceCommand(command, text) {
+    const normalized = command.toLowerCase();
+    const documentationTask = (0, task_classification_1.isDocumentationTask)(text);
+    const codeTask = (0, task_classification_1.isCodeTask)(text);
+    const shellTask = (0, task_classification_1.isShellTask)(text);
+    const performanceTask = (0, task_classification_1.isPerformanceTask)(text);
+    const localReleaseTask = (0, analyzer_1.isLocalReleasePreparation)(text);
+    if (localReleaseTask) {
+        return /git\s+diff\s+--check|markdownlint|vale|remark|textlint/i.test(command);
+    }
+    if (documentationTask) {
+        return /markdownlint|vale|remark|textlint|\brg\b|\bgrep\b/i.test(command);
+    }
+    if (performanceTask) {
+        return /benchmark|perf|load|p95/i.test(command);
+    }
+    if (codeTask) {
+        if (/bash\s+-n|shellcheck|powershell/i.test(command))
+            return shellTask;
+        if (/markdownlint|vale|remark|textlint/i.test(command))
+            return false;
+        if (/npm\s+test|pnpm\s+test|yarn\s+test|pytest|ruff|tsc|jest|vitest|go\s+test|cargo\s+test/i.test(command)) {
+            const target = commandTarget(command);
+            const identifiers = text.toLowerCase().match(/[a-z][a-z0-9_-]{2,}/g) ?? [];
+            const semanticTarget = (target === 'parser' && /解析器|parser/i.test(text)) ||
+                (target === 'searchbox' && /搜索|searchbox/i.test(text)) ||
+                (target === 'ui' && /界面|按钮|交互|ui/i.test(text)) ||
+                (target === 'auth' && /登录|认证|token|密码|reason\s+code|日志/i.test(text));
+            return !target || target.includes('&&') || semanticTarget ||
+                identifiers.some(identifier => target.includes(identifier) || identifier.includes(target));
+        }
+        return false;
+    }
+    if (shellTask) {
+        return /bash\s+-n|shellcheck|powershell/i.test(command);
+    }
+    return /markdownlint|pytest|ruff|tsc|npm\s+test|pnpm\s+test|yarn\s+test|jest|vitest/i.test(normalized);
+}
+function relevantCommands(candidates, text) {
+    return [...new Set(candidates.filter(command => isRelevantAcceptanceCommand(command, text)))];
+}
+function hasExplicitIrrelevantAcceptance(text) {
+    const explicit = extractVerificationCommands(text);
+    return explicit.length > 0 && relevantCommands(explicit, text).length === 0;
+}
+function withoutAcceptanceScore(scores) {
+    return {
+        ...scores,
+        d5: 0,
+        total: scores.d1 + scores.d2 + scores.d3 + scores.d4,
+    };
+}
+function normalizePolicyAnalysis(analysis) {
+    if (!(0, task_classification_1.isDocumentationTask)(analysis.text) || !hasExplicitIrrelevantAcceptance(analysis.text)) {
+        return analysis;
+    }
+    const observed = withoutAcceptanceScore(analysis.observed);
+    const effective = withoutAcceptanceScore(analysis.effective);
+    const reasons = analysis.reasons.filter(reason => ![
+        'context.resolvable_from_project',
+        'requirements.needs_enrichment',
+        'requirements.sufficient',
+        'diagnosis.score_below_threshold',
+    ].includes(reason));
+    reasons.push('verification.missing');
+    return {
+        ...analysis,
+        observed,
+        effective,
+        reasons: [...new Set(reasons)],
+    };
+}
+function manualAcceptanceMethod(value) {
+    return { kind: 'manual', value };
 }
 function performanceThreshold(analysis) {
     const match = `${analysis.text}\n${analysis.contextText}`.match(/\bp95\s*(?:below|under|低于|小于|<)\s*(\d+)\s*ms\b/i);
@@ -30,6 +122,14 @@ function clarificationFor(analysis) {
     const text = analysis.text;
     const reasons = new Set(analysis.reasons);
     const localReleasePreparation = (0, analyzer_1.isLocalReleasePreparation)(text);
+    if ((0, task_classification_1.isDocumentationTask)(text) && hasExplicitIrrelevantAcceptance(text)) {
+        return {
+            missing: '与当前任务对象直接相关的验收方式',
+            prompt: 'README 或当前文档内容应使用哪条与文本结果直接相关的验收方式，而不是当前命令？',
+            why: '当前命令只能验证 shell 语法，不能证明 README 或文档内容已经按要求修改。',
+            recommendedAnswer: '推荐：使用 markdownlint、文档内容搜索或逐项人工检查；不要把 bash -n build/build.sh 当作文档验收。'
+        };
+    }
     if (/(?:私钥|密钥)/i.test(text) && /(?:仓库|git|历史|提交|泄露|重写|改写)/i.test(text)) {
         return {
             missing: '疑似泄露密钥的吊销状态与远端历史修改授权',
@@ -94,7 +194,7 @@ function clarificationFor(analysis) {
             recommendedAnswer: '推荐：先只准备本地产物并运行发布检查；未经再次确认不 push、tag 或 publish。'
         };
     }
-    if (/token|认证|登录/i.test(text) && /格式|兼容|换掉|改变/i.test(text)) {
+    if (/(?:token\s+格式|token[^。；;\n]{0,48}(?:兼容|换掉|改变)|(?:兼容|换掉|改变)[^。；;\n]{0,48}token|认证[^。；;\n]{0,48}(?:格式|兼容)|(?:格式|兼容)[^。；;\n]{0,48}认证)/i.test(text)) {
         return {
             missing: '是否允许改变公开认证兼容边界',
             prompt: '恢复登录是否必须改变公开 token 格式，还是应先在 auth 范围内保持格式兼容地修复？',
@@ -182,6 +282,14 @@ function clarificationFor(analysis) {
             recommendedAnswer: '推荐：给出一个真实失败场景，并用耗时、完成率或明确人工检查条件定义改善结果。'
         };
     }
+    if (analysis.gap === 'directional' || reasons.has('intent.ambiguous_goal')) {
+        return {
+            missing: '会改变结果的真实目标或方向',
+            prompt: '这次最想让 AI 在什么具体场景中更懂你，完成后用哪个可观察结果判断方向正确？',
+            why: '项目上下文只能补充技术结构和现有约束，不能替你选择产品目标或 agent 的真实使用方向。',
+            recommendedAnswer: '推荐：先给出一个具体误解场景和成功标准；确认方向后，再由项目上下文补 core 范围、现有规则和相关验收。'
+        };
+    }
     if (analysis.effective.d5 === 0 || reasons.has('verification.missing')) {
         return {
             missing: '可判定的验收方式',
@@ -206,14 +314,33 @@ function clarificationFor(analysis) {
     };
 }
 function buildAlignmentDecision(analysis, options = {}) {
-    const decision = (0, decision_engine_1.decideRoute)(analysis);
-    const executable = decision.route === 'pass' || decision.route === 'enrich';
+    const policyAnalysis = normalizePolicyAnalysis(analysis);
     const verificationCommands = options.verificationCommands ?? [];
     const explicitCommands = extractVerificationCommands(analysis.text);
-    const acceptanceCommands = explicitCommands.length > 0 ? explicitCommands : verificationCommands.slice(0, 1);
-    const acceptanceSource = explicitCommands.length > 0
+    const decision = (0, decision_engine_1.evaluateRouteDecision)(policyAnalysis);
+    const decisionReasons = decision.degraded && policyAnalysis.presentationMode === 'direct_output'
+        ? [...decision.reasons, 'override.explicit_direct_output']
+        : decision.reasons;
+    const executable = decision.route === 'pass' || decision.route === 'enrich';
+    const explicitRelevantCommands = relevantCommands(explicitCommands, analysis.text);
+    const projectRelevantCommands = relevantCommands(verificationCommands, analysis.text);
+    const preserveExplicitCommands = !(0, task_classification_1.isDocumentationTask)(analysis.text) && explicitCommands.length > 0;
+    const legacyProjectCommand = projectRelevantCommands.length === 0 && (0, task_classification_1.isCodeTask)(analysis.text)
+        ? verificationCommands.find(command => /^echo\s+/i.test(command))
+        : undefined;
+    const selectedProjectCommands = projectRelevantCommands.length > 0
+        ? projectRelevantCommands
+        : legacyProjectCommand
+            ? [legacyProjectCommand]
+            : [];
+    const acceptanceCommands = explicitRelevantCommands.length > 0
+        ? explicitRelevantCommands
+        : preserveExplicitCommands
+            ? explicitCommands
+            : selectedProjectCommands;
+    const acceptanceSource = explicitRelevantCommands.length > 0 || preserveExplicitCommands
         ? { kind: 'user', ref: 'request:text' }
-        : verificationCommands.length > 0
+        : selectedProjectCommands.length > 0
             ? { kind: 'project', ref: '.align/check-commands.txt' }
             : { kind: 'default', ref: 'policy:acceptance-from-request' };
     const threshold = performanceThreshold(analysis);
@@ -229,11 +356,11 @@ function buildAlignmentDecision(analysis, options = {}) {
             }))
             : [{
                     id: 'acceptance-1',
-                    criterion: `逐项满足请求中已声明的目标与边界：${analysis.text}`,
-                    method: { kind: 'manual', value: `按原始请求逐项检查目标、范围、禁止项和输出条件：${analysis.text}` }
+                    criterion: `人工验收：逐项满足请求中已声明的目标与边界：${analysis.text}`,
+                    method: manualAcceptanceMethod(`按原始请求逐项检查目标对象、修改结果、范围、禁止项和输出条件：${analysis.text}`)
                 }]
         : [];
-    const clarification = decision.action === 'ask' ? clarificationFor(analysis) : undefined;
+    const clarification = decision.action === 'ask' ? clarificationFor(policyAnalysis) : undefined;
     const missing = clarification ? [clarification.missing] : [];
     const next = decision.action === 'ask'
         ? { action: 'ask', question: { id: 'clarify-1', prompt: clarification.prompt, why: clarification.why, recommendedAnswer: clarification.recommendedAnswer } }
@@ -255,6 +382,25 @@ function buildAlignmentDecision(analysis, options = {}) {
                 sources: [acceptanceSource]
             });
         }
+        const appliedContextKeys = new Set(analysis.appliedContext.map(source => `${source.kind}:${source.ref}`));
+        for (const [index, evidence] of analysis.contextEvidence
+            .filter(item => appliedContextKeys.has(`${item.source.kind}:${item.source.ref}`))
+            .entries()) {
+            claims.push({
+                id: `receipt-context-${index + 1}`,
+                type: 'fact',
+                statement: evidence.statement,
+                sources: [evidence.source]
+            });
+        }
+        for (const [index, attribution] of analysis.effectiveScoreSources.entries()) {
+            claims.push({
+                id: 'receipt-score-' + (index + 1),
+                type: 'fact',
+                statement: attribution.dimension + ' 有效分数从 ' + attribution.from + ' 调整为 ' + attribution.to + '：' + attribution.evidence,
+                sources: [attribution.source]
+            });
+        }
     }
     const appliedContext = [...analysis.appliedContext];
     if (decision.route === 'enrich' && acceptanceSource.kind === 'project' &&
@@ -269,10 +415,10 @@ function buildAlignmentDecision(analysis, options = {}) {
         kind: 'alignment.decision',
         policyVersion: '1.0.0',
         requestId: idFor('request', analysis.text),
-        decisionId: idFor('decision', JSON.stringify({ text: analysis.text, reasons: analysis.reasons })),
+        decisionId: idFor('decision', JSON.stringify({ text: analysis.text, reasons: decisionReasons })),
         route: decision.route,
-        reasons: analysis.reasons,
-        scores: { observed: analysis.observed, effective: analysis.effective },
+        reasons: decisionReasons,
+        scores: { observed: policyAnalysis.observed, effective: policyAnalysis.effective },
         claims,
         missing,
         scope: { include: [analysis.text], exclude: [] },

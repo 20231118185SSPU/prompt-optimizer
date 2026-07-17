@@ -1,12 +1,12 @@
 /**
  * Core Pipeline Integration for the Universal Align Pipeline.
  *
- * Integrates: classifier → router → enricher → verifier
+ * Integrates: context resolution → decision kernel → host projection.
  * Converts user instructions into aligned, verifiable task contracts.
  */
 
 import { enrich, AlignContext } from './enricher';
-import { getVerificationCommands } from './verifier';
+import { getVerificationCommands } from './acceptance-plan';
 import { analyzeInstruction } from './analyzer';
 import { AlignmentDecision, buildAlignmentDecision } from './contract-builder';
 import { CompatibilityVerdict, HostProjection, projectAlignmentDecision } from './host-projection';
@@ -17,6 +17,10 @@ export type PipelineEcosystem = 'matt-pocock-skills';
 
 export interface PipelineOptions {
   bypass?: boolean;
+  /**
+   * @deprecated Use the explicit `align-cli matt` composition layer. This
+   * compatibility option remains for the current minor migration window.
+   */
   ecosystem?: PipelineEcosystem;
   hostCapabilities?: {
     adapter?: string;
@@ -24,6 +28,10 @@ export interface PipelineOptions {
   };
 }
 
+/**
+ * @deprecated Compatibility-shaped result. New callers should use
+ * alignInstruction() for the Decision/host seam.
+ */
 export interface PipelineResult {
   verdict: CompatibilityVerdict;
   presentationMode: PresentationMode;
@@ -33,11 +41,15 @@ export interface PipelineResult {
   verificationCommands: string[];
   alignmentDecision: AlignmentDecision;
   hostProjection: HostProjection;
+  /** @deprecated Use the explicit `align-cli matt` composition layer. */
   handoff?: MattHandoff;
 }
 
 /**
  * Process a user instruction through the align pipeline.
+ *
+ * @deprecated This compatibility-shaped result exposes internal planning
+ * details. New callers should use alignInstruction().
  *
  * Steps:
  * 1. Detect presentation preference without bypassing alignment
@@ -72,12 +84,16 @@ export function processInstruction(
     ['context', context.context],
     ['decisions.log', context.decisions]
   ].filter(([, content]) => Boolean(content));
+  if (verificationCommands.length > 0) {
+    contextEntries.push(['check-commands', verificationCommands.join('\n')]);
+  }
   const semanticContext = contextEntries.map(([name]) => ({
     kind: 'project' as const,
-    ref: `.align/${name}.md`
+    ref: name === 'check-commands' ? '.align/check-commands.txt' : `.align/${name}.md`
   }));
   const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
     .filter(Boolean)
+    .concat(verificationCommands)
     .join('\n');
   const analysis = analyzeInstruction(instruction, semanticContext, contextText);
   const alignmentDecision = buildAlignmentDecision(analysis, {

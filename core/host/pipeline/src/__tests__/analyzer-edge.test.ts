@@ -28,4 +28,77 @@ describe('structured analyzer edge cases', () => {
       'risk.data_mutation'
     ]));
   });
+
+  test('I-01: project context cannot choose the real goal for a vague request', () => {
+    const analysis = analyzeInstruction(
+      '帮我优化这个项目，让 AI 更懂我',
+      [{ kind: 'project', ref: '.align/spec.md' }],
+      '技术栈：Node.js + TypeScript。现有测试命令：npm test。'
+    );
+
+    expect(decideRoute(analysis)).toEqual({ route: 'clarify', action: 'ask' });
+  });
+
+  test('I-02: technical context may describe structure but cannot fill the directional gap', () => {
+    const analysis = analyzeInstruction(
+      '帮我优化这个项目，让 AI 更懂我',
+      [{ kind: 'project', ref: '.align/facts.md' }],
+      '项目使用 Node.js 和 TypeScript；目录为 src/，测试命令为 npm test。'
+    );
+
+    expect(analysis.effective.d1).toBe(analysis.observed.d1);
+    expect(decideRoute(analysis).route).toBe('clarify');
+  });
+
+  test('I-03: ordinary project facts cannot turn a directional gap into executable work', () => {
+    const analysis = analyzeInstruction(
+      '帮我改进这个项目，让它更适合团队',
+      [{ kind: 'project', ref: '.align/facts.md' }],
+      '团队使用 Node.js + TypeScript；现有测试命令为 npm test。'
+    );
+
+    expect(decideRoute(analysis)).toEqual({ route: 'clarify', action: 'ask' });
+  });
+
+  test('I-04: loaded but irrelevant context is excluded from appliedContext', () => {
+    const irrelevant = { kind: 'project' as const, ref: '.align/facts.md' };
+    const analysis = analyzeInstruction(
+      '修复 `README.md` 的一个错别字，完成后运行 `markdownlint .`。',
+      [irrelevant],
+      '项目使用 PostgreSQL；生产迁移必须先备份并提供回滚条件。'
+    );
+
+    expect(analysis.appliedContext).not.toContainEqual(irrelevant);
+  });
+
+  test('action verb without context stays clarify', () => {
+    const analysis = analyzeInstruction('修复登录 bug');
+    expect(analysis.observed.d5).toBe(0);
+    expect(analysis.observed.total).toBeLessThan(6);
+    expect(decideRoute(analysis).route).toBe('clarify');
+  });
+
+  test('short action verb with project context stays clarify when no user verification signal', () => {
+    // "修复登录 bug" is short (< 10 chars normalized) and has no user verification.
+    // Context should not fill d5 acceptance for bare requests.
+    const analysis = analyzeInstruction(
+      '修复登录 bug',
+      [{ kind: 'project', ref: '.align/spec.md' }],
+      '技术栈：Node.js + TypeScript。测试命令：npm test。'
+    );
+    expect(decideRoute(analysis).route).toBe('clarify');
+  });
+
+  test('contradictory requirements stay clarify', () => {
+    const analysis = analyzeInstruction('只看不改，但要修复所有问题');
+    expect(decideRoute(analysis).route).toBe('clarify');
+  });
+
+  test('bulk production mutation without confirmation stays clarify', () => {
+    const analysis = analyzeInstruction(
+      '把所有用户的邮箱地址批量替换为 test@example.com，不确认直接执行。'
+    );
+    expect(analysis.reasons).toContain('risk.data_mutation');
+    expect(decideRoute(analysis).route).not.toBe('enrich');
+  });
 });

@@ -14,8 +14,172 @@ else
   SHELL_ROUTER="$INSTALL_ROOT/runtime/shell/align-route.sh"
 fi
 NODE_COMMAND="${ALIGN_NODE_COMMAND:-node}"
+HOOK_TIMEOUT_SECONDS="${ALIGN_HOOK_TIMEOUT_SECONDS:-30}"
+case "$HOOK_TIMEOUT_SECONDS" in
+  ''|*[!0-9]*) HOOK_TIMEOUT_SECONDS=30 ;;
+esac
+[ "$HOOK_TIMEOUT_SECONDS" -gt 0 ] || HOOK_TIMEOUT_SECONDS=30
+COMPLETION_TIMEOUT_MS=$((HOOK_TIMEOUT_SECONDS * 1000 - 1000))
+[ "$COMPLETION_TIMEOUT_MS" -gt 0 ] || COMPLETION_TIMEOUT_MS=500
+if [ "${ALIGN_HOOK_TIMEOUT_BIN+x}" = x ]; then
+  TIMEOUT_BIN="$ALIGN_HOOK_TIMEOUT_BIN"
+else
+  TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
+fi
 RAW="$(cat 2>/dev/null || true)"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+SESSION_ID=""
+HOOK_EVENT_NAME=""
+if command -v python3 &> /dev/null; then
+  SESSION_ID="$(printf '%s' "$RAW" | PYTHONIOENCODING=utf-8 python3 -c 'import json,sys
+try: print(json.load(sys.stdin).get("session_id", ""))
+except Exception: pass' 2>/dev/null || true)"
+  HOOK_EVENT_NAME="$(printf '%s' "$RAW" | PYTHONIOENCODING=utf-8 python3 -c 'import json,sys
+try: print(json.load(sys.stdin).get("hook_event_name", ""))
+except Exception: pass' 2>/dev/null || true)"
+fi
+if [ -z "$SESSION_ID" ] && command -v jq &> /dev/null; then
+  SESSION_ID="$(printf '%s' "$RAW" | jq -r '.session_id // empty' 2>/dev/null || true)"
+fi
+if [ -z "$HOOK_EVENT_NAME" ] && command -v jq &> /dev/null; then
+  HOOK_EVENT_NAME="$(printf '%s' "$RAW" | jq -r '.hook_event_name // empty' 2>/dev/null || true)"
+fi
+if [ -z "$SESSION_ID" ]; then
+  SESSION_ID="$(printf '%s' "$RAW" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+fi
+if [ -z "$HOOK_EVENT_NAME" ]; then
+  HOOK_EVENT_NAME="$(printf '%s' "$RAW" | sed -n 's/.*"hook_event_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+fi
+
+session_ref() {
+  if command -v sha256sum &> /dev/null; then
+    printf '%s' "$1" | sha256sum | awk '{print substr($1,1,24)}'
+  elif command -v shasum &> /dev/null; then
+    printf '%s' "$1" | shasum -a 256 | awk '{print substr($1,1,24)}'
+  elif command -v openssl &> /dev/null; then
+    printf '%s' "$1" | openssl dgst -sha256 -r | awk '{print substr($1,1,24)}'
+  else
+    printf '%s' "$1"
+  fi
+}
+
+SESSION_REF=""
+[ -n "$SESSION_ID" ] && SESSION_REF="$(session_ref "$SESSION_ID")"
+
+run_with_hook_timeout() {
+  if [ -n "$TIMEOUT_BIN" ]; then
+    "$TIMEOUT_BIN" -k 1 "$HOOK_TIMEOUT_SECONDS" "$@"
+    status=$?
+    [ "$status" -eq 124 ] || [ "$status" -eq 137 ] && return 124
+    return "$status"
+  fi
+
+  # macOS does not provide GNU timeout by default. Use the available Node
+  # runtime as a watchdog so hook execution still has a hard deadline.
+  "$NODE_COMMAND" -e '
+const { spawn } = require("node:child_process");
+const [timeoutSeconds, command, ...args] = process.argv.slice(1);
+const timeoutMs = Number(timeoutSeconds) * 1000;
+const maxOutputBytes = 256 * 1024;
+let output = Buffer.alloc(0);
+const child = spawn(command, args, {
+  detached: true,
+  stdio: ["ignore", "pipe", "pipe"],
+  windowsHide: true
+});
+let timedOut = false;
+let finished = false;
+let forceTimer;
+const stopChild = signal => {
+  if (process.platform === "win32") {
+    const treeKiller = spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true
+    });
+    treeKiller.unref();
+    treeKiller.on("error", () => {
+      try {
+        child.kill(signal);
+      } catch {
+        // The child has already exited.
+      }
+    });
+    return;
+  }
+  try {
+    if (process.platform !== "win32") process.kill(-child.pid, signal);
+    else child.kill(signal);
+  } catch {
+    child.kill(signal);
+  }
+};
+const timer = setTimeout(() => {
+  timedOut = true;
+  stopChild("SIGTERM");
+  forceTimer = setTimeout(() => {
+    if (!finished) {
+      if (child.stdout) {
+        child.stdout.unpipe(process.stdout);
+        child.stdout.destroy();
+      }
+      if (child.stderr) {
+        child.stderr.unpipe(process.stderr);
+        child.stderr.destroy();
+      }
+      if (process.platform !== "win32") stopChild("SIGKILL");
+      finish(124);
+    }
+  }, 1000);
+}, timeoutMs);
+const finish = code => {
+  if (finished) return;
+  finished = true;
+  clearTimeout(timer);
+  clearTimeout(forceTimer);
+  const exitCode = timedOut ? 124 : (code ?? 1);
+  if (!timedOut && output.length > 0) {
+    process.stdout.write(output, () => process.exit(exitCode));
+    return;
+  }
+  process.exit(exitCode);
+};
+child.stdout.on("data", chunk => {
+  if (output.length >= maxOutputBytes) return;
+  const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+  output = Buffer.concat([output, buffer.subarray(0, maxOutputBytes - output.length)]);
+});
+child.stderr.on("data", chunk => process.stderr.write(chunk));
+child.on("error", () => {
+  finish(1);
+});
+child.on("close", code => {
+  finish(code);
+});
+' "$HOOK_TIMEOUT_SECONDS" "$@"
+}
+
+# A normal Claude Stop is an observable completed execution phase. It does not
+# imply acceptance passed, and this host exposes no failed/cancelled signal.
+if [ "${ALIGN_HOOK_PHASE:-prompt}" = "stop" ]; then
+  if [ "$HOOK_EVENT_NAME" != "Stop" ] || [ -z "$SESSION_REF" ]; then
+    echo "[对齐] execution receipt/completion status=not_observable failed/cancelled=enforcement_unavailable"
+    exit 0
+  fi
+  if ! command -v "$NODE_COMMAND" &> /dev/null || [ ! -f "$RUNTIME" ]; then
+    echo "[对齐] completion=unavailable degraded=runtime failed/cancelled=enforcement_unavailable"
+    exit 0
+  fi
+  set +e
+  RESULT="$(ALIGN_COMPLETION_TIMEOUT_MS="$COMPLETION_TIMEOUT_MS" ALIGN_SESSION_REF="$SESSION_REF" ALIGN_ROUTE_INNER=1 run_with_hook_timeout "$NODE_COMMAND" "$RUNTIME" claude-stop "" --project-dir "$PROJECT_DIR")"
+  STATUS=$?
+  set -e
+  if [ "$STATUS" -eq 124 ]; then
+    echo "[对齐] completion=unavailable degraded=timeout"
+    exit 0
+  fi
+  [ -n "$RESULT" ] && printf '%s\n' "$RESULT"
+  exit "$STATUS"
+fi
 
 run_shell_fallback() {
   if [ -f "$SHELL_ROUTER" ]; then
@@ -23,12 +187,26 @@ run_shell_fallback() {
     if [ -f "$PROJECT_DIR/.align/spec.md" ] || [ -f "$PROJECT_DIR/.align/context.md" ]; then
       context_refs="project:.align/spec.md"
     fi
-    printf '%s' "$RAW" | ALIGN_CONTEXT_REFS="$context_refs" bash "$SHELL_ROUTER"
+    set +e
+    fallback_output="$(printf '%s' "$RAW" | ALIGN_CONTEXT_REFS="$context_refs" bash "$SHELL_ROUTER")"
+    fallback_status=$?
+    set -e
+    [ -n "$fallback_output" ] && printf '%s\n' "$fallback_output"
+    [ "$fallback_status" -eq 0 ] || return "$fallback_status"
+    case "$fallback_output" in
+      *'route=pass next.action=execute'*|*'route=enrich next.action=execute'*)
+        printf '%s\n' '[对齐] baseline=unavailable degraded=shell。未签发 execution handoff，已阻断执行。' >&2
+        return 2
+        ;;
+    esac
+    return 0
   elif [ -f "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt" ]; then
     cat "$PIPELINE_DIR/../../.align/HOOK-REMINDER.txt"
   else
     echo "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"
   fi
+  printf '%s\n' '[对齐] baseline=unavailable degraded=shell。未签发 execution handoff，已阻断执行。' >&2
+  return 2
 }
 
 # ── 递归防护：hook 内调用 claude -p 时，子进程再触发本 hook 直接退出 ──
@@ -41,8 +219,11 @@ fi
 # Check if Node.js is available
 if ! command -v "$NODE_COMMAND" &> /dev/null; then
   echo "[对齐] Warning: Node.js not found, falling back to shell router"
+  set +e
   run_shell_fallback
-  exit 0
+  STATUS=$?
+  set -e
+  exit "$STATUS"
 fi
 
 # ── 输入提取：python3 → jq → sed 降级（与 align-route.sh 保持一致）──
@@ -75,19 +256,17 @@ if [ -z "$PROMPT" ]; then
 fi
 
 # Call align-cli (safe: pass args positionally, not interpolated)
-TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
 ALIGN_CMD='"$1" "$2" claude-code "$3" --project-dir "$4"'
 
-if [ -n "$TIMEOUT_BIN" ]; then
-  set +e
-  RESULT="$(ALIGN_ROUTE_INNER=1 "$TIMEOUT_BIN" 30 bash -c "$ALIGN_CMD" _ "$NODE_COMMAND" "$RUNTIME" "$PROMPT" "$PROJECT_DIR")"
-  STATUS=$?
-  set -e
-else
-  set +e
-  RESULT="$(ALIGN_ROUTE_INNER=1 bash -c "$ALIGN_CMD" _ "$NODE_COMMAND" "$RUNTIME" "$PROMPT" "$PROJECT_DIR")"
-  STATUS=$?
-  set -e
+set +e
+RESULT="$(ALIGN_SESSION_REF="$SESSION_REF" ALIGN_ROUTE_INNER=1 run_with_hook_timeout bash -c "$ALIGN_CMD" _ "$NODE_COMMAND" "$RUNTIME" "$PROMPT" "$PROJECT_DIR")"
+STATUS=$?
+set -e
+
+if [ "$STATUS" -eq 124 ]; then
+  echo "[对齐] Runtime route timeout, falling back to shell router" >&2
+  run_shell_fallback
+  exit $?
 fi
 
 if [ "$STATUS" -eq 2 ]; then

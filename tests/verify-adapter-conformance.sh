@@ -12,12 +12,18 @@ PROJECT="$(mktemp -d)"
 trap 'rm -rf "$PROJECT"' EXIT
 
 fail=0
+case_total=0
+case_pass=0
+projection_total=0
+projection_pass=0
 decode_b64() {
   if base64 --help 2>&1 | grep -q -- '--decode'; then base64 --decode; else base64 -D; fi
 }
 
 while IFS='|' read -r id prompt_b64 context_b64 expected_route expected_action; do
   [ -n "$id" ] || continue
+  case_total=$((case_total + 1))
+  case_failed=0
   expected_action="${expected_action%$'\r'}"
   prompt="$(printf '%s' "$prompt_b64" | decode_b64)"
   context_json="$(printf '%s' "$context_b64" | decode_b64)"
@@ -27,13 +33,13 @@ while IFS='|' read -r id prompt_b64 context_b64 expected_route expected_action; 
   mkdir -p "$case_project"
   if printf '%s' "$context_json" | python3 -c 'import json,sys; raise SystemExit(0 if any(x.get("kind") == "project" for x in json.load(sys.stdin)) else 1)'; then
     mkdir -p "$case_project/.align"
-    printf '%s\n' 'Project contract context is available.' > "$case_project/.align/spec.md"
-    printf '%s\n' 'echo adapter-conformance' > "$case_project/.align/check-commands.txt"
+    printf '%s\n' 'Parser target and public API constraints are available.' > "$case_project/.align/spec.md"
+    printf '%s\n' 'npm test -- parser' > "$case_project/.align/check-commands.txt"
   fi
 
   codex="$(bash "$CODEX_ADAPTER" "$prompt" "$case_project" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["route"]+"\t"+d["next"]["action"])')"
   cursor="$(node "$CLI" cursor "$prompt" --project-dir "$case_project" | sed -n 's/.*route=\([a-z_]*\) next.action=\([a-z_]*\).*/\1\t\2/p' | head -1)"
-  hook_json="$(PROMPT="$prompt" PYTHONIOENCODING=utf-8 python3 -c 'import json,os; print(json.dumps({"prompt":os.environ["PROMPT"]}, ensure_ascii=False))')"
+  hook_json="$(CASE_ID="$id" PROMPT="$prompt" PYTHONIOENCODING=utf-8 python3 -c 'import json,os; print(json.dumps({"session_id":"conformance-"+os.environ["CASE_ID"],"prompt":os.environ["PROMPT"]}, ensure_ascii=False))')"
   claude="$(printf '%s' "$hook_json" | BLOCK_ON_HIGH=off CLAUDE_PROJECT_DIR="$case_project" bash "$CLAUDE_ADAPTER" | sed -n 's/.*route=\([a-z_]*\) next.action=\([a-z_]*\).*/\1\t\2/p' | head -1)"
   claude_shell="$(printf '%s' "$hook_json" | ALIGN_NODE_COMMAND=__missing_node__ BLOCK_ON_HIGH=off CLAUDE_PROJECT_DIR="$case_project" bash "$CLAUDE_ADAPTER" | sed -n 's/.*route=\([a-z_]*\) next.action=\([a-z_]*\).*/\1\t\2/p' | head -1)"
   shell="$(ALIGN_CONTEXT_REFS="$context_refs" ALIGN_ARBITER=off bash "$SHELL_ROUTER" --decision "$prompt" | cut -f1,3)"
@@ -41,11 +47,16 @@ while IFS='|' read -r id prompt_b64 context_b64 expected_route expected_action; 
   for adapter_projection in "codex:$codex" "cursor:$cursor" "claude:$claude" "claude-shell:$claude_shell" "shell:$shell"; do
     adapter="${adapter_projection%%:*}"
     actual="${adapter_projection#*:}"
+    projection_total=$((projection_total + 1))
     if [ "$actual" != "$expected" ]; then
       printf 'FAIL adapter [%s] %s: expected=%s actual=%s\n' "$id" "$adapter" "$expected" "$actual"
       fail=1
+      case_failed=1
+    else
+      projection_pass=$((projection_pass + 1))
     fi
   done
+  if [ "$case_failed" -eq 0 ]; then case_pass=$((case_pass + 1)); fi
 done < <(python3 - "$CORPUS" <<'PYEOF'
 import base64, json, sys
 for line in open(sys.argv[1], encoding="utf-8"):
@@ -57,4 +68,4 @@ PYEOF
 )
 
 [ "$fail" -eq 0 ] || exit 1
-echo "PASS: Claude, Codex, Cursor, and shell fallback match every golden route/action"
+echo "PASS: Claude, Codex, Cursor, and shell fallback match golden route/action (cases=$case_pass/$case_total projections=$projection_pass/$projection_total)"

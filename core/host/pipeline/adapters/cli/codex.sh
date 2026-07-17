@@ -17,6 +17,7 @@ INSTRUCTION="$1"
 PROJECT_DIR="${2:-$(pwd)}"
 
 if command -v "$NODE_COMMAND" >/dev/null 2>&1 && [ -f "$RUNTIME" ]; then
+  export ALIGN_HOST_ADAPTER=codex
   exec "$NODE_COMMAND" "$RUNTIME" json "$INSTRUCTION" --project-dir "$PROJECT_DIR"
 fi
 

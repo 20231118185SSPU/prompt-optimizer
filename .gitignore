@@ -6,3 +6,7 @@ node_modules/
 
 # Build output
 core/host/pipeline/dist/
+
+# Local reference-host lifecycle receipts and completion evidence
+.align/.runtime/
+**/.align/.runtime/

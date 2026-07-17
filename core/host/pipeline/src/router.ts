@@ -9,8 +9,8 @@ export interface RoutingResult {
 }
 
 /**
- * Compatibility projection for consumers of the former router API.
- * The Alignment Decision is the only route source; classifier signals are not accepted here.
+ * @deprecated Compatibility projection for consumers of the former router
+ * API. The Alignment Decision is the only route source; prefer alignInstruction().
  */
 export function route(decision: AlignmentDecision): RoutingResult {
   const projection = projectAlignmentDecision(decision);

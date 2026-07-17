@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { AlignmentDecision } from './contract-builder';
 
+/** @internal Explicit CLI composition only; never part of ordinary pipeline output. */
 export const MATT_SKILLS = [
   'ask-matt',
   'code-review',

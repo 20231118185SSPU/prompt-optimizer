@@ -41,13 +41,18 @@ const ROUTE_VERDICTS: Record<AlignmentDecision['route'], CompatibilityVerdict> =
 };
 
 function nextAction(decision: AlignmentDecision): HostNextAction {
+  const routeActions = ROUTE_ACTIONS[decision.route];
+  if (!routeActions) {
+    throw new Error(`Unsupported Alignment Decision route: ${String(decision.route)}`);
+  }
+
   const action = decision.next.action;
   if (!['execute', 'ask', 'wait_confirmation', 'stop'].includes(String(action))) {
     throw new Error(`Unsupported Alignment Decision next.action: ${String(action)}`);
   }
 
   const typedAction = action as HostNextAction;
-  if (!ROUTE_ACTIONS[decision.route].includes(typedAction)) {
+  if (!routeActions.includes(typedAction)) {
     throw new Error(`Alignment Decision route/action conflict: ${decision.route}/${typedAction}`);
   }
   return typedAction;
@@ -77,32 +82,74 @@ interface ReceiptClaim {
   sources: SourceRef[];
 }
 
-function receiptClaim(claim: Record<string, unknown>, prefix: string): ReceiptClaim | undefined {
+function isSourceRef(value: unknown): value is SourceRef {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return ['user', 'project', 'runtime', 'decision', 'default'].includes(String(candidate.kind)) &&
+    typeof candidate.ref === 'string';
+}
+
+function sameSource(left: SourceRef, right: SourceRef): boolean {
+  return left.kind === right.kind && left.ref === right.ref;
+}
+
+function isAppliedSource(source: SourceRef, appliedContext: SourceRef[]): boolean {
+  return appliedContext.some(applied => sameSource(applied, source));
+}
+
+function receiptClaim(
+  claim: Record<string, unknown>,
+  prefix: string,
+  appliedContext: SourceRef[]
+): ReceiptClaim | undefined {
   if (typeof claim.id !== 'string' || !claim.id.startsWith(prefix) || typeof claim.statement !== 'string') {
     return undefined;
   }
   if (!Array.isArray(claim.sources)) return undefined;
-  const sources = claim.sources.filter((source): source is SourceRef => {
-    if (!source || typeof source !== 'object') return false;
-    const candidate = source as Record<string, unknown>;
-    return typeof candidate.kind === 'string' && typeof candidate.ref === 'string';
-  });
+  const sources = claim.sources.filter(isSourceRef).filter(source =>
+    source.kind === 'user' || source.kind === 'default' || isAppliedSource(source, appliedContext)
+  );
   return sources.length > 0 ? { id: claim.id, statement: claim.statement, sources } : undefined;
+}
+
+function contextClaim(
+  claim: Record<string, unknown>,
+  appliedContext: SourceRef[]
+): ReceiptClaim | undefined {
+  if (typeof claim.id !== 'string' ||
+      claim.id === 'claim-user-request' ||
+      claim.id === 'receipt-acceptance' ||
+      claim.id.startsWith('receipt-score-') ||
+      typeof claim.statement !== 'string') {
+    return undefined;
+  }
+  if (!Array.isArray(claim.sources)) return undefined;
+
+  const sources = claim.sources.filter(isSourceRef);
+  const contextSources = sources.filter(source => source.kind !== 'user' && source.kind !== 'default');
+  if (contextSources.length === 0 || !contextSources.every(source => isAppliedSource(source, appliedContext))) {
+    return undefined;
+  }
+
+  return { id: String(claim.id), statement: claim.statement, sources: contextSources };
 }
 
 function buildEnrichmentReceipt(decision: AlignmentDecision): EnrichmentReceipt | undefined {
   if (decision.route !== 'enrich') return undefined;
 
+  const appliedContext = (decision.appliedContext ?? []).filter(isSourceRef);
   const acceptanceClaim = decision.claims
-    .map(claim => receiptClaim(claim, 'receipt-acceptance'))
+    .map(claim => receiptClaim(claim, 'receipt-acceptance', appliedContext))
     .find((claim): claim is ReceiptClaim => Boolean(claim));
-  const projectSources = (decision.appliedContext ?? [])
-    .filter(source => source.kind === 'project' && source.ref !== '.align/check-commands.txt');
-  const boundarySources: SourceRef[] = projectSources.length > 0
-    ? projectSources
+  const adoptedClaims = decision.claims
+    .map(claim => contextClaim(claim, appliedContext))
+    .filter((claim): claim is ReceiptClaim => Boolean(claim));
+  const boundarySources: SourceRef[] = adoptedClaims.length > 0
+    ? [...new Map(adoptedClaims.flatMap(claim => claim.sources)
+      .map(source => [`${source.kind}:${source.ref}`, source] as const)).values()]
     : [{ kind: 'user', ref: 'request:text' }];
-  const contextAddition = projectSources.length > 0
-    ? `上下文注入：向执行提示词附加 ${projectSources.map(source => source.ref).join('、')}；只允许采用其中与当前请求相关的内容。`
+  const contextAddition = adoptedClaims.length > 0
+    ? `上下文采用：${adoptedClaims.map(claim => claim.statement).join('；')}；上下文注入：向执行提示词附加 ${[...new Map(adoptedClaims.flatMap(claim => claim.sources).map(source => [source.ref, source] as const)).values()].map(source => source.ref).join('、')}`
     : '执行边界：把用户已声明的范围、恢复条件与授权固化为执行约束，未新增方向性决定。';
   const items: EnrichmentReceiptItem[] = [
     { id: 'B1', addition: contextAddition, sources: boundarySources }

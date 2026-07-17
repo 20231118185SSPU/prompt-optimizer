@@ -2,6 +2,19 @@
 
 > 如果你已经在使用 v2.0 的 Prompt Optimizer，本指南帮你迁移到 v3.0。
 
+## v4 W4 runtime surface
+
+W4 将 `Alignment Decision` 作为 runtime 的主要调用 seam。新的调用者应从
+`alignInstruction(...)` 读取机器决定和宿主指令；旧的宽结果可暂时从
+`runtime/internal.processInstruction(...).alignmentDecision` 读取。不要把 analyzer、verifier、
+lifecycle 或规则生成器当作主 interface。
+
+`classify` 与 `route` 保留一个 minor 兼容窗口并标记为 deprecated；它们只提供旧 consumer
+的兼容投影，不能重新决定 route。其余历史 helper 在 `runtime/internal` 保留迁移窗口，
+下一 major 可移除；`buildAlignmentDecision` 也属于该内部面，调用者不应自行拼装分析结果。
+Matt Pocock Skills handoff 继续通过显式 `align-cli matt` 组合，普通 pipeline 结果不包含
+handoff。
+
 ## 新旧能力对照
 
 | 能力 | v2.0 | v3.0 |

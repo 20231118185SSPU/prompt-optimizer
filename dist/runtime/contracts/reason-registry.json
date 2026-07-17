@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "1.0.0",
+  "kind": "alignment.reason-registry",
+  "ordering": "priority_then_code",
+  "reasons": [
+    {
+      "code": "policy.operation_prohibited",
+      "meaning": "A non-overridable policy forbids the requested operation.",
+      "priority": 10,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["block"],
+      "safetyCritical": true
+    },
+    {
+      "code": "authorization.confirmation_missing",
+      "meaning": "The contract is complete but required authorization or explicit confirmation is absent.",
+      "priority": 20,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["block"],
+      "safetyCritical": true
+    },
+    {
+      "code": "lifecycle.baseline_failed",
+      "meaning": "A required pre-execution baseline condition failed.",
+      "priority": 30,
+      "appliesTo": ["baseline"],
+      "allowedRoutes": ["block"],
+      "safetyCritical": true
+    },
+    {
+      "code": "risk.irreversible_operation",
+      "meaning": "The request can cause an irreversible operation.",
+      "priority": 40,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["enrich", "clarify", "block"],
+      "safetyCritical": true
+    },
+    {
+      "code": "risk.production_change",
+      "meaning": "The request can change a production environment.",
+      "priority": 41,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["enrich", "clarify", "block"],
+      "safetyCritical": true
+    },
+    {
+      "code": "risk.data_mutation",
+      "meaning": "The request can mutate or delete persisted data.",
+      "priority": 42,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["enrich", "clarify", "block"],
+      "safetyCritical": true
+    },
+    {
+      "code": "intent.ambiguous_goal",
+      "meaning": "The requested outcome is not specific enough to form a contract.",
+      "priority": 100,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "intent.xy_problem",
+      "meaning": "The proposed action may be a proxy for an unstated underlying goal.",
+      "priority": 101,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "intent.symptom_as_cause",
+      "meaning": "The request states a symptom as if it were the confirmed cause.",
+      "priority": 102,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "scope.impact_unknown",
+      "meaning": "The affected systems, files, users, or data are not known.",
+      "priority": 110,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "scope.too_broad",
+      "meaning": "The requested scope is too broad to execute as one bounded contract.",
+      "priority": 111,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "assumption.too_many",
+      "meaning": "More than two assumptions would be required to execute the contract.",
+      "priority": 120,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "verification.missing",
+      "meaning": "Acceptance criteria are absent or cannot yet be made machine-checkable.",
+      "priority": 130,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["enrich", "clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "diagnosis.score_below_threshold",
+      "meaning": "The effective D1-D5 total is below six.",
+      "priority": 140,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["clarify"],
+      "safetyCritical": false
+    },
+    {
+      "code": "runtime.degraded",
+      "meaning": "The runtime could not load or evaluate required alignment context.",
+      "priority": 150,
+      "appliesTo": ["decision", "baseline", "completion"],
+      "allowedRoutes": ["clarify", "block"],
+      "safetyCritical": false
+    },
+    {
+      "code": "context.resolvable_from_project",
+      "meaning": "Trusted project context resolves the user's contract gaps.",
+      "priority": 200,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["enrich"],
+      "safetyCritical": false
+    },
+    {
+      "code": "requirements.needs_enrichment",
+      "meaning": "The request is executable but scores six or seven and requires deterministic contract enrichment.",
+      "priority": 205,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["enrich"],
+      "safetyCritical": false
+    },
+    {
+      "code": "requirements.sufficient",
+      "meaning": "The user input itself supplies a bounded, verifiable, low-risk contract.",
+      "priority": 210,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["pass"],
+      "safetyCritical": false
+    },
+    {
+      "code": "override.explicit_direct_output",
+      "meaning": "The user requested direct presentation; this changes presentation only and never bypasses safety or verification.",
+      "priority": 900,
+      "appliesTo": ["decision"],
+      "allowedRoutes": ["pass", "enrich", "clarify", "block"],
+      "safetyCritical": false
+    },
+    {
+      "code": "lifecycle.completion_failed",
+      "meaning": "Execution occurred but one or more completion acceptance checks failed.",
+      "priority": 30,
+      "appliesTo": ["completion"],
+      "allowedRoutes": [],
+      "safetyCritical": false
+    }
+  ]
+}

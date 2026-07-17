@@ -4,7 +4,7 @@
 /**
  * Core Pipeline Integration for the Universal Align Pipeline.
  *
- * Integrates: classifier → router → enricher → verifier
+ * Integrates: context resolution → decision kernel → host projection.
  * Converts user instructions into aligned, verifiable task contracts.
  */
 import { AlignContext } from './enricher';
@@ -15,12 +15,20 @@ export type PresentationMode = 'default' | 'direct_output';
 export type PipelineEcosystem = 'matt-pocock-skills';
 export interface PipelineOptions {
     bypass?: boolean;
+    /**
+     * @deprecated Use the explicit `align-cli matt` composition layer. This
+     * compatibility option remains for the current minor migration window.
+     */
     ecosystem?: PipelineEcosystem;
     hostCapabilities?: {
         adapter?: string;
         nativeBlocking?: boolean;
     };
 }
+/**
+ * @deprecated Compatibility-shaped result. New callers should use
+ * alignInstruction() for the Decision/host seam.
+ */
 export interface PipelineResult {
     verdict: CompatibilityVerdict;
     presentationMode: PresentationMode;
@@ -30,10 +38,14 @@ export interface PipelineResult {
     verificationCommands: string[];
     alignmentDecision: AlignmentDecision;
     hostProjection: HostProjection;
+    /** @deprecated Use the explicit `align-cli matt` composition layer. */
     handoff?: MattHandoff;
 }
 /**
  * Process a user instruction through the align pipeline.
+ *
+ * @deprecated This compatibility-shaped result exposes internal planning
+ * details. New callers should use alignInstruction().
  *
  * Steps:
  * 1. Detect presentation preference without bypassing alignment

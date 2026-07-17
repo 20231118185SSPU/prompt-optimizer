@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "real-host-e4-success-observed",
+  "e4Level": "E4",
+  "status": "verified",
+  "provider": "claude-cli/first-party",
+  "requestedModel": "sonnet",
+  "actualModels": ["mimo-v2.5", "mimo-v2.5-pro[1M]"],
+  "paidModelExecutions": 1,
+  "committedCostUsd": 0.265669,
+  "durationMs": 34556,
+  "exitStatus": 0,
+  "runtimeBundleSha256AtRun": "78a159de38b18dd4706b7b102682f6e5e86414162d3015130e9397fc8ba9534a",
+  "currentRuntimeBundleSha256AtFinalFreeze": "751aa613c49377cbc9fbc92451e96fa15965e66fa7d42ec7b2e1c1ad90f1c7ec",
+  "supersededBy": "claude-e4-hook-lifecycle.json (complete artifact hashes, updated runtime hash)",
+  "artifacts": [
+    {
+      "kind": "alignment.baseline-report",
+      "status": "passed",
+      "revision": 1,
+      "sha256Prefix": "50e1e1c3"
+    },
+    {
+      "kind": "alignment.execution-handoff",
+      "status": "issued",
+      "revision": 1,
+      "sha256Prefix": "9903daa2"
+    },
+    {
+      "kind": "alignment.execution-receipt",
+      "status": "completed",
+      "revision": 2,
+      "sha256Prefix": "94b8dd68"
+    },
+    {
+      "kind": "alignment.completion-report",
+      "status": "verified",
+      "revision": 3,
+      "sha256Prefix": "278c9b0b"
+    }
+  ],
+  "identityChain": "BaselineReport -> ExecutionHandoff -> ExecutionReceipt -> CompletionReport; requestId/decisionId/runId were bound and revisions were 1 -> 1 -> 2 -> 3.",
+  "artifactHashCompleteness": "prefix-only",
+  "finalGateAdmissible": false,
+  "artifactHashLimitation": "The original isolated run was consumed before complete artifact hashes were persisted; prefixes are retained as observed metadata and must not be treated as complete hashes.",
+  "realSettings": {
+    "sha256Before": "a95ff9606ea1792568af52d4bbd09bbb880cff2831a20ac2f92cac3ad7cc9a45",
+    "sha256After": "a95ff9606ea1792568af52d4bbd09bbb880cff2831a20ac2f92cac3ad7cc9a45",
+    "unchangedDuringRun": true
+  },
+  "privacy": {
+    "promptStored": false,
+    "sessionIdStored": false,
+    "transcriptStored": false,
+    "tokenStored": false,
+    "absolutePathStored": false
+  },
+  "freshIndependentReview": false
+}

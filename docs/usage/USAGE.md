@@ -2,7 +2,7 @@
 
 > v3.2.0-rc.1 候选版使用说明。安装后两个核心动作：`/align-init` 接入项目，然后正常干活。
 
-宿主能力边界：Claude Code 是 L3 Native Hook；Codex 是 L2 CLI wrapper / instruction-backed，不具备 native hook 强制阻断 parity。运行 `bash ~/.prompt-optimizer/bin/align-doctor` 可检查实际状态。
+宿主能力边界：Claude Code 是 L3 Native Hook；UserPromptSubmit → Stop receipt → task-relevant completion evidence 目前仅通过 synthetic adapter integration E3，真实 Claude Code 会话 E4 尚未验证。Codex 是 L2 CLI wrapper / instruction-backed，不具备 native hook 强制阻断 parity。运行 `bash ~/.prompt-optimizer/bin/align-doctor` 可检查 runtime、项目接入、verification chain 和实际状态。
 
 ## 1. 接入一个项目（3 分钟）
 

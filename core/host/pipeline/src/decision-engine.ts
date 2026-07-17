@@ -1,4 +1,8 @@
 import { AnalysisResult } from './analyzer';
+import {
+  evaluateDecisionPolicy,
+  PolicyEvaluationResult,
+} from './policy-evaluator';
 
 export type DecisionRoute = 'pass' | 'enrich' | 'clarify' | 'block';
 
@@ -7,25 +11,30 @@ export interface RouteDecision {
   action: 'execute' | 'ask' | 'wait_confirmation' | 'stop';
 }
 
+function policyReasons(analysis: AnalysisResult): string[] {
+  const reasons = [...analysis.reasons];
+  const applied = new Set(analysis.appliedContext.map(source => `${source.kind}:${source.ref}`));
+  const hasAppliedEvidence = analysis.contextEvidence.some(
+    evidence => applied.has(`${evidence.source.kind}:${evidence.source.ref}`)
+  );
+  if (hasAppliedEvidence && reasons.includes('requirements.needs_enrichment')) {
+    reasons.push('context.resolvable_from_project');
+  }
+  return [...new Set(reasons)];
+}
+
+export function evaluateRouteDecision(analysis: AnalysisResult): PolicyEvaluationResult {
+  return evaluateDecisionPolicy({
+    reasons: policyReasons(analysis),
+    scores: {
+      observed: analysis.observed,
+      effective: analysis.effective,
+    },
+    assumptionCount: analysis.assumptionCount,
+  });
+}
+
 export function decideRoute(analysis: AnalysisResult): RouteDecision {
-  const reasons = new Set(analysis.reasons);
-  if (reasons.has('policy.operation_prohibited')) return { route: 'block', action: 'stop' };
-  if (
-    analysis.effective.total < 6 ||
-    Math.min(analysis.effective.d1, analysis.effective.d2, analysis.effective.d3, analysis.effective.d4, analysis.effective.d5) < 1 ||
-    analysis.assumptionCount > 2 ||
-    ['intent.ambiguous_goal', 'scope.impact_unknown', 'scope.too_broad'].some(reason => reasons.has(reason))
-  ) {
-    return { route: 'clarify', action: 'ask' };
-  }
-  if (reasons.has('authorization.confirmation_missing')) return { route: 'block', action: 'wait_confirmation' };
-  if (
-    [...reasons].some(reason => reason.startsWith('risk.')) ||
-    reasons.has('context.resolvable_from_project') ||
-    reasons.has('requirements.needs_enrichment') ||
-    analysis.observed.total < 8
-  ) {
-    return { route: 'enrich', action: 'execute' };
-  }
-  return { route: 'pass', action: 'execute' };
+  const decision = evaluateRouteDecision(analysis);
+  return { route: decision.route, action: decision.action };
 }

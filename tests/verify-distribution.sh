@@ -31,6 +31,9 @@ fi
 
 required=(
   .prompt-optimizer-owned
+  contracts/decision-policy.json
+  contracts/decision-policy.schema.json
+  contracts/reason-registry.json
   runtime/index.js
   runtime/shell/align-route.sh
   adapters/claude-code.sh
@@ -46,6 +49,17 @@ for relative in "${required[@]}"; do
   fi
 done
 
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+  if ! cmp -s "$ROOT/core/contracts/$contract_asset" "$DIST/contracts/$contract_asset"; then
+    echo "FAIL: distributed policy contract differs from core SSOT: $contract_asset"
+    exit 1
+  fi
+done
+if ! node "$ROOT/build/policy-projection.js" --check --router "$DIST/runtime/shell/align-route.sh"; then
+  echo "FAIL: distributed shell policy projection is stale"
+  exit 1
+fi
+
 before_hash="$(sha256sum "$DIST/runtime/index.js" | awk '{print $1}')"
 ALIGN_NODE_COMMAND=prompt-optimizer-node-missing ALIGN_NPM_COMMAND=prompt-optimizer-npm-missing \
   bash "$ROOT/build/build.sh" >/dev/null
@@ -54,6 +68,12 @@ if [ "$before_hash" != "$after_bash_hash" ]; then
   echo "FAIL: no-Node Bash build changed or removed the structured runtime"
   exit 1
 fi
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+  if ! cmp -s "$ROOT/core/contracts/$contract_asset" "$DIST/contracts/$contract_asset"; then
+    echo "FAIL: no-Node Bash build changed policy contract $contract_asset"
+    exit 1
+  fi
+done
 if command -v pwsh >/dev/null 2>&1; then
   ALIGN_NODE_COMMAND=prompt-optimizer-node-missing ALIGN_NPM_COMMAND=prompt-optimizer-npm-missing \
     pwsh -NoProfile -File "$ROOT/build/build.ps1" >/dev/null
@@ -62,6 +82,12 @@ if command -v pwsh >/dev/null 2>&1; then
     echo "FAIL: no-Node PowerShell build changed or removed the structured runtime"
     exit 1
   fi
+  for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+    if ! cmp -s "$ROOT/core/contracts/$contract_asset" "$DIST/contracts/$contract_asset"; then
+      echo "FAIL: no-Node PowerShell build changed policy contract $contract_asset"
+      exit 1
+    fi
+  done
 fi
 
 if ! grep -q 'Generated from core/' "$DIST/runtime/index.js" ||

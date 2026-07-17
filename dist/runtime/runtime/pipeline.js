@@ -5,19 +5,22 @@
 /**
  * Core Pipeline Integration for the Universal Align Pipeline.
  *
- * Integrates: classifier → router → enricher → verifier
+ * Integrates: context resolution → decision kernel → host projection.
  * Converts user instructions into aligned, verifiable task contracts.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processInstruction = processInstruction;
 const enricher_1 = require("./enricher");
-const verifier_1 = require("./verifier");
+const acceptance_plan_1 = require("./acceptance-plan");
 const analyzer_1 = require("./analyzer");
 const contract_builder_1 = require("./contract-builder");
 const host_projection_1 = require("./host-projection");
 const matt_handoff_1 = require("./matt-handoff");
 /**
  * Process a user instruction through the align pipeline.
+ *
+ * @deprecated This compatibility-shaped result exposes internal planning
+ * details. New callers should use alignInstruction().
  *
  * Steps:
  * 1. Detect presentation preference without bypassing alignment
@@ -35,7 +38,7 @@ function processInstruction(instruction, projectDir, options = {}) {
     const { enrichedMessage, context } = (0, enricher_1.enrich)(instruction, projectDir);
     // Step 2: Build the completion verification plan. Execution happens only
     // after an execution receipt is registered by the lifecycle coordinator.
-    const verificationCommands = (0, verifier_1.getVerificationCommands)(projectDir);
+    const verificationCommands = (0, acceptance_plan_1.getVerificationCommands)(projectDir);
     const contextEntries = [
         ['lessons', context.lessons],
         ['spec', context.spec],
@@ -45,12 +48,16 @@ function processInstruction(instruction, projectDir, options = {}) {
         ['context', context.context],
         ['decisions.log', context.decisions]
     ].filter(([, content]) => Boolean(content));
+    if (verificationCommands.length > 0) {
+        contextEntries.push(['check-commands', verificationCommands.join('\n')]);
+    }
     const semanticContext = contextEntries.map(([name]) => ({
         kind: 'project',
-        ref: `.align/${name}.md`
+        ref: name === 'check-commands' ? '.align/check-commands.txt' : `.align/${name}.md`
     }));
     const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
         .filter(Boolean)
+        .concat(verificationCommands)
         .join('\n');
     const analysis = (0, analyzer_1.analyzeInstruction)(instruction, semanticContext, contextText);
     const alignmentDecision = (0, contract_builder_1.buildAlignmentDecision)(analysis, {

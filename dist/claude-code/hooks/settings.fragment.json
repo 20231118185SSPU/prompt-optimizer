@@ -9,6 +9,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f \"$HOME/.prompt-optimizer/adapters/claude-code.sh\" ]; then ALIGN_HOOK_PHASE=stop bash \"$HOME/.prompt-optimizer/adapters/claude-code.sh\"; fi"
+          }
+        ]
+      }
     ]
   }
 }

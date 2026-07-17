@@ -28,6 +28,7 @@
 ## 规划文档
 
 - [V4-FOCUS-IMPROVEMENT-PLAN.md](planning/V4-FOCUS-IMPROVEMENT-PLAN.md)：v4 专精化规划 SSOT，把项目收敛为 coding agent 的执行前契约门，包含产品边界、目标架构、强制不变量、W0-W7 实施波次、兼容迁移、量化 Gate 和多会话启动指令。
+- [V4-W0-FOCUS-BASELINE.md](planning/V4-W0-FOCUS-BASELINE.md)：W0 范围冻结、案例 A/B 未修复复现、runtime hash、测试基线、公开能力和 D1-D5 blocker。
 - [V3.2-STABLE-IMPROVEMENT-PLAN.md](planning/V3.2-STABLE-IMPROVEMENT-PLAN.md)：从 `v3.2.0-rc.1` 收敛到稳定版的完整方案，覆盖单一路由 Interface、空输出保护、远程三臂评测、证据 Gate、发布工程和回滚条件。
 - [MULTI-AGENT-IMPROVEMENT-PLAN.md](planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：已完成的 G0-G6 改进规划，包含 Agent Brief、目标架构、执行波次、依赖和验收门。
 - [MULTI-AGENT-BASELINE.md](planning/MULTI-AGENT-BASELINE.md)：波次 0 可信基线，记录 Git/版本面、协议差异、Runtime/分发能力等级、测试证据和 blocker 清单。
@@ -35,6 +36,7 @@
 - [MULTI-AGENT-G4-PROTOCOL-AUDIT.md](planning/MULTI-AGENT-G4-PROTOCOL-AUDIT.md)：G4 协议 duplication/no-op/sediment/sprawl 审计、SSOT 映射和 Universal 范围决策。
 - [MULTI-AGENT-G5-EVALUATION-REPORT.md](planning/MULTI-AGENT-G5-EVALUATION-REPORT.md)：G5 冻结语料、独立盲评、修复后 regression、真实模型 pilot 与关闭口径。
 - [MULTI-AGENT-G6-MATT-HANDOFF.md](planning/MULTI-AGENT-G6-MATT-HANDOFF.md)：G6 Matt Pocock Skills 独立 envelope、映射、setup 发现、CLI 和 gate 证据。
+- [V4-W4-CONSUMER-AUDIT.md](planning/V4-W4-CONSUMER-AUDIT.md)：W4 真实 consumer graph、公开 export inventory 和 shallow-module deletion 证据。
 - [BENCHMARK.md](planning/BENCHMARK.md)：P3 回测基准，记录 10 个真实指令的路由、澄清和验收推演。含 P0 SSOT 重构后回归验证报告（10/10 一致）。
 - [BENCHMARK-V3.md](planning/BENCHMARK-V3.md)：v3.0 全量回测报告，18 case（10 v2 + 8 v3）逐个推演，三个卡顿指标逐项验收，18/18 通过。
 - [BENCHMARK-V3-DRAFT.md](planning/BENCHMARK-V3-DRAFT.md)：历史草案，仅保留 P1-4 的 8 个新增 case 设计背景；完成态以 `BENCHMARK-V3.md` 为准。

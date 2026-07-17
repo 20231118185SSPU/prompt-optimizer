@@ -16,6 +16,15 @@
 - 来源引用：知识声明的独立溯源轴，由来源类型和可定位 ref 组成。
 - 临时状态：带更新时间和失效条件的当前阶段摘要；不同于长期事实。
 - Completion Evidence：执行后证明验收项实际检查结果的证据；不同于执行前 acceptance criteria。
+- Execution Readiness：一条请求是否已经具备安全执行所需的目标、范围、授权和验收；不等于代码质量或最终项目质量。
+- Observed Contract：只根据用户当前请求得到的契约完整度；不读取项目上下文。
+- Effective Contract：只有可信证据确实补足具体字段后形成的有效契约；不允许整体固定加分。
+- Structural Gap：可由项目事实确定补全的技术栈、目录、现有命令和格式缺口；不包括产品方向。
+- Directional Gap：会改变目标、优先级、架构方案或用户体验的缺口；必须由用户确认或明确授权代选。
+- Context Evidence：带 source kind/ref、能解释某个具体补全的项目证据；文件存在不等于证据相关。
+- Acceptance Relevance：验收方法能否证明当前任务的可观察目标；命令可运行不等于相关。
+- Host Projection：Adapter 根据 Alignment Decision 生成的宿主指令和阻断行为；不得重新判断 route。
+- Verification Plan：执行前确定的验收计划；不是 Completion Evidence。
 - 兼容投影：由分类 `.align/` SSOT 生成、供旧 consumer 读取的 `context.md`，禁止直接编辑。
 - SSOT：Single Source of Truth；本项目内容以 `core/` 为唯一事实来源。
 - `.align/`：项目对齐运行时目录，按生命周期保存规则、事实、术语、状态、经验和决策。

@@ -146,8 +146,10 @@ describe('processInstruction', () => {
       tmpDir
     );
 
-    expect(result.alignmentDecision.route).toBe('enrich');
-    expect(result.verdict).toBe('GRAY');
+    // With conservative d5 filling, bare requests without user verification
+    // signal stay clarify even with project context.
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(result.verdict).toBe('VAGUE');
     expect(result.presentationMode).toBe('direct_output');
     expect(result.enrichedMessage).toContain('[直出] 这是一个简单的修改');
     expect(result.context.lessons).toContain('Always check types');

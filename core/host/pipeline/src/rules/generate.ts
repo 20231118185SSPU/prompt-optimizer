@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+/** @deprecated No production Adapter consumes these frozen rule-file generators. */
 const ALIGNMENT_RULES = `
 # Alignment Protocol
 

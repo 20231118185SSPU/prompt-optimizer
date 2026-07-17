@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020';
+import { evaluateDecisionPolicy } from '../policy-evaluator';
 
 type JsonObject = Record<string, any>;
 
@@ -155,51 +156,6 @@ function lifecycleSemanticErrors(event: JsonObject): string[] {
     .map(reason => reason.code);
   if (JSON.stringify(canonical) !== JSON.stringify(event.reasons)) errors.push('reason.non_canonical_order');
   return errors;
-}
-
-function evaluateCondition(condition: JsonObject, input: JsonObject): boolean {
-  const dimensions = ['d1', 'd2', 'd3', 'd4', 'd5'];
-  switch (condition.op) {
-    case 'always':
-      return true;
-    case 'reason_any':
-      return condition.codes.some((code: string) => input.reasons.includes(code));
-    case 'score_total': {
-      const total = input.scores[condition.source].total;
-      if (condition.comparator === 'lt') return total < condition.value;
-      if (condition.comparator === 'gte') return total >= condition.value;
-      return total >= condition.min && total <= condition.max;
-    }
-    case 'minimum_dimension': {
-      const minimum = Math.min(...dimensions.map(key => input.scores[condition.source][key]));
-      return condition.comparator === 'lt' ? minimum < condition.value : minimum >= condition.value;
-    }
-    case 'assumption_count':
-      return condition.comparator === 'gt'
-        ? input.assumptionCount > condition.value
-        : input.assumptionCount <= condition.value;
-    case 'scores_equal':
-      return (JSON.stringify(input.scores.observed) === JSON.stringify(input.scores.effective)) === condition.value;
-    case 'safety_critical':
-      return input.safetyCritical === condition.value;
-    case 'all':
-      return condition.conditions.every((item: JsonObject) => evaluateCondition(item, input));
-    case 'any':
-      return condition.conditions.some((item: JsonObject) => evaluateCondition(item, input));
-    case 'not':
-      return !evaluateCondition(condition.condition, input);
-    default:
-      throw new Error(`Unknown policy operator: ${condition.op}`);
-  }
-}
-
-function evaluatePolicy(input: JsonObject): JsonObject {
-  const orderedRules = [...policy.routePrecedence].sort(
-    (a: JsonObject, b: JsonObject) => a.priority - b.priority
-  );
-  const match = orderedRules.find((rule: JsonObject) => evaluateCondition(rule.when, input));
-  if (!match) throw new Error('Policy must contain a fail-closed terminal rule.');
-  return match;
 }
 
 describe('Alignment Decision public contract', () => {
@@ -494,15 +450,15 @@ describe('Alignment Decision public contract', () => {
   });
 
   test.each([
-    ['six-point boundary', 6, [], false, 'enrich'],
-    ['seven-point boundary', 7, [], false, 'enrich'],
-    ['complete eight-point input', 8, [], false, 'pass'],
-    ['incomplete high-risk request', 3, ['risk.data_mutation', 'intent.ambiguous_goal'], true, 'clarify'],
-    ['incomplete request with missing confirmation', 3, ['intent.ambiguous_goal', 'authorization.confirmation_missing'], true, 'clarify'],
-    ['complete request with missing confirmation', 8, ['authorization.confirmation_missing'], true, 'block'],
-    ['policy prohibition outranks missing contract', 3, ['policy.operation_prohibited', 'intent.ambiguous_goal'], true, 'block'],
-    ['authorized high-risk request', 8, ['risk.production_change'], true, 'enrich'],
-  ])('policy evaluator routes %s deterministically', (_name, total, reasons, safetyCritical, expectedRoute) => {
+    ['six-point boundary', 6, [], false, 'enrich', 'execute'],
+    ['seven-point boundary', 7, [], false, 'enrich', 'execute'],
+    ['complete eight-point input', 8, [], false, 'pass', 'execute'],
+    ['incomplete high-risk request', 3, ['risk.data_mutation', 'intent.ambiguous_goal'], true, 'clarify', 'ask'],
+    ['incomplete request with missing confirmation', 3, ['intent.ambiguous_goal', 'authorization.confirmation_missing'], true, 'clarify', 'ask'],
+    ['complete request with missing confirmation', 8, ['authorization.confirmation_missing'], true, 'block', 'wait_confirmation'],
+    ['policy prohibition outranks missing contract', 3, ['policy.operation_prohibited', 'intent.ambiguous_goal'], true, 'block', 'stop'],
+    ['authorized high-risk request', 8, ['risk.production_change'], true, 'enrich', 'execute'],
+  ])('policy evaluator routes %s deterministically', (_name, total, reasons, safetyCritical, expectedRoute, expectedAction) => {
     const scoreFixtures: Record<number, JsonObject> = {
       3: { d1: 0, d2: 0, d3: 1, d4: 1, d5: 1, total: 3 },
       6: { d1: 2, d2: 1, d3: 1, d4: 1, d5: 1, total: 6 },
@@ -510,13 +466,14 @@ describe('Alignment Decision public contract', () => {
       8: { d1: 2, d2: 2, d3: 2, d4: 1, d5: 1, total: 8 },
     };
     const scores = scoreFixtures[total];
-    const rule = evaluatePolicy({
+    const result = evaluateDecisionPolicy({
       reasons,
       scores: { observed: scores, effective: { ...scores } },
       assumptionCount: 0,
       safetyCritical,
     });
-    expect(rule.route).toBe(expectedRoute);
+    expect(result.route).toBe(expectedRoute);
+    expect(result.action).toBe(expectedAction);
   });
 
   test('policy schema rejects unknown operators instead of guessing', () => {

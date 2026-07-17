@@ -1,4 +1,4 @@
-[CmdletBinding(SupportsShouldProcess = $true)]
+﻿[CmdletBinding(SupportsShouldProcess = $true)]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -8,12 +8,14 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $CoreRoot = Join-Path $RepoRoot 'core'
 $ProtocolRoot = Join-Path $CoreRoot 'protocol'
 $TemplatesRoot = Join-Path $CoreRoot 'templates'
+$ContractsRoot = Join-Path $CoreRoot 'contracts'
 $DistRoot = Join-Path $RepoRoot 'dist'
 $AlignInitSkillRoot = Join-Path $CoreRoot 'skills/align-init'
 $OptimizeSkillRoot = Join-Path $CoreRoot 'skills/optimize-prompt'
 $LiteSkillRoot = Join-Path $CoreRoot 'skills/optimize-prompt-lite'
 $SpecKitRoot = Join-Path $CoreRoot 'spec-kit'
 $HostRoot = Join-Path $CoreRoot 'host'
+$PolicyProjectionHelper = Join-Path $PSScriptRoot 'policy-projection.js'
 $NodeCommand = if ($env:ALIGN_NODE_COMMAND) { $env:ALIGN_NODE_COMMAND } else { 'node' }
 $NpmCommand = if ($env:ALIGN_NPM_COMMAND) { $env:ALIGN_NPM_COMMAND } else { 'npm' }
 
@@ -88,6 +90,80 @@ function Write-GeneratedFile {
             Remove-Item -LiteralPath $FullPath -Force
         }
         [System.IO.File]::Move($tmpPath, $FullPath)
+    }
+}
+
+function Copy-GeneratedAsset {
+    param(
+        [string]$Path,
+        [string]$SourcePath
+    )
+
+    $FullPath = [System.IO.Path]::GetFullPath($Path)
+    $FullDistRoot = [System.IO.Path]::GetFullPath($DistRoot).TrimEnd('\', '/')
+    $DistPrefix = $FullDistRoot + [System.IO.Path]::DirectorySeparatorChar
+    if (($FullPath -ne $FullDistRoot) -and (-not $FullPath.StartsWith($DistPrefix, [System.StringComparison]::Ordinal))) {
+        throw "Refusing to write outside dist/: $FullPath"
+    }
+    if (-not (Test-Path -LiteralPath $SourcePath -PathType Leaf)) {
+        throw "Required generated asset source not found: $SourcePath"
+    }
+    if ($WhatIfPreference) {
+        Write-Host "Would copy generated asset: $($FullPath.Replace('\', '/'))"
+        return
+    }
+    if ($PSCmdlet.ShouldProcess($FullPath, 'Copy generated asset')) {
+        $Parent = Split-Path -Parent $FullPath
+        if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
+            New-Item -ItemType Directory -Force -Path $Parent | Out-Null
+        }
+        $TmpPath = $FullPath + '.tmp'
+        [System.IO.File]::Copy($SourcePath, $TmpPath, $true)
+        if (Test-Path -LiteralPath $FullPath) {
+            Remove-Item -LiteralPath $FullPath -Force
+        }
+        [System.IO.File]::Move($TmpPath, $FullPath)
+    }
+}
+
+function Get-Sha256Hex {
+    param([string]$Path)
+
+    $Stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $Hasher = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $Bytes = $Hasher.ComputeHash($Stream)
+        } finally {
+            $Hasher.Dispose()
+        }
+    } finally {
+        $Stream.Dispose()
+    }
+    return ([System.BitConverter]::ToString($Bytes) -replace '-', '').ToLowerInvariant()
+}
+
+function Assert-EmbeddedPolicySources {
+    param([string]$RouterPath)
+
+    $RouterText = [System.IO.File]::ReadAllText($RouterPath, $Utf8NoBom)
+    $Mappings = @(
+        @('decision-policy.json', 'POLICY_PROJECTION_POLICY_FILE_SHA256'),
+        @('decision-policy.schema.json', 'POLICY_PROJECTION_SCHEMA_FILE_SHA256'),
+        @('reason-registry.json', 'POLICY_PROJECTION_REGISTRY_FILE_SHA256')
+    )
+    foreach ($Mapping in $Mappings) {
+        $Asset = $Mapping[0]
+        $Variable = $Mapping[1]
+        $Pattern = "(?m)^$([regex]::Escape($Variable))='([0-9a-f]{64})'$"
+        $Match = [regex]::Match($RouterText, $Pattern)
+        if (-not $Match.Success) {
+            throw "Embedded policy projection is missing $Variable."
+        }
+        $Actual = Get-Sha256Hex (Join-Path $ContractsRoot $Asset)
+        if ($Actual -ne $Match.Groups[1].Value) {
+            throw "Embedded policy projection is stale for $Asset."
+        }
     }
 }
 
@@ -383,11 +459,41 @@ $SourceContent
 
 Assert-Directory $ProtocolRoot
 Assert-Directory $TemplatesRoot
+Assert-Directory $ContractsRoot
 Assert-Directory $AlignInitSkillRoot
 Assert-Directory $OptimizeSkillRoot
 Assert-Directory $LiteSkillRoot
 Assert-Directory $SpecKitRoot
 Assert-Directory $HostRoot
+
+$PolicyContractAssets = @('decision-policy.json', 'decision-policy.schema.json', 'reason-registry.json')
+foreach ($ContractAsset in $PolicyContractAssets) {
+    $ContractPath = Join-Path $ContractsRoot $ContractAsset
+    if (-not (Test-Path -LiteralPath $ContractPath -PathType Leaf)) {
+        throw "Required policy contract not found: $ContractPath"
+    }
+}
+if (Get-Command $NodeCommand -ErrorAction SilentlyContinue) {
+    & $NodeCommand $PolicyProjectionHelper --check `
+        --policy (Join-Path $ContractsRoot 'decision-policy.json') `
+        --schema (Join-Path $ContractsRoot 'decision-policy.schema.json') `
+        --registry (Join-Path $ContractsRoot 'reason-registry.json') `
+        --router (Join-Path $HostRoot 'align-route.sh')
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Shell policy projection verification failed.'
+    }
+    Write-Host 'Policy projection verified from core/contracts/decision-policy.json'
+} else {
+    $RouterPath = Join-Path $HostRoot 'align-route.sh'
+    $HasProjectionHash = Select-String -LiteralPath $RouterPath -Pattern '^POLICY_PROJECTION_SHA256=' -Quiet
+    $HasProjectionEnd = Select-String -LiteralPath $RouterPath -Pattern '^# policy-projection:end$' -Quiet
+    if (-not $HasProjectionHash -or -not $HasProjectionEnd) {
+        throw 'Node.js is unavailable and the embedded shell policy projection is missing.'
+    }
+    Assert-EmbeddedPolicySources -RouterPath $RouterPath
+    Write-Host 'Embedded shell policy projection matches all contract SHA-256 values.'
+    Write-Host 'Warning: Node.js not found; using the embedded policy projection.'
+}
 
 $ProtocolContent = Get-ProtocolContent
 $ReferenceList = Get-ReferenceList
@@ -467,6 +573,12 @@ if ((Get-Command $NodeCommand -ErrorAction SilentlyContinue) -and (Get-Command $
     throw 'Node.js is not available and no generated structured runtime exists.'
   }
   Write-Host "Warning: Node.js/npm not found; preserving the existing generated structured runtime"
+}
+
+foreach ($ContractAsset in $PolicyContractAssets) {
+    Copy-GeneratedAsset `
+        -Path (Join-Path $DistRoot "runtime/contracts/$ContractAsset") `
+        -SourcePath (Join-Path $ContractsRoot $ContractAsset)
 }
 
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/runtime/shell/align-route.sh') -Content (Read-TextFile (Join-Path $HostRoot 'align-route.sh'))
