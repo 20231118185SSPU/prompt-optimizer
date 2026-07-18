@@ -5,12 +5,12 @@
   "corpusSha256": "c3019eb54844740f349881c16a675ffb01f53474a706348974578237cb350826",
   "manifestPath": "tests/eval/w7-production-fresh-manifest-v8.json",
   "routerPath": "core/host/align-route.sh",
-  "routerSha256": "366e387903c7bed919c4cd8e53d6dbf60d56ac4c98c0e19d8239f2949d05819d",
+  "routerSha256": "375c6eb57287c4b02109ca11258e4c5e6634b287874525ca2e4a857e2c6cdc8e",
   "structuredRuntimePath": "dist/runtime/runtime/index.js",
   "structuredRuntimeSha256": "f09786192d26994657dd17cc050e1c15d297cd5346320c3ddfa22e6e4a7ef9d7",
   "invocation": "bash core/host/align-route.sh --decision <request>",
-  "executedAt": "2026-07-18T14:54:15.236Z",
-  "consumedAt": "2026-07-18T14:54:15.236Z",
+  "executedAt": "2026-07-18T16:51:34.191Z",
+  "consumedAt": "2026-07-18T16:51:34.191Z",
   "results": [
     {
       "caseId": "W7V8-L01",

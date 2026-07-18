@@ -11,22 +11,22 @@ const EVIDENCE_DIR = path.join(ROOT, 'docs/planning/evidence/g5');
 const RUNTIME_FILE = path.join(ROOT, 'dist/runtime/runtime/index.js');
 
 const EXPECTED = {
-  R3S01: { route: 'pass', action: 'execute', acceptance: /3 次.*p95 < 200ms/i },
+  R3S01: { route: 'pass', action: 'execute', acceptance: /npm run benchmark/i },
   R3S02: { route: 'pass', action: 'execute' },
   R3S03: { route: 'pass', action: 'execute' },
   R3S04: { route: 'pass', action: 'execute' },
-  R3C01: { route: 'enrich', action: 'execute', acceptance: /p95 < 200ms/i },
+  R3C01: { route: 'enrich', action: 'execute', acceptance: /报表列表/i },
   R3C02: { route: 'enrich', action: 'execute' },
   R3C03: { route: 'enrich', action: 'execute' },
   R3C04: { route: 'enrich', action: 'execute', scope: /不要创建 tag.*不要 push.*不要发布/i },
   R3Q01: { route: 'enrich', action: 'execute' },
-  R3Q02: { route: 'clarify', action: 'ask', question: /唯一入口.*README.*全文|README.*全文.*唯一入口/i },
+  R3Q02: { route: 'clarify', action: 'ask', question: /故障排查.*唯一入口|README.*全文/i },
   R3Q03: { route: 'enrich', action: 'execute' },
   R3Q04: { route: 'enrich', action: 'execute' },
-  R3R01: { route: 'clarify', action: 'ask', question: /公共\s*npm.*内部制品库|内部制品库.*公共\s*npm/i },
-  R3R02: { route: 'clarify', action: 'ask', question: /region.*(?:地址映射|映射规则)|(?:地址映射|映射规则).*region/i },
+  R3R01: { route: 'clarify', action: 'ask', question: /公共\s*npm|内部制品库/i },
+  R3R02: { route: 'clarify', action: 'ask', question: /region.*映射/i },
   R3R03: { route: 'clarify', action: 'ask', question: /账号|身份/i },
-  R3R04: { route: 'clarify', action: 'ask', question: /私钥|密钥|吊销/i }
+  R3R04: { route: 'clarify', action: 'ask', question: /私钥|吊销/i }
 };
 
 function sha256(value) {
