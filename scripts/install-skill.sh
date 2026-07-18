@@ -11,6 +11,7 @@ REPO_ZIP="${PROMPT_OPTIMIZER_ZIP:-https://github.com/20231118185SSPU/prompt-opti
 WHAT_IF=0
 UNINSTALL=0
 TARGET_SET=0
+WIRE_HOOK=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -23,6 +24,9 @@ for arg in "$@"; do
       ;;
     --uninstall|-uninstall)
       UNINSTALL=1
+      ;;
+    --wire-hook)
+      WIRE_HOOK=1
       ;;
     claude|codex|agents|all)
       if [ "$TARGET_SET" -eq 1 ]; then
@@ -50,7 +54,7 @@ if ! command -v node &> /dev/null; then
   echo "Install Node.js from https://nodejs.org/ or use shell fallback."
 fi
 
-SKILLS=("optimize-prompt" "align-init" "optimize-prompt-lite")
+SKILLS=("optimize-prompt" "align-init" "optimize-prompt-lite" "align")
 
 validate_claude_settings_file() {
   local settings="$1"
@@ -175,7 +179,7 @@ $INSTALL_TARGETS
 EOF
   echo
   if [ "$WHAT_IF" -eq 1 ]; then
-    echo 'What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed.'
+    echo 'What if: Only optimize-prompt, align-init, optimize-prompt-lite and align would be removed.'
     [ "$CLAUDE_UNINSTALL" -eq 1 ] && echo 'What if: The Claude UserPromptSubmit and Stop hooks would be removed from ~/.claude/settings.json.'
     echo 'What if: The Prompt Optimizer runtime declared by the installed plan would be removed.'
   else
@@ -252,7 +256,7 @@ PYEOF
       rm -f "$RUNTIME_PLAN_POINTER"
       echo "Removed Prompt Optimizer runtime from: $RUNTIME_INSTALL_DIR"
     fi
-    echo 'Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed.'
+    echo 'Uninstall complete. Only optimize-prompt, align-init, optimize-prompt-lite and align were removed.'
   fi
   echo 'Other skills and user content were not touched.'
   exit 0
@@ -415,7 +419,7 @@ done <<EOF
 $INSTALL_TARGETS
 EOF
 
-# ── Claude Code hook 自动接线（幂等：已存在则跳过；只增不删既有字段）──
+# ── Claude Code hook 接线（需要 --wire-hook 明确启用；幂等：已存在则跳过）──
 wire_claude_hooks() {
   local settings="$HOME/.claude/settings.json"
   local hook_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
@@ -502,7 +506,14 @@ PYEOF
 }
 
 if [ "$CLAUDE_INSTALLED" -eq 1 ]; then
-  wire_claude_hooks
+  if [ "$WIRE_HOOK" -eq 1 ]; then
+    wire_claude_hooks
+  else
+    echo ""
+    echo "Note: Claude Code hooks were NOT installed. To enable automatic alignment routing,"
+    echo "  re-run with: --wire-hook"
+    echo "  Or run /align setup in your project for guided hook installation."
+  fi
   if [ -x "$RUNTIME_HOME/.prompt-optimizer/bin/align-doctor" ]; then
     echo
     echo 'Post-install doctor (informational; run it again from the target project after /align-init):'
@@ -537,8 +548,10 @@ EOF
 copy_hooks_scripts
 
 echo
-echo 'Installed skills: optimize-prompt, align-init, optimize-prompt-lite'
-echo 'Use optimize-prompt with: $optimize-prompt optimize: your rough idea'
-echo 'Use align-init with: /align-init (in your project directory)'
-echo 'Claude Code also supports: /optimize-prompt and /align-init'
-echo 'Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout.'
+echo 'Next steps:'
+echo '  1. Enter your project directory: cd your-project'
+echo '  2. Run: /align-init'
+echo '  3. Check wiring: bash "$HOME/.prompt-optimizer/bin/align-doctor" --json "$PWD"'
+echo
+echo 'Installed: optimize-prompt (main entry), align-init (project setup), optimize-prompt-lite (weak models)'
+echo 'Claude Code is the reference host. Other hosts use the same Alignment Decision with reduced enforcement.'

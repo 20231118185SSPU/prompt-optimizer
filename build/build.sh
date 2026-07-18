@@ -35,6 +35,7 @@ assert_dir() {
 align_init_skill_root="$core_root/skills/align-init"
 optimize_skill_root="$core_root/skills/optimize-prompt"
 lite_skill_root="$core_root/skills/optimize-prompt-lite"
+align_skill_root="$core_root/skills/align"
 spec_kit_root="$core_root/spec-kit"
 host_root="$core_root/host"
 policy_projection_helper="$script_dir/policy-projection.js"
@@ -353,6 +354,10 @@ emit_optimize_skill() {
   emit_file_lf "$optimize_skill_root/SKILL.md"
 }
 
+emit_align_skill() {
+  emit_file_lf "$align_skill_root/SKILL.md"
+}
+
 emit_protocol_branch() {
   local branch_name="$1"
   local when_to_read="$2"
@@ -474,6 +479,7 @@ assert_dir "$contracts_root"
 assert_dir "$align_init_skill_root"
 assert_dir "$optimize_skill_root"
 assert_dir "$lite_skill_root"
+assert_dir "$align_skill_root"
 assert_dir "$spec_kit_root"
 assert_dir "$host_root"
 
@@ -515,6 +521,10 @@ write_generated_file "$dist_root/claude-code/optimize-prompt-lite/SKILL.md" emit
 write_generated_file "$dist_root/codex/optimize-prompt-lite/SKILL.md" emit_lite_skill
 write_generated_file "$dist_root/universal/optimize-prompt-lite/SKILL.md" emit_lite_skill
 
+write_generated_file "$dist_root/claude-code/align/SKILL.md" emit_align_skill
+write_generated_file "$dist_root/codex/align/SKILL.md" emit_align_skill
+write_generated_file "$dist_root/universal/align/SKILL.md" emit_align_skill
+
 copy_references "$dist_root/universal/references"
 copy_references "$dist_root/claude-code/optimize-prompt/references"
 copy_references "$dist_root/codex/optimize-prompt/references"
@@ -528,6 +538,14 @@ write_protocol_branches "$dist_root/cursor/references"
 copy_references "$dist_root/claude-code/align-init/references"
 copy_references "$dist_root/codex/align-init/references"
 copy_references "$dist_root/universal/align-init/references"
+
+copy_references "$dist_root/claude-code/align/references"
+copy_references "$dist_root/codex/align/references"
+copy_references "$dist_root/universal/align/references"
+
+write_protocol_branches "$dist_root/claude-code/align/references"
+write_protocol_branches "$dist_root/codex/align/references"
+write_protocol_branches "$dist_root/universal/align/references"
 
 copy_spec_kit "$dist_root/claude-code/align-init/references"
 copy_spec_kit "$dist_root/codex/align-init/references"
@@ -585,5 +603,6 @@ write_generated_file "$dist_root/runtime/adapters/claude-code.sh" emit_file_lf "
 write_generated_file "$dist_root/runtime/adapters/codex.sh" emit_file_lf "$host_root/pipeline/adapters/cli/codex.sh"
 write_generated_file "$dist_root/runtime/bin/align-doctor" emit_file_lf "$host_root/doctor.sh"
 write_generated_file "$dist_root/runtime/bin/align-cli" emit_file_lf "$host_root/align-cli.sh"
+write_generated_file "$dist_root/runtime/bin/align-setup" emit_file_lf "$host_root/align-setup.sh"
 write_generated_file "$dist_root/runtime/install-plan.tsv" emit_file_lf "$repo_root/core/distribution/install-plan.tsv"
 write_generated_file "$dist_root/runtime/.prompt-optimizer-owned" emit_file_lf "$repo_root/core/distribution/OWNERSHIP"

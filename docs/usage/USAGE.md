@@ -1,8 +1,17 @@
 # 使用说明
 
-> v3.2.0-rc.1 候选版使用说明。安装后两个核心动作：`/align-init` 接入项目，然后正常干活。
+> 安装后两个核心动作：`/align setup` 接入项目，然后正常干活。
 
-宿主能力边界：Claude Code 是 L3 Native Hook；UserPromptSubmit → Stop receipt → task-relevant completion evidence 目前仅通过 synthetic adapter integration E3，真实 Claude Code 会话 E4 尚未验证。Codex 是 L2 CLI wrapper / instruction-backed，不具备 native hook 强制阻断 parity。运行 `bash ~/.prompt-optimizer/bin/align-doctor` 可检查 runtime、项目接入、verification chain 和实际状态。
+## 支持矩阵
+
+| 宿主 | prompt ingress | 机械阻断 | completion | 显式调用 | 证据等级 |
+| --- | --- | --- | --- | --- | --- |
+| Claude Code | enforced | enforced | self_reported | supported | E3 |
+| Codex CLI | advisory | advisory | unavailable | supported | E3 |
+| Cursor | project-rule | unavailable | unavailable | supported | E2 |
+| Universal | copy-paste | unavailable | unavailable | supported | E2 |
+
+运行 `bash ~/.prompt-optimizer/bin/align-doctor --json "$PWD"` 可检查当前宿主的实际 capability。
 
 ## 1. 接入一个项目（3 分钟）
 
@@ -16,21 +25,22 @@
 cd your-project
 ```
 
-### 步骤 3：运行 align-init
+### 步骤 3：运行 /align setup
 
 ```text
-/align-init
+/align setup
 ```
 
-`align-init` 会：
+`/align setup` 会：
 
-1. 扫描 `package.json`/`pyproject.toml`/`go.mod` 等文件识别技术栈
-2. 扫描测试命令、lint 配置、git log 风格、目录结构
-3. 推断规范草案，每条标注置信度 `[原文]`/`[推断]`/`[假设]`
-4. 只对 `[假设]` 项发起澄清（一次一问，通常 ≤3 问）
-5. 生成 `.align/` 分类上下文、legacy 兼容投影并注入挂载区到 CLAUDE.md/AGENTS.md
+1. 探测当前 Agent 的真实 capability（prompt ingress、机械阻断、completion、显式调用）
+2. 展示配置位置、安装前后效果差异、风险、备份和卸载范围
+3. 等待用户明确选择：安装强制 hook 或保留显式模式
+4. 扫描项目，生成 `.align/` 运行时并注入挂载区
 
 完成后输出接入报告，告诉你生成了什么、澄清了什么。
+
+> **兼容说明**：`/align-init` 仍然可用，会重定向到 `/align setup`。
 
 ### 步骤 4：正常干活
 

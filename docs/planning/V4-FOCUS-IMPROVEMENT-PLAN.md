@@ -817,36 +817,61 @@ docs: disclose reference-host capability level
 
 ### 目标
 
-减少用户在首次价值出现前需要理解的概念，同时保留兼容路径。
+以统一 `/align` router 降低首次使用成本，让有 hook 和无 hook 的宿主消费同一个 Decision Kernel，同时保留旧入口的明确兼容路径。
+
+### 已确认决策
+
+- D1、D2、D3 已确认。Claude Code 继续作为完整 reference host，但不是唯一可接入宿主；其他宿主按实测 capability 和证据等级声明能力。
+- `W6-04` 选择方案 A：新增 `/align` 统一 router。安装 hook 后，普通用户请求自动进入 router；没有 hook 时，用户显式调用 `/align <请求>`。
+- `/align setup` 是首次接入入口。它必须先探测 Agent、版本、配置位置和 hook capability，再说明安装前后效果，并等待用户明确选择是否修改 hook。
+- `clarify` 允许多轮交互。一次只问一个最高价值问题；每次回答后更新共识快照并重新分析，直到意图、范围、约束、授权和验收达到执行就绪。
+- `align-init`、`optimize-prompt`、`optimize-prompt-lite` 在兼容期内保留旧触发名称，并收敛为 `/align` 后面的 setup、full alignment 和 fallback profile。
+
+### 目标用户路径
+
+```text
+安装 router/runtime/Adapter
+→ /align setup 探测当前 Agent 与 hook capability
+→ 展示配置位置、能力变化、风险、备份和卸载范围
+→ 用户选择安装强制 hook 或保留显式模式
+→ 有 hook：普通请求自动进入 /align router
+→ 无 hook：显式使用 /align <请求>
+→ pass/enrich 执行；clarify 多轮对齐；block 等待授权或停止
+→ execution receipt → task-relevant verification → completion evidence
+```
 
 ### 推荐方向
 
 - README 首屏只解释执行前契约门和一个端到端例子。
-- 默认安装只突出一个 reference host，其他目标改为显式选项。
-- 长期收敛为一个主 skill interface。
+- `/align` 是唯一主要 router interface；hook 自动入口和显式 skill 入口必须调用同一个 Decision Kernel。
+- `/align setup` 按 capability 探测宿主，不按宿主名称假设 parity。至少区分 prompt ingress、机械阻断、completion event、配置作用域和显式调用。
+- 默认安装只放置 router、runtime 和 Adapter。修改用户级或项目级 hook 前必须展示差异并取得明确确认，禁止静默接线。
+- hook 只负责进入 router 和执行宿主 enforcement；router 拥有 route；子 skill 只能消费决定，禁止重新判断或覆盖 route。
 - `optimize-prompt-lite` 变成内部 fallback profile，而不是竞争入口。
-- `align-init` 的确定性部分进入 CLI，skill 只负责交互和解释。
+- `align-init` 的确定性扫描、文件生成、挂载和 doctor 进入 setup CLI；skill 只负责交互、推荐和解释。
+- reference host 用于证明完整 ingress、enforcement 和 evidence 闭环；其他宿主根据探测结果选择强制、提示或显式模式。
 - runner、E2-E5、内部 schema 细节移到开发/证据文档，不占用户快速开始。
-
-### 前置决策
-
-必须先确认 D1、D2、D3。未确认时只能改善文案和 doctor，不能改 skill 名称、默认安装目标或卸载行为。
 
 ### 任务
 
-- `W6-01`：绘制发现、安装、接入、首次请求、验证、卸载路径。
-- `W6-02`：测量首次价值时间和必须选择的选项数量。
+- `W6-01`：绘制发现、安装、`/align setup`、hook 决策、首次请求、验证和卸载路径。
+- `W6-02`：分别测量强制 hook 模式和显式模式的首次价值时间、必须选择的选项数量和额外延迟。
 - `W6-03`：把内部术语从 Quick Start 移到 Reference。
-- `W6-04`：决定是否新增统一 `align` 入口。
-- `W6-05`：为旧三个 skill 提供兼容和迁移提示。
-- `W6-06`：把 setup 的扫描、文件生成、挂载和 doctor 机械化。
-- `W6-07`：确保安装器默认行为、文档和卸载范围一致。
-- `W6-08`：更新支持矩阵，只声明真实证据等级。
+- `W6-04`：新增 `/align` 统一 router，支持 hook 自动入口、`/align <请求>` 显式入口和 `/align setup` 首次接入入口。
+- `W6-05`：把旧三个 skill 收敛为内部 profile，并提供旧名称兼容、迁移提示和明确兼容窗口。
+- `W6-06`：机械化 setup 的宿主探测、capability 报告、配置预览、用户确认、备份、接线、文件生成、挂载和 doctor。
+- `W6-07`：确保安装器、`/align setup`、文档和卸载范围一致；安装器不得在用户未确认时静默修改全局 hook。
+- `W6-08`：更新支持矩阵，分别声明 prompt ingress、机械阻断、completion 和显式模式的真实证据等级。
+- `W6-09`：验证 hook 与显式 `/align` 对同一输入产生相同 route/action；验证 `clarify` 可多轮继续且每轮只问一个最高价值问题。
 
 ### Gate
 
-- 新用户只需理解一个产品问题、一个主要入口和一个 reference host。
-- 安装后 doctor 可以判定接线是否成功。
+- 新用户只需理解一个产品问题、一个主要入口 `/align` 和一个完整 reference host。
+- `/align setup` 能探测当前 Agent 的真实 hook capability，并在修改配置前清楚展示效果、路径、备份和卸载范围。
+- 有 hook 时，每条普通用户请求自动进入同一个 router；无 hook 时，显式 `/align <请求>` 可以得到等价 route/action。
+- `clarify` 未达成执行就绪时必须继续多轮对齐；每轮只问一个最高价值问题并给推荐答案，禁止因只完成一轮就开始执行。
+- 安装 hook 后，doctor 可以判定 prompt ingress、机械阻断、项目接入和 completion 接线是否成功；显式模式必须标明缺失的 enforcement。
+- Host Adapter 和子 skill 不拥有 route，不得把 `clarify` 或 `block` 改成执行。
 - 旧入口在兼容期内有明确提示，不静默失效。
 - 卸载零损伤，保留用户项目数据和非本项目配置。
 - Bash/PowerShell 行为一致。
@@ -855,8 +880,9 @@ docs: disclose reference-host capability level
 
 ```text
 docs: focus product story on execution readiness
-feat: mechanize project alignment setup
-refactor: consolidate user-facing alignment profiles
+feat: add the unified align router interface
+feat: probe and wire host hooks with explicit consent
+refactor: move legacy skills behind align profiles
 test: preserve install and migration compatibility
 ```
 

@@ -1,31 +1,18 @@
 # 安装说明
 
-> 安装器会同时安装 skills、shell fallback 和可选 Node.js 结构化 runtime。没有 Node.js 时仍可使用 shell 路由，但能力会明确降级。
+> 推荐使用一键安装。安装器会同时安装 skills、runtime 和 Claude Code hook。没有 Node.js 时仍可使用 shell 路由，但能力会明确降级。
 
-推荐只看第一种方式。其他方式是为不支持 skills 的工具准备的。
+## 方式 1：一键安装（推荐）
 
-## 方式 1：通用 Agent Skill 一键安装
+适用于支持 `skills/` 目录的 agent 工具。默认安装到 Claude Code、Codex 和 `~/.agents` 三个目录。
 
-适用于支持 `skills/` 目录的 agent 工具。默认会同时安装三个 skill 到常见目录：
+安装内容：
 
-- **optimize-prompt**：意图对齐器，把模糊指令优化为可执行的 Agent Brief
-- **align-init**：项目接入器，为项目生成 `.align/` 运行时并注入挂载区
-- **optimize-prompt-lite**：轻量协议，面向弱指令遵循模型或不支持 hook 的宿主
-
-安装目标：
-
-- Codex / OpenAI Agents：`~/.codex/skills` 或 `$CODEX_HOME/skills`
-- Claude Code：`~/.claude/skills`
-- agents-style 工具：`~/.agents/skills`
-
-安装后可以用 `$optimize-prompt` 或 `/optimize-prompt` 调用意图对齐器，用 `/align-init` 接入项目。
-
-runtime 安装到 `~/.prompt-optimizer/`：
-
-- `bin/align-doctor`：检查 Node、runtime、项目 router、副本上下文、verification chain、Stop hook 和宿主能力等级。
-- `bin/align-cli`：结构化 Alignment Decision 与可选生态 handoff CLI，需要 Node.js。
-- `adapters/claude-code.sh`：Claude Code L3 Native Hook adapter；UserPromptSubmit 记录 Decision/handoff，Stop 记录 receipt 后才运行 completion verification。
-- `adapters/codex.sh`：Codex L2 CLI wrapper；无 Node 时输出显式降级的 shell 投影。
+- **optimize-prompt**：意图对齐器，主入口
+- **align-init**：项目接入器，生成 `.align/` 运行时
+- **optimize-prompt-lite**：轻量协议，面向弱模型或不支持 hook 的宿主
+- **runtime**：`~/.prompt-optimizer/` 下的 doctor、CLI 和 adapter
+- **Claude Code hook**：自动接线 UserPromptSubmit 和 Stop hook
 
 ### Windows PowerShell
 
@@ -113,22 +100,16 @@ bash scripts/install-skill.sh --version
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-skill.ps1 -Version
 ```
 
-安装后最简单的用法：
-
-```text
-$optimize-prompt 优化：你的原始想法
-```
-
-Claude Code：
-
-```text
-/optimize-prompt 优化：你的原始想法
-```
-
-接入项目（在项目根目录运行）：
+安装后接入项目（在项目根目录运行）：
 
 ```text
 /align-init
+```
+
+检查接线状态：
+
+```bash
+bash "$HOME/.prompt-optimizer/bin/align-doctor" --json "$PWD"
 ```
 
 从零开始新项目：

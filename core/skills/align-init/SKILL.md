@@ -11,6 +11,8 @@ Generated from core/. Do not edit dist/ manually.
 
 This skill initializes the Alignment Protocol runtime for a project. It generates the `.align/` directory and injects the mount area into the host tool's rules file.
 
+> **收敛说明**：`align-init` 已收敛为 `/align setup` 的内部 **setup profile**。触发名称在兼容期内保持不变，但建议使用 `/align setup` 作为统一入口。本 skill 的全部行为与 `/align setup` 完全一致。
+
 ## 触发方式
 
 - `/align-init`：扫描当前项目，生成 `.align/` 运行时 + 注入挂载区 + 机械层接线。

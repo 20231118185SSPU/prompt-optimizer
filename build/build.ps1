@@ -1,4 +1,4 @@
-﻿[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -13,6 +13,7 @@ $DistRoot = Join-Path $RepoRoot 'dist'
 $AlignInitSkillRoot = Join-Path $CoreRoot 'skills/align-init'
 $OptimizeSkillRoot = Join-Path $CoreRoot 'skills/optimize-prompt'
 $LiteSkillRoot = Join-Path $CoreRoot 'skills/optimize-prompt-lite'
+$AlignSkillRoot = Join-Path $CoreRoot 'skills/align'
 $SpecKitRoot = Join-Path $CoreRoot 'spec-kit'
 $HostRoot = Join-Path $CoreRoot 'host'
 $PolicyProjectionHelper = Join-Path $PSScriptRoot 'policy-projection.js'
@@ -354,6 +355,11 @@ function New-OptimizeSkill {
     return $SourceContent
 }
 
+function New-AlignSkill {
+    $SourceContent = Read-TextFile (Join-Path $AlignSkillRoot 'SKILL.md')
+    return $SourceContent
+}
+
 function New-ProtocolBranch {
     param([string]$BranchName, [string]$WhenToRead, [string]$Outcome, [string[]]$ProtocolFiles)
     $Sections = @()
@@ -463,6 +469,7 @@ Assert-Directory $ContractsRoot
 Assert-Directory $AlignInitSkillRoot
 Assert-Directory $OptimizeSkillRoot
 Assert-Directory $LiteSkillRoot
+Assert-Directory $AlignSkillRoot
 Assert-Directory $SpecKitRoot
 Assert-Directory $HostRoot
 
@@ -513,6 +520,10 @@ Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/optimize-prompt-lite
 Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/optimize-prompt-lite/SKILL.md') -Content (New-LiteSkill)
 Write-GeneratedFile -Path (Join-Path $DistRoot 'universal/optimize-prompt-lite/SKILL.md') -Content (New-LiteSkill)
 
+Write-GeneratedFile -Path (Join-Path $DistRoot 'claude-code/align/SKILL.md') -Content (New-AlignSkill)
+Write-GeneratedFile -Path (Join-Path $DistRoot 'codex/align/SKILL.md') -Content (New-AlignSkill)
+Write-GeneratedFile -Path (Join-Path $DistRoot 'universal/align/SKILL.md') -Content (New-AlignSkill)
+
 Copy-References -DestinationRoot (Join-Path $DistRoot 'universal/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'claude-code/optimize-prompt/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'codex/optimize-prompt/references')
@@ -526,6 +537,14 @@ Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'cursor/references'
 Copy-References -DestinationRoot (Join-Path $DistRoot 'claude-code/align-init/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'codex/align-init/references')
 Copy-References -DestinationRoot (Join-Path $DistRoot 'universal/align-init/references')
+
+Copy-References -DestinationRoot (Join-Path $DistRoot 'claude-code/align/references')
+Copy-References -DestinationRoot (Join-Path $DistRoot 'codex/align/references')
+Copy-References -DestinationRoot (Join-Path $DistRoot 'universal/align/references')
+
+Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'claude-code/align/references')
+Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'codex/align/references')
+Write-ProtocolBranches -DestinationRoot (Join-Path $DistRoot 'universal/align/references')
 
 Copy-SpecKit -DestinationRoot (Join-Path $DistRoot 'claude-code/align-init/references')
 Copy-SpecKit -DestinationRoot (Join-Path $DistRoot 'codex/align-init/references')
@@ -586,5 +605,6 @@ Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/adapters/claude-code.sh'
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/adapters/codex.sh') -Content (Read-TextFile (Join-Path $HostRoot 'pipeline/adapters/cli/codex.sh'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/bin/align-doctor') -Content (Read-TextFile (Join-Path $HostRoot 'doctor.sh'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/bin/align-cli') -Content (Read-TextFile (Join-Path $HostRoot 'align-cli.sh'))
+Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/bin/align-setup') -Content (Read-TextFile (Join-Path $HostRoot 'align-setup.sh'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/install-plan.tsv') -Content (Read-TextFile (Join-Path $RepoRoot 'core/distribution/install-plan.tsv'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/.prompt-optimizer-owned') -Content (Read-TextFile (Join-Path $RepoRoot 'core/distribution/OWNERSHIP'))

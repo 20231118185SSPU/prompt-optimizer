@@ -201,15 +201,29 @@ if [ "$JSON_MODE" -eq 1 ]; then
   exit 0
 fi
 
-printf 'Node.js: %s\n' "$NODE_STATUS"
-printf 'Structured runtime: %s\n' "$RUNTIME_STATUS"
-printf 'Project router: %s\n' "$ROUTER_STATUS"
-printf 'Project context: %s\n' "$PROJECT_CONTEXT_STATUS"
-printf 'Verification chain: %s\n' "$VERIFICATION_CHAIN_STATUS"
-printf 'Completion chain: %s\n' "$COMPLETION_CHAIN_STATUS"
-printf 'Claude Code: %s (ingress %s; block %s; completion %s; execution receipt %s; failed/cancelled unavailable)\n' \
-  "$CLAUDE_LEVEL" "$CLAUDE_INGRESS" "$CLAUDE_BLOCK" "$CLAUDE_COMPLETION" "$CLAUDE_EXECUTION_RECEIPT"
-printf 'Codex: %s (ingress %s; block %s; completion unavailable)\n' "$CODEX_LEVEL" "$CODEX_INGRESS" "$CODEX_BLOCK"
+status_icon() { [ "$1" = "ready" ] || [ "$1" = "available" ] || [ "$1" = "installed" ] || [ "$1" = "present" ] && printf '[OK]' || printf '[!!]'; }
+
+printf '\n=== Prompt Optimizer Doctor ===\n\n'
+printf 'Runtime:\n'
+printf '  Node.js:             %s %s\n' "$(status_icon "$NODE_STATUS")" "$NODE_STATUS"
+printf '  Structured runtime:  %s %s\n' "$(status_icon "$RUNTIME_STATUS")" "$RUNTIME_STATUS"
+printf '\nProject:\n'
+printf '  Project router:      %s %s\n' "$(status_icon "$ROUTER_STATUS")" "$ROUTER_STATUS"
+printf '  Project context:     %s %s\n' "$(status_icon "$PROJECT_CONTEXT_STATUS")" "$PROJECT_CONTEXT_STATUS"
+printf '  Verification chain:  %s %s\n' "$(status_icon "$VERIFICATION_CHAIN_STATUS")" "$VERIFICATION_CHAIN_STATUS"
+printf '\nClaude Code (reference host):\n'
+printf '  Level:               %s\n' "$CLAUDE_LEVEL"
+printf '  Ingress:             %s\n' "$CLAUDE_INGRESS"
+printf '  Block:               %s\n' "$CLAUDE_BLOCK"
+printf '  UserPromptSubmit:    %s\n' "$([ "$CLAUDE_WIRED" -eq 1 ] && echo '[OK] ready' || echo '[!!] missing')"
+printf '  Stop hook:           %s\n' "$([ "$CLAUDE_STOP_WIRED" -eq 1 ] && echo '[OK] ready' || echo '[!!] missing')"
+printf '  Completion:          %s\n' "$CLAUDE_COMPLETION"
+printf '  Execution receipt:   %s\n' "$CLAUDE_EXECUTION_RECEIPT"
+printf '\nCodex:\n'
+printf '  Level:               %s\n' "$CODEX_LEVEL"
+printf '  Ingress:             %s\n' "$CODEX_INGRESS"
+printf '  Block:               %s\n' "$CODEX_BLOCK"
+printf '\nCompletion chain:      %s %s\n' "$(status_icon "$COMPLETION_CHAIN_STATUS")" "$COMPLETION_CHAIN_STATUS"
 
 [ "$RUNTIME_STATUS" = installed ] || exit 1
 [ "$NODE_STATUS" = available ] || exit 2

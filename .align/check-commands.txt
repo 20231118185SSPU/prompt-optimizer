@@ -28,5 +28,7 @@ node tests/eval/verify-scorer.js
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/verify-runtime-installer.ps1
 bash tests/verify-build-idempotence.sh
 bash tests/verify-cross-platform-parity.sh
+bash tests/verify-w6-hook-align-parity.sh
+bash tests/verify-w6-clarify-behavior.sh
 cd core/host/pipeline && npm run build
 cd core/host/pipeline && npm test -- --runInBand

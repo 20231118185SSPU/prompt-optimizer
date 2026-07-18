@@ -4,13 +4,14 @@ param(
   [string]$SkillsDir = "",
   [string]$Repo = "https://github.com/20231118185SSPU/prompt-optimizer/archive/refs/heads/main.zip",
   [switch]$Version,
-  [switch]$Uninstall
+  [switch]$Uninstall,
+  [switch]$WireHook
 )
 
 $ErrorActionPreference = 'Stop'
 
 $ScriptVersion = "v3.2.0-rc.1"
-$Skills = @("optimize-prompt", "align-init", "optimize-prompt-lite")
+$Skills = @("optimize-prompt", "align-init", "optimize-prompt-lite", "align")
 $UserHome = $HOME
 if ([string]::IsNullOrWhiteSpace($UserHome)) {
   $UserHome = $env:USERPROFILE
@@ -304,7 +305,7 @@ if ($Uninstall) {
   }
   Write-Host ""
   if ($WhatIfPreference) {
-    Write-Host "What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed."
+    Write-Host "What if: Only optimize-prompt, align-init, optimize-prompt-lite and align would be removed."
     if ($uninstallClaude) { Write-Host "What if: The Claude UserPromptSubmit and Stop hooks would be removed from ~/.claude/settings.json." }
     Write-Host "What if: The Prompt Optimizer runtime declared by the installed plan would be removed."
   } else {
@@ -358,7 +359,7 @@ if ($Uninstall) {
       Remove-Item -LiteralPath $RuntimePlanPointer -Force -ErrorAction SilentlyContinue
       Write-Host "Removed Prompt Optimizer runtime from: $runtimeInstallDir"
     }
-    Write-Host "Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed."
+    Write-Host "Uninstall complete. Only optimize-prompt, align-init, optimize-prompt-lite and align were removed."
   }
   Write-Host "Other skills and user content were not touched."
   return
@@ -402,10 +403,18 @@ try {
   }
 
   $claudeSkillsDir = Join-Path $UserHome ".claude\skills"
-  $wireClaude = $false
+  $isClaudeTarget = $false
   foreach ($target in $installTargets) {
     $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
-    if ($skillsDir -eq $claudeSkillsDir) { $wireClaude = $true }
+    if ($skillsDir -eq $claudeSkillsDir) { $isClaudeTarget = $true }
+  }
+  # Hook wiring requires explicit --wire-hook flag; silent wiring is prohibited
+  $wireClaude = $isClaudeTarget -and $WireHook
+  if ($isClaudeTarget -and -not $WireHook) {
+    Write-Host ""
+    Write-Host "Note: Claude Code hooks were NOT installed. To enable automatic alignment routing,"
+    Write-Host "  re-run with: -WireHook"
+    Write-Host "  Or run /align setup in your project for guided hook installation."
   }
   if ($wireClaude) {
     $settingsPreflightPath = Join-Path $UserHome ".claude\settings.json"
