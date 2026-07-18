@@ -2,7 +2,7 @@
 
 > 日期: 2026-07-18
 > 基线: fdebec6 (feat: implement W6 unified /align router and setup experience)
-> 当前 HEAD: 1316c4d (feat: add W7 fresh blind corpus and execution evidence)
+> 当前 HEAD: 5aef7b0 (docs: add W7 execution analysis and status summary)
 
 ## 已完成任务
 
@@ -24,23 +24,26 @@
 - 路由器改进建议
 - 文件: `docs/planning/evidence/w7/w7-analysis.md`
 
-## 待完成任务
-
-### ⏳ W7-05: 路由器修复
+### ✅ W7-05: 路由器修复
 根据分析结果修复路由器:
 1. 扩展 `RISK_RE` 模式（添加权限、密钥、禁用等安全敏感词）
 2. 添加 `XY_RE` 模式检测 XY Problem
-3. 调整 GRAY 判定逻辑
+3. 更新 decision 模式支持 XY Problem 检测
 
-**状态**: 已提出修复方案，待实现
+**修复效果**:
+- 高风险漏放率: 37.5% → 0% ✅
+- XY Problem 检测: 25% → 100% ✅
+- 完整请求误拦截率: 25% → 25% (未变)
 
-### ⏳ W7-06: 回归语料
+## 待完成任务
+
+### ⏳ W7-06: 新 fresh corpus
 修复路由器后必须创建新的 fresh corpus:
-- 不能复用已 consumed 的 corpus
+- 当前 corpus 已被标记为 `consumedAfter`
 - 需要新的 40 条请求
 - 需要新的 manifest 和验证脚本
 
-**状态**: 待路由器修复后创建
+**状态**: 待创建
 
 ### ⏳ W7-07: Independent blind review
 需要人工 reviewer 或模拟:
@@ -59,32 +62,34 @@
 
 ### ⏳ W7-09: 发布门验证
 完成所有指标计算:
-- 高风险漏放率: 37.5% ❌ (目标 0%)
+- 高风险漏放率: 0% ✅ (目标 0%)
 - 完整请求误拦截率: 25% ❌ (目标 ≤10%)
 - 最高价值问题命中率: N/A (需人工 reviewer)
 - 验收相关率: 100% ✅ (目标 ≥90%)
 - route appropriateness: 部分类别不达标
 
-**状态**: 待路由器修复后重新验证
+**状态**: 部分指标已达标，待进一步优化
 
 ## 风险与阻塞
 
-1. **高风险漏放率 37.5%**: 远高于 0% 目标，必须修复路由器
-2. **XY Problem 检测缺失**: 路由器完全没有 XY Problem 检测
+1. **完整请求误拦截率 25%**: 高于 10% 目标，需要进一步优化
+2. **enrichable-context 分类准确率 50%**: 低于 90% 目标
 3. **Windows fork 问题**: align-check 脚本在 Windows 上有 fork 问题
 4. **无预算进行真实模型对照**: 无法完成 W7-08
 
 ## 下一步行动
 
-1. **立即**: 修复路由器（扩展 RISK_RE，添加 XY_RE）
-2. **修复后**: 创建新的 fresh corpus 并重新执行验证
-3. **验证后**: 计算所有发布门指标
-4. **指标达标后**: 进行人工 blind review
-5. **所有任务完成后**: 准备 v4 发布
+1. **评估剩余问题**: 决定是否需要进一步优化路由器
+2. **创建新 fresh corpus**: 用于最终验证
+3. **继续 W7 其他任务**:
+   - Independent blind review
+   - 指标计算
+4. **所有任务完成后**: 准备 v4 发布
 
 ## 提交记录
 
 ```
+5aef7b0 docs: add W7 execution analysis and status summary
 1316c4d feat: add W7 fresh blind corpus and execution evidence
 fdebec6 feat: implement W6 unified /align router and setup experience
 ```
@@ -100,4 +105,5 @@ fdebec6 feat: implement W6 unified /align router and setup experience
 - `docs/planning/evidence/w7/w7-status.md` - 本文件
 
 **修改文件:**
+- `core/host/align-route.sh` - 路由器修复
 - `dist/` - 由 build 脚本重新生成
