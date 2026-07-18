@@ -1,6 +1,6 @@
 {
   "name": "@prompt-optimizer/align-pipeline",
-  "version": "3.2.0-rc.1",
+  "version": "4.0.0",
   "description": "Universal Align Pipeline - Agent intent alignment for AI coding assistants",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

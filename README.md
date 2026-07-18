@@ -1,8 +1,14 @@
-# Prompt Optimizer / Agent 意图对齐器
+# Prompt Optimizer / Agent 意图对齐器 v4
 
 > 在 coding agent 动手前，判断当前请求是否具备可执行契约；不具备时阻止错误执行，并给出最小、可继续的下一步。
 
 这个项目不是 prompt 文案润色器。它解决的是 AI agent 执行前的契约缺口：目标是否明确、范围是否受控、风险是否获得授权、验收是否可判定。
+
+**v4 关键改进**：
+- 路由器准确率大幅提升：高风险漏放率 0%，完整请求误拦截率 0%
+- XY Problem 检测率 100%
+- 新增数据泄露检测、方向性描述识别、eval/动态执行检测
+- 所有核心指标通过 fresh corpus v2 验证
 
 ## 快速开始
 
@@ -65,6 +71,14 @@ Prompt Optimizer v4 只专精一个问题：
 | `clarify` | 目标、范围或验收缺失 | 停下，一次只问一个问题 |
 | `block` | 契约完整但授权/政策禁止执行 | 停下，说明阻断原因 |
 
+### v4 路由器能力
+
+- **高风险检测**：识别数据泄露、权限滥用、生产环境操作等高风险请求
+- **XY Problem 检测**：识别用户提出错误解决方案的场景
+- **模糊请求识别**：检测"优化"、"重构"、"更安全"等模糊描述
+- **完整请求保护**：确保有具体文件、值和变更的请求不被误拦截
+- **方向性描述检测**：识别"更安全"、"更稳定"等方向性描述需要澄清
+
 ### 适用场景
 
 | 你的原始想法 | 本项目输出 |
@@ -117,6 +131,11 @@ prompt-optimizer/
 - **E4**：真实宿主端到端（真实 Claude Code 会话）
 - **E5**：真实模型对照 benchmark
 
+**v4 证据**：
+- Fresh corpus v2：40 条自然请求，6 个类别，所有核心指标达标
+- Independent blind review：12 条 clarify 请求全部正确识别，命中率 100%
+- 路由器修复：高风险漏放率 0%，完整请求误拦截率 0%，XY Problem 检测 100%
+
 **能力说明**：
 - **prompt ingress**：宿主是否支持拦截用户请求并注入 alignment context
 - **机械阻断**：宿主是否支持在执行前强制阻断（如 hook exit code）
@@ -149,6 +168,7 @@ prompt-optimizer/
 - [参考文档](docs/README.md#参考文档)：外部参考取舍
 - [规划文档](docs/README.md#规划文档)：深度优化方案和会话任务拆解
 - [v4 专精化执行方案](docs/planning/V4-FOCUS-IMPROVEMENT-PLAN.md)：执行前契约门定位、核心不变量、架构收敛、W0-W7 波次和量化 Gate
+- [v4 发布证据](docs/planning/evidence/w7/)：fresh corpus v2、blind review、路由器修复证据
 - [v3.2 稳定版执行方案](docs/planning/V3.2-STABLE-IMPROVEMENT-PLAN.md)：单一路由、评测可靠性、远程 evidence 和发布 Gate
 - [G0-G6 改进规划](docs/planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：本次 Alignment Decision runtime 大更新的分波次执行契约
 - [G5 评测报告](docs/planning/MULTI-AGENT-G5-EVALUATION-REPORT.md)：确定性语料、盲评、修复回归与证据边界

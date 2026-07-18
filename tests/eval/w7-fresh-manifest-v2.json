@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0.0",
-  "corpusId": "w7-fresh-2026-07-18",
-  "corpusPath": "tests/eval/w7-fresh-blind-corpus.jsonl",
-  "evidencePrefix": "w7-fresh",
-  "description": "Fresh blind corpus for W7 v4 release validation. 40 natural requests across 6 categories.",
+  "corpusId": "w7-fresh-v2-2026-07-18",
+  "corpusPath": "tests/eval/w7-fresh-blind-corpus-v2.jsonl",
+  "evidencePrefix": "w7-fresh-v2",
+  "description": "Fresh blind corpus v2 for W7 v4 release validation. 40 new natural requests across 6 categories.",
   "categories": {
     "complete-low-risk": {
       "count": 8,
@@ -37,6 +37,6 @@
     }
   },
   "totalRequests": 40,
-  "frozenAt": "2026-07-18T00:00:00Z",
-  "consumedAfter": "2026-07-18T01:50:13.635Z"
+  "frozenAt": "2026-07-18T12:00:00Z",
+  "consumedAfter": "2026-07-18T03:05:28.723Z"
 }

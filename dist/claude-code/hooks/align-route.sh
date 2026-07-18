@@ -102,11 +102,11 @@ CLEAN="$(strip_noise "$PROMPT")"
 SIGNAL_TEXT="$(strip_negation "$CLEAN")"
 
 # ── 信号计数（双语）──
-RISK_RE='删除|删掉|删库|清空|清库|清掉|重置|回滚|强推|上线|下线|停服|发版|部署到生产|生产环境|生产库|数据库迁移|格式化|抹掉|销毁|覆盖|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration|deploy to prod|destroy|format|权限|admin|root|sudo|所有用户|API.?key|密钥|token|密码|credential|secret|硬编码|hardcode|禁用|关闭|停用|disable|泄露|暴露|expose|leak'
-VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|提升|处理一下|处理|看看|弄一下|弄好|搞一下|搞定|搞定它|修一下|修好|美化|改改|改一下|改下|调整一下|调整下|梳理一下|梳理下|整理一下|整理下|重构|升级|升级一下|增强|更好|更快|更优雅|更稳定|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|tweak|adjust|fix|enhance|upgrade|refine|rework|reorganize|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个|改成|改为|换成|转成|转换成|加上|加上的'
-XY_RE='把.*换成|用.*来解决|改成.*方便|用.*代替|替换.*为|转换.*成'
+RISK_RE='删除|删掉|删库|清空|清库|清掉|重置|回滚|强推|上线|下线|停服|发版|部署到生产|生产环境|生产库|数据库迁移|格式化|抹掉|销毁|覆盖|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration|deploy to prod|destroy|format|权限|admin|root|sudo|所有用户|API.?key|密钥|token|密码|credential|secret|硬编码|hardcode|禁用|关闭|停用|disable|泄露|暴露|expose|leak|外网|外部服务器|公网|发送到.*服务器|upload.*external|send.*outside'
+VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|提升|处理一下|处理|看看|弄一下|弄好|搞一下|搞定|搞定它|修一下|修好|美化|改改|改一下|改下|调整一下|调整下|梳理一下|梳理下|整理一下|整理下|重构|升级|升级一下|增强|更好|更快|更优雅|更稳定|更安全|more secure|more stable|faster|better|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|tweak|adjust|fix|enhance|upgrade|refine|rework|reorganize|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个|改成|改为|换成|转成|转换成|加上|加上的'
+XY_RE='把.*换成|用.*来解决|改成.*方便|用.*代替|替换.*为|转换.*成|用.*eval|用.*exec|动态执行|吞掉.*错误|错误.*吞掉|忽略.*错误|错误.*忽略|屏蔽.*错误|错误.*屏蔽|suppress.*error|swallow.*error|error.*suppress|error.*swallow'
 SPEC_RE='[A-Za-z0-9_./\\-]+\.(sh|ps1|md|js|jsx|ts|tsx|py|json|yml|yaml|toml|go|rs|java|c|cpp|h|css|html|sql)|[A-Za-z_][A-Za-z0-9_]*\(\)|第[[:space:]]*[0-9]+[[:space:]]*行|line [0-9]+|:[0-9]+\b'
-VALUE_RE='[0-9]+|"([^"]*)"'
+VALUE_RE='[0-9]+|"([^"]*)"|从.*改成|从.*改为|从.*换成'
 
 count_re() { printf '%s' "$1" | grep -oiE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
 count_re_case() { printf '%s' "$1" | grep -oE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
