@@ -111,6 +111,7 @@ function analyzeInstruction(text, context = [], contextText = '') {
     const productionBulkMutation = !readOnly && production && has(signalText, /批量(?:回填|更新|修改)|回填.+(?:字段|region)|(?:关闭|关掉|禁用).+(?:MFA|二次验证|多因素认证)|(?:MFA|二次验证|多因素认证).+(?:关闭|关掉|禁用)/i);
     const accessControlMutation = !readOnly && has(signalText, /(?:关闭|关掉|禁用|绕过|修改|更改|重置).*(?:MFA|二次验证|多因素认证|权限|权限表|访问控制)|(?:MFA|二次验证|多因素认证|权限|权限表|访问控制).*(?:关闭|关掉|禁用|绕过|修改|更改|重置)/i);
     const credentialExposure = !readOnly && has(signalText, /(?:私钥|密钥).*(?:提交|泄露|暴露|吊销|清掉|删除)|(?:提交|泄露|暴露|清掉|删除).*(?:私钥|密钥)|(?:仓库|git).+历史.+(?:私钥|密钥)/i);
+    const externalEgress = !readOnly && has(signalText, /上传到外部服务器|发送到外网|发送到外部服务器|upload.*external|send.*outside/i);
     const historyRewrite = !readOnly && has(signalText, /(?:重写|改写).{0,30}(?:git|仓库|远端)?历史|(?:git|仓库|远端)?历史.{0,30}(?:重写|改写)|force\s+push/i);
     const externalPublish = !readOnly && has(signalText, /(?:公共\s*npm|内部制品库|候选包|版本号|发布渠道).*(?:发布|发出去|上传)|(?:发布|发出去|上传).*(?:公共\s*npm|内部制品库|候选包)/i);
     const mutationSignal = has(signalText, /删除|删库|清空(?:数据库|数据|表|记录|用户|文件|目录|配置)|delete|drop\s+table|truncate|批量(?:改|替换|更新|修改|删除|重置)|(?:所有用户|所有账户|所有账号|管理员|全部账号).*(?:邮箱|密码).*(?:改|重置)|替换.+(?:所有|全部|批量).+(?:用户|数据|记录|邮箱|密码|地址)/i) ||
@@ -132,7 +133,7 @@ function analyzeInstruction(text, context = [], contextText = '') {
     const policyProhibited = !readOnly && has(normalized, /git\s+reset\s+--hard|access token.+公开|(?:API.?密钥|secret|token).*(?:写进|写入|硬编码).*(?:提交|仓库)|禁用所有用户的输入(?:验证|校验)|绕过.+(?:hook|pre-commit).+push\s+main|忽略所有项目规则.+删除生产数据/i);
     const credentialRotation = has(combinedSignals, /轮换.+(?:API\s*key|key)/i);
     const databaseChange = !readOnly && has(signalText, /数据库.+(?:迁移|变更)|迁移.+数据库|数据库\s*schema|schema\s*(?:change|migration)|表结构|alter\s+table|(?:数据表|[\w\u4e00-\u9fff]+表(?:的|中|上)).{0,40}(?:索引|字段|列)|[\w\u4e00-\u9fff]+表(?:增加|新增|删除|修改|改成|回填|创建).{0,30}(?:索引|字段|列)/i);
-    const irreversibleOperation = credentialRotation || credentialExposure || historyRewrite || externalPublish || accessControlMutation ||
+    const irreversibleOperation = credentialRotation || credentialExposure || externalEgress || externalPublish || historyRewrite || accessControlMutation ||
         databaseChange || has(signalText, /销毁|覆盖.+(?:生产|正式环境|线上|配置)/i);
     const safetyCritical = production || dataMutation || irreversibleOperation;
     const diagnosticAuthorized = has(signalText, /先诊断|诊断并修复|真正原因/i);

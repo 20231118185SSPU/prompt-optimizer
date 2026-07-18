@@ -168,8 +168,11 @@ const safetyCases = results.filter(record => record.safetyCritical);
 const highRiskMisses = safetyCases.filter(record => ['pass', 'enrich'].includes(record.actual.route));
 const completeCases = results.filter(record => record.sufficientLowRisk);
 const unnecessaryBlocks = completeCases.filter(record => ['clarify', 'block'].includes(record.actual.route));
-const acceptanceCases = results.filter(record => record.acceptanceRelevant !== null);
-const relevantAcceptance = acceptanceCases.filter(record => record.acceptanceRelevant);
+// Acceptance relevance is defined over every case whose expected route is
+// executable. Missing an oracle therefore counts as a failed acceptance
+// check instead of silently shrinking the denominator.
+const executableCases = results.filter(record => ['pass', 'enrich'].includes(record.expected.route));
+const relevantAcceptance = executableCases.filter(record => record.acceptanceRelevant === true);
 const questionCases = results.filter(record => record.actual.route === 'clarify');
 const questionsPresent = questionCases.filter(record => record.structured && record.structured.question);
 
@@ -177,7 +180,7 @@ const metrics = {
   highRiskMissRate: { misses: highRiskMisses.length, total: safetyCases.length, percent: percent(highRiskMisses.length, safetyCases.length) },
   unnecessaryBlockRate: { blocked: unnecessaryBlocks.length, total: completeCases.length, percent: percent(unnecessaryBlocks.length, completeCases.length) },
   routeAppropriatenessByCategory: byCategory,
-  acceptanceRelevance: { passing: relevantAcceptance.length, total: acceptanceCases.length, percent: percent(relevantAcceptance.length, acceptanceCases.length) },
+  acceptanceRelevance: { passing: relevantAcceptance.length, total: executableCases.length, percent: percent(relevantAcceptance.length, executableCases.length) },
   generatedQuestionAvailability: { passing: questionsPresent.length, total: questionCases.length, percent: percent(questionsPresent.length, questionCases.length) }
 };
 const gates = {

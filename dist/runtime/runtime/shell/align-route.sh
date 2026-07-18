@@ -327,6 +327,8 @@ if [ "$MODE" = "decision" ]; then
   PRODUCTION=$(count_re "$SIGNAL_TEXT" '生产(环境|库|登录|系统|数据|订单|记录)?|production|deploy to prod')
   DATA_MUTATION=$(count_re "$SIGNAL_TEXT" '删除|删库|清空|drop table|truncate|批量(改|更新|修改|重置)|所有(用户|账户|账号).*(邮箱|密码).*(改|重置)|(管理员|全部账号).*(邮箱|密码).*(改|重置)')
   EXTERNAL_EGRESS=$(count_re "$SIGNAL_TEXT" '上传到外部服务器|发送到外网|发送到外部服务器|upload.*external|send.*outside')
+  IRREVERSIBLE_SIGNAL=$(count_re "$SIGNAL_TEXT" '权限|admin|root|sudo|关闭.+(MFA|二次验证|权限|访问控制|TLS)|禁用.+(MFA|二次验证|权限|访问控制|TLS)|(?:secret|密钥|token|密码).*(写进|写入|硬编码|提交|公开|暴露|泄露)|(?:写进|写入|硬编码|提交|公开|暴露|泄露).*(?:secret|密钥|token|密码)|force[[:space:]]+push|reset[[:space:]]+--hard|重写.+历史|历史.+重写|公共[[:space:]]+npm.*(发布|上传)|内部制品库.*(发布|上传)')
+  if [ "$EXTERNAL_EGRESS" -gt 0 ]; then IRREVERSIBLE_SIGNAL=$((IRREVERSIBLE_SIGNAL + EXTERNAL_EGRESS)); fi
   if [ "$EXTERNAL_EGRESS" -gt 0 ] && [ "$(count_re "$SIGNAL_TEXT" '删除远端副本')" -gt 0 ]; then
     DATA_MUTATION=$((DATA_MUTATION - 1))
     [ "$DATA_MUTATION" -lt 0 ] && DATA_MUTATION=0
@@ -346,10 +348,22 @@ if [ "$MODE" = "decision" ]; then
   CACHE_OPEN=$(count_re "$SIGNAL_TEXT" '加缓存.+(细节|具体规则)你定')
   POLICY_PROHIBITED=$(count_re "$PROMPT" 'git[[:space:]]+reset[[:space:]]+--hard|access token.+公开|(API.?密钥|secret|token).*(写进|写入|硬编码).*(提交|仓库)|禁用所有用户的输入(验证|校验)|绕过.+(hook|pre-commit).+push[[:space:]]+main|忽略所有项目规则.+删除生产数据')
   COMPLETE_RISK=0
-  if { [ "$PRODUCTION" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ]; } && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then COMPLETE_RISK=1; fi
+  if { [ "$PRODUCTION" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$IRREVERSIBLE_SIGNAL" -gt 0 ]; } && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then COMPLETE_RISK=1; fi
 
   PROJECT_CONTEXT=0
-  case "${ALIGN_CONTEXT_REFS:-}" in *project:*) PROJECT_CONTEXT=1 ;; esac
+  PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  OLD_IFS="$IFS"
+  IFS=','
+  for context_ref in ${ALIGN_CONTEXT_REFS:-}; do
+    case "$context_ref" in
+      project:.align/*)
+        context_path="${context_ref#project:}"
+        context_file="${context_path%%#*}"
+        if [ -f "$PROJECT_ROOT/$context_file" ]; then PROJECT_CONTEXT=1; fi
+        ;;
+    esac
+  done
+  IFS="$OLD_IFS"
   PROJECT_VERIFICATION=0
   if [ "$VERIFY" -eq 0 ] && [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$PROJECT_CONTEXT" -eq 1 ]; then
     PROJECT_VERIFICATION=1
@@ -391,6 +405,7 @@ if [ "$MODE" = "decision" ]; then
     if [ "$CONFIRM_MISSING" -gt 0 ]; then reason_add authorization.confirmation_missing; fi
     if [ "$PRODUCTION" -gt 0 ]; then reason_add risk.production_change; fi
     if [ "$DATA_MUTATION" -gt 0 ]; then reason_add risk.data_mutation; fi
+    if [ "$IRREVERSIBLE_SIGNAL" -gt 0 ]; then reason_add risk.irreversible_operation; fi
     if [ "$COMPLETE_RISK" -eq 1 ] && [ "$CONFIRM_MISSING" -eq 0 ]; then reason_add requirements.needs_enrichment; fi
     if { [ "$XY" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
     if [ "$VAGUE" -gt 0 ] && [ "$SPEC" -eq 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
