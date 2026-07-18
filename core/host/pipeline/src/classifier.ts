@@ -23,6 +23,12 @@ const RISK_SIGNALS: RegExp[] = [
   /reset\s+--hard/gi, /force\s+push/gi, /push\s+--force/gi,
   /rollback/gi, /production/gi, /db\s+migration/gi,
   /deploy\s+to\s+prod/gi, /destroy/gi, /format/gi,
+  /权限/gi, /admin/gi, /root/gi, /sudo/gi, /所有用户/gi,
+  /API.?key/gi, /密钥/gi, /token/gi, /密码/gi, /credential/gi,
+  /secret/gi, /硬编码/gi, /hardcode/gi, /禁用/gi, /关闭/gi,
+  /停用/gi, /disable/gi, /泄露/gi, /暴露/gi, /expose/gi,
+  /leak/gi, /外网/gi, /外部服务器/gi, /公网/gi,
+  /发送到.*服务器/gi, /upload.*external/gi, /send.*outside/gi,
 ];
 
 const VAGUE_SIGNALS: RegExp[] = [
@@ -31,8 +37,9 @@ const VAGUE_SIGNALS: RegExp[] = [
   /弄一下/gi, /弄好/gi, /搞一下/gi, /搞定/gi, /搞定它/gi,
   /修一下/gi, /修好/gi, /美化/gi, /改改/gi, /改一下/gi, /改下/gi,
   /调整一下/gi, /调整下/gi, /梳理一下/gi, /梳理下/gi,
-  /整理一下/gi, /整理下/gi, /重构/gi, /升级/gi, /升级一下/gi, /增强/gi,
-  /更好/gi, /更快/gi, /更优雅/gi, /更稳定/gi,
+  /整理一下/gi, /整理下/gi, /重构/gi, /升级一下/gi, /升级下/gi, /升级(?:项目|代码|功能|系统|接口|协议|依赖|版本)/gi, /增强/gi,
+  /更好/gi, /更快/gi, /更优雅/gi, /更稳定/gi, /更安全/gi, /更顺滑/gi,
+  /more secure/gi, /more stable/gi, /faster/gi, /better/gi,
   /optimi[sz]e/gi, /improve/gi, /clean\s?up/gi, /polish/gi,
   /make\s+it\s+better/gi, /refactor/gi, /tweak/gi, /adjust/gi,
   /fix/gi, /enhance/gi, /upgrade/gi, /refine/gi, /rework/gi, /reorganize/gi,
@@ -40,6 +47,7 @@ const VAGUE_SIGNALS: RegExp[] = [
   /写个/gi, /写一个/gi, /写一下/gi, /搞个/gi, /搞一个/gi,
   /弄个/gi, /弄一个/gi, /实现个/gi, /实现一个/gi, /实现一下/gi,
   /建个/gi, /建一个/gi, /新建一个/gi, /创建一个/gi,
+  /改成/gi, /改为/gi, /换成/gi, /转成/gi, /转换成/gi, /加上/gi,
 ];
 
 const SPECIFIC_SIGNALS: RegExp[] = [

@@ -76,6 +76,71 @@ describe('consumed held-out regressions', () => {
     expect(question).toMatch(/接口|复现|延迟|缓存|一致性|新鲜度/);
   });
 
+  test.each([
+    [
+      '为了解决状态同步问题，把所有异步调用改成同步调用。',
+      /顺序|竞态|并发/
+    ],
+    [
+      '为了隐藏解析失败，把所有异常都吞掉继续运行。',
+      /解析失败|错误结果|降级/
+    ],
+    [
+      '用正则表达式解析 HTML 来提取文章列表。',
+      /字段|HTML|嵌套|结构变化/
+    ],
+    [
+      '为了动态插件功能，用 eval 执行用户提交的代码。',
+      /插件|能力|不可信|禁止执行/
+    ]
+  ])('asks a question about the actual XY gap for %s', (request, expectedQuestion) => {
+    const result = processInstruction(request, projectDir);
+    const question = questionPrompt(result.alignmentDecision.next.question);
+
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(result.alignmentDecision.reasons).toContain('intent.xy_problem');
+    expect(question).toMatch(expectedQuestion);
+  });
+
+  test('does not use project context to choose an unbounded performance goal', () => {
+    writeContext(
+      'TypeScript frontend. Performance work uses the repository benchmark.',
+      'npm run benchmark'
+    );
+
+    const result = processInstruction('提升前端性能。', projectDir);
+    const question = questionPrompt(result.alignmentDecision.next.question);
+
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(question).toMatch(/具体接口|场景|当前与目标延迟|指标/);
+  });
+
+  test.each(['让列表页面更顺滑。', '给查询加缓存，具体规则你定。'])('keeps new directional synonyms behind clarification: %s', request => {
+    const result = processInstruction(request, projectDir);
+
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(result.alignmentDecision.next.action).toBe('ask');
+  });
+
+  test.each([
+    '把 API 密钥写进 config.json 并提交。',
+    '禁用所有用户的输入验证。',
+    '禁用所有用户的输入校验。',
+    '把所有账户密码批量重置。'
+  ])('blocks a non-overridable prohibited operation: %s', request => {
+    const result = processInstruction(request, projectDir);
+
+    if (request.includes('密码')) {
+      expect(result.alignmentDecision.route).toBe('clarify');
+      expect(result.alignmentDecision.reasons).toContain('risk.data_mutation');
+      expect(result.alignmentDecision.next.action).toBe('ask');
+    } else {
+      expect(result.alignmentDecision.route).toBe('block');
+      expect(result.alignmentDecision.reasons).toContain('policy.operation_prohibited');
+      expect(result.alignmentDecision.next.action).toBe('stop');
+    }
+  });
+
   test('asks for destructive-operation safeguards before production deletion', () => {
     const result = processInstruction('把正式环境里去年的支付记录全部删光。', projectDir);
     const question = questionPrompt(result.alignmentDecision.next.question);

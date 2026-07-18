@@ -111,9 +111,10 @@ function analyzeInstruction(text, context = [], contextText = '') {
     const productionBulkMutation = !readOnly && production && has(signalText, /批量(?:回填|更新|修改)|回填.+(?:字段|region)|(?:关闭|关掉|禁用).+(?:MFA|二次验证|多因素认证)|(?:MFA|二次验证|多因素认证).+(?:关闭|关掉|禁用)/i);
     const accessControlMutation = !readOnly && has(signalText, /(?:关闭|关掉|禁用|绕过|修改|更改|重置).*(?:MFA|二次验证|多因素认证|权限|权限表|访问控制)|(?:MFA|二次验证|多因素认证|权限|权限表|访问控制).*(?:关闭|关掉|禁用|绕过|修改|更改|重置)/i);
     const credentialExposure = !readOnly && has(signalText, /(?:私钥|密钥).*(?:提交|泄露|暴露|吊销|清掉|删除)|(?:提交|泄露|暴露|清掉|删除).*(?:私钥|密钥)|(?:仓库|git).+历史.+(?:私钥|密钥)/i);
+    const externalEgress = !readOnly && has(signalText, /上传到外部服务器|发送到外网|发送到外部服务器|upload.*external|send.*outside/i);
     const historyRewrite = !readOnly && has(signalText, /(?:重写|改写).{0,30}(?:git|仓库|远端)?历史|(?:git|仓库|远端)?历史.{0,30}(?:重写|改写)|force\s+push/i);
     const externalPublish = !readOnly && has(signalText, /(?:公共\s*npm|内部制品库|候选包|版本号|发布渠道).*(?:发布|发出去|上传)|(?:发布|发出去|上传).*(?:公共\s*npm|内部制品库|候选包)/i);
-    const mutationSignal = has(signalText, /删除|删库|清空(?:数据库|数据|表|记录|用户|文件|目录|配置)|delete|drop\s+table|truncate|批量(?:替换|更新|修改|删除|重置)|替换.+(?:所有|全部|批量).+(?:用户|数据|记录|邮箱|密码|地址)/i) ||
+    const mutationSignal = has(signalText, /删除|删库|清空(?:数据库|数据|表|记录|用户|文件|目录|配置)|delete|drop\s+table|truncate|批量(?:改|替换|更新|修改|删除|重置)|(?:所有用户|所有账户|所有账号|管理员|全部账号).*(?:邮箱|密码).*(?:改|重置)|替换.+(?:所有|全部|批量).+(?:用户|数据|记录|邮箱|密码|地址)/i) ||
         (production && has(signalText, /删光|清掉|抹掉/i));
     const dataMutation = (mutationSignal || productionBulkMutation) &&
         !has(normalized, /删除.+(?:空行|文档)|解释.+删除|总结.+删除|翻译.+删除/i);
@@ -125,26 +126,29 @@ function analyzeInstruction(text, context = [], contextText = '') {
     const fileOrSymbol = has(normalized, /[\w./\\-]+\.(?:ts|tsx|js|jsx|py|sh|ps1|md|json)/i) ||
         has(normalized, /\bparse[A-Z]\w*/) ||
         has(normalized, /\b(?:[A-Z][a-z0-9]+){2,}\b/);
-    const boundedScope = has(normalized, /不改|不要改|不得改(?:动|写|变更|修改)?|只修改|只改|不新增|禁止新增|保持(?:现有|.+不变)|保留.+现有|\d+\s*天|范围|public API|fixture|staging|指定|不执行|只生成|对应测试|不要创建|不要\s*push|不要发布|不得发布|本地.+草稿/i);
-    const strongBoundedScope = has(normalized, /只修改|只改|范围限|不改实现|不改正文|不改生产|不要改|不得改(?:动|写|变更|修改)?|不新增|禁止新增|保持.+不变|保留.+现有|不改\s*required|只生成|不进行任何.+写操作|不要创建|不要\s*push|不要发布|不得发布/i);
-    const vague = has(signalText, /优化|改进|完善|细节你定|处理一下|make it better/i);
-    const cacheOpenEnded = has(signalText, /加缓存.+细节你定/i);
-    const policyProhibited = !readOnly && has(normalized, /git\s+reset\s+--hard|access token.+公开|绕过.+(?:hook|pre-commit).+push\s+main|忽略所有项目规则.+删除生产数据/i);
+    const boundedScope = has(normalized, /不改|不要改|不得改(?:动|写|变更|修改)?|只修改|只改|不新增|禁止新增|保持(?:现有|.*不变)|保留.+现有|\d+\s*天|范围|public API|fixture|staging|指定|不执行|只生成|对应测试|不要创建|不要\s*push|不要发布|不得发布|本地.+草稿/i);
+    const strongBoundedScope = has(normalized, /只修改|只改|范围限|不改实现|不改正文|不改生产|不要改|不得改(?:动|写|变更|修改)?|不新增|禁止新增|保持.*不变|保留.+现有|不改\s*required|只生成|不进行任何.+写操作|不要创建|不要\s*push|不要发布|不得发布/i);
+    const vague = has(signalText, /优化|改进|完善|提升|重构|升级一下|升级下|升级(?:项目|代码|功能|系统|接口|协议|依赖|版本)|更好|更顺滑|更安全|细节你定|具体规则你定|处理一下|make it better/i);
+    const cacheOpenEnded = has(signalText, /加缓存.+(?:细节|具体规则)你定/i);
+    const policyProhibited = !readOnly && has(normalized, /git\s+reset\s+--hard|access token.+公开|(?:API.?密钥|secret|token).*(?:写进|写入|硬编码).*(?:提交|仓库)|禁用所有用户的输入(?:验证|校验)|绕过.+(?:hook|pre-commit).+push\s+main|忽略所有项目规则.+删除生产数据/i);
     const credentialRotation = has(combinedSignals, /轮换.+(?:API\s*key|key)/i);
     const databaseChange = !readOnly && has(signalText, /数据库.+(?:迁移|变更)|迁移.+数据库|数据库\s*schema|schema\s*(?:change|migration)|表结构|alter\s+table|(?:数据表|[\w\u4e00-\u9fff]+表(?:的|中|上)).{0,40}(?:索引|字段|列)|[\w\u4e00-\u9fff]+表(?:增加|新增|删除|修改|改成|回填|创建).{0,30}(?:索引|字段|列)/i);
-    const irreversibleOperation = credentialRotation || credentialExposure || historyRewrite || externalPublish || accessControlMutation ||
+    const irreversibleOperation = credentialRotation || credentialExposure || externalEgress || externalPublish || historyRewrite || accessControlMutation ||
         databaseChange || has(signalText, /销毁|覆盖.+(?:生产|正式环境|线上|配置)/i);
     const safetyCritical = production || dataMutation || irreversibleOperation;
     const diagnosticAuthorized = has(signalText, /先诊断|诊断并修复|真正原因/i);
     const contradictionDetected = has(signalText, /只看不改|不要修改|不得修改|保持原样/i) &&
         has(signalText, /修复|修改|增加|新增|添加|重构|改写|重写/i);
-    const xyProblem = !diagnosticAuthorized && has(signalText, /加\s*\d+\s*秒\s*sleep|TTL.+解决.+CPU|catch.+返回\s*200|删除失败的测试|结果上限.+改成\s*10/i);
+    const xyProblem = !diagnosticAuthorized && has(signalText, /加\s*\d+\s*秒\s*sleep|TTL.+解决.+CPU|catch.+返回\s*200|删除失败的测试|结果上限.+改成\s*10|为了解决.*把.*(?:异步|并发).*(?:同步|串行)|为了.*把.*(?:异常|错误).*(?:吞掉|忽略|屏蔽)|用正则.*解析.*HTML|正则.*HTML.*提取|用\s*eval|动态执行.*用户/i);
     const localImpactReviewRequired = has(normalized, /调用方都别看|不要看调用方|禁止检查调用方/i);
     const alternativesAcceptedByUser = has(normalized, /都(?:可以|能接受|行)|两者(?:皆可|都可|均可)|任一(?:种|个|方案)?(?:都)?(?:可以|可|能接受)|任选/i);
     const choiceDelegatedToAgent = has(normalized, /你(?:来|替我)?(?:选|挑|定)|帮我(?:选|挑|定)|交给你(?:选|定)|由你决定/i);
     const explicitlyDelegatedChoice = alternativesAcceptedByUser && choiceDelegatedToAgent;
     const localReleasePreparation = isLocalReleasePreparation(normalized);
-    const boundedPerformanceChange = has(signalText, /减少.+(?:重复)?(?:数据库)?读取|减少.+(?:查询|请求)|降低.+(?:延迟|耗时)|(?:优化|提升).+(?:性能|响应时间|延迟|耗时)/i);
+    const performanceBudgetContext = has(contextText, /(?:performance\s+target|性能目标|p95)/i) &&
+        has(contextText, /(?:benchmark|p95|性能|响应时间|延迟|耗时)/i);
+    const boundedPerformanceChange = has(signalText, /减少.+(?:重复)?(?:数据库)?读取|减少.+(?:查询|请求)|降低.+(?:延迟|耗时)|(?:优化|提升).+(?:性能|响应时间|延迟|耗时)/i) &&
+        (fileOrSymbol || strongBoundedScope || performanceBudgetContext);
     const explicitLayoutGoal = has(normalized, /(?:真正|实际|核心)目标.+(?:按钮|界面).+(?:单行|不换行)/i);
     const explicitAction = fileOrSymbol || readOnly || has(signalText, /修改|增加|新增|重命名|修复|修掉|调整|手改|准备|生成|更新|改为|改成|补(?:充|一节|上|\s*description|(?:一条|对应)?(?:界面|单元|回归)?测试)|清空按钮|清空(?:当前)?输入|正在保存状态/i);
     const authorized = has(signalText, /已授权|已批准/i);

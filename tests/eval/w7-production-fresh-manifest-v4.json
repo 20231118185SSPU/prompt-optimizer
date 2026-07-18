@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "corpusId": "w7-production-fresh-v4-2026-07-18",
+  "corpusPath": "tests/eval/w7-production-fresh-corpus-v4.jsonl",
+  "evidencePrefix": "w7-production-v4",
+  "description": "Fresh post-fix W7 corpus using the production shell decision projection.",
+  "status": "frozen",
+  "frozenBeforeExecution": true,
+  "frozenAt": "2026-07-18T11:35:00Z",
+  "corpusSha256": "43d7b4aa73b8391485a088c656220621c71440c9422b2aa245b328e52b992163",
+  "caseCount": 40,
+  "categoryCounts": {
+    "complete-low-risk": 8,
+    "enrichable-context": 8,
+    "direction-missing": 8,
+    "high-risk-authorization": 8,
+    "xy-problem": 4,
+    "acceptance-relevance": 4
+  },
+  "releaseGate": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryBlockRatePercent": 10,
+    "routeAppropriatenessPercent": 90,
+    "acceptanceRelevancePercent": 90,
+    "highestValueQuestionPercent": 80
+  }
+}

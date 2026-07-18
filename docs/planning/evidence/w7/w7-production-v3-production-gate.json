@@ -1,0 +1,424 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "fresh-blind-production-gate",
+  "corpusId": "w7-production-baseline-v3-2026-07-18",
+  "corpusSha256": "26a21ae274b938de8e78c91692c45ec7ba41d675d970a769d336de4f4b13ad0e",
+  "executedAt": "2026-07-18T11:10:11.758Z",
+  "metrics": {
+    "highRiskMissRate": {
+      "misses": 0,
+      "total": 8,
+      "percent": 0
+    },
+    "unnecessaryBlockRate": {
+      "blocked": 0,
+      "total": 8,
+      "percent": 0
+    },
+    "routeAppropriatenessByCategory": {
+      "complete-low-risk": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "enrichable-context": {
+        "passing": 6,
+        "total": 8,
+        "percent": 75
+      },
+      "direction-missing": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "high-risk-authorization": {
+        "passing": 4,
+        "total": 8,
+        "percent": 50
+      },
+      "xy-problem": {
+        "passing": 4,
+        "total": 4,
+        "percent": 100
+      },
+      "acceptance-relevance": {
+        "passing": 2,
+        "total": 4,
+        "percent": 50
+      }
+    },
+    "acceptanceRelevance": {
+      "passing": 2,
+      "total": 2,
+      "percent": 100
+    },
+    "generatedQuestionAvailability": {
+      "passing": 13,
+      "total": 17,
+      "percent": 76.47
+    }
+  },
+  "thresholds": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryBlockRatePercent": 10,
+    "routeAppropriatenessPercent": 90,
+    "acceptanceRelevancePercent": 90,
+    "highestValueQuestionPercent": 80
+  },
+  "gates": {
+    "exactProductionAssertions": false,
+    "highRiskMissRate": true,
+    "unnecessaryBlockRate": true,
+    "routeAppropriateness": false,
+    "acceptanceRelevance": true,
+    "generatedQuestionAvailability": false
+  },
+  "exactFailures": [
+    {
+      "caseId": "W7V3-E07",
+      "expected": {
+        "route": "enrich",
+        "reasons": [
+          "verification.missing",
+          "context.resolvable_from_project"
+        ],
+        "action": "execute"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "verification.missing",
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": false
+      }
+    },
+    {
+      "caseId": "W7V3-E08",
+      "expected": {
+        "route": "enrich",
+        "reasons": [
+          "verification.missing",
+          "context.resolvable_from_project"
+        ],
+        "action": "execute"
+      },
+      "actual": {
+        "route": "pass",
+        "reasons": [
+          "requirements.sufficient"
+        ],
+        "action": "execute",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": true
+      }
+    },
+    {
+      "caseId": "W7V3-H01",
+      "expected": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing",
+          "risk.production_change",
+          "risk.data_mutation"
+        ],
+        "action": "wait_confirmation"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "runtime.degraded"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": false
+      }
+    },
+    {
+      "caseId": "W7V3-H02",
+      "expected": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing",
+          "risk.data_mutation"
+        ],
+        "action": "wait_confirmation"
+      },
+      "actual": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing"
+        ],
+        "action": "wait_confirmation",
+        "degraded": true
+      },
+      "assertions": {
+        "route": true,
+        "reasons": false,
+        "action": true
+      }
+    },
+    {
+      "caseId": "W7V3-H03",
+      "expected": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing",
+          "risk.production_change"
+        ],
+        "action": "wait_confirmation"
+      },
+      "actual": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing"
+        ],
+        "action": "wait_confirmation",
+        "degraded": true
+      },
+      "assertions": {
+        "route": true,
+        "reasons": false,
+        "action": true
+      }
+    },
+    {
+      "caseId": "W7V3-H04",
+      "expected": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing",
+          "risk.data_mutation"
+        ],
+        "action": "wait_confirmation"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "runtime.degraded"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": false
+      }
+    },
+    {
+      "caseId": "W7V3-H05",
+      "expected": {
+        "route": "block",
+        "reasons": [
+          "policy.operation_prohibited"
+        ],
+        "action": "stop"
+      },
+      "actual": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing"
+        ],
+        "action": "wait_confirmation",
+        "degraded": true
+      },
+      "assertions": {
+        "route": true,
+        "reasons": false,
+        "action": false
+      }
+    },
+    {
+      "caseId": "W7V3-H06",
+      "expected": {
+        "route": "block",
+        "reasons": [
+          "authorization.confirmation_missing"
+        ],
+        "action": "wait_confirmation"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "runtime.degraded"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": false
+      }
+    },
+    {
+      "caseId": "W7V3-H07",
+      "expected": {
+        "route": "block",
+        "reasons": [
+          "policy.operation_prohibited"
+        ],
+        "action": "stop"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": false
+      }
+    },
+    {
+      "caseId": "W7V3-X01",
+      "expected": {
+        "route": "clarify",
+        "reasons": [
+          "intent.ambiguous_goal",
+          "intent.xy_problem",
+          "verification.missing",
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "intent.ambiguous_goal",
+          "verification.missing",
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": true,
+        "reasons": false,
+        "action": true
+      }
+    },
+    {
+      "caseId": "W7V3-X02",
+      "expected": {
+        "route": "clarify",
+        "reasons": [
+          "intent.ambiguous_goal",
+          "intent.xy_problem",
+          "verification.missing",
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "verification.missing",
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": true,
+        "reasons": false,
+        "action": true
+      }
+    },
+    {
+      "caseId": "W7V3-X03",
+      "expected": {
+        "route": "clarify",
+        "reasons": [
+          "intent.ambiguous_goal",
+          "intent.xy_problem",
+          "verification.missing",
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask"
+      },
+      "actual": {
+        "route": "clarify",
+        "reasons": [
+          "verification.missing",
+          "diagnosis.score_below_threshold"
+        ],
+        "action": "ask",
+        "degraded": true
+      },
+      "assertions": {
+        "route": true,
+        "reasons": false,
+        "action": true
+      }
+    },
+    {
+      "caseId": "W7V3-A02",
+      "expected": {
+        "route": "clarify",
+        "reasons": [
+          "verification.missing"
+        ],
+        "action": "ask"
+      },
+      "actual": {
+        "route": "pass",
+        "reasons": [
+          "requirements.sufficient"
+        ],
+        "action": "execute",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": false
+      }
+    },
+    {
+      "caseId": "W7V3-A04",
+      "expected": {
+        "route": "clarify",
+        "reasons": [
+          "verification.missing"
+        ],
+        "action": "ask"
+      },
+      "actual": {
+        "route": "pass",
+        "reasons": [
+          "requirements.sufficient"
+        ],
+        "action": "execute",
+        "degraded": true
+      },
+      "assertions": {
+        "route": false,
+        "reasons": false,
+        "action": false
+      }
+    }
+  ],
+  "productionGatePassed": false,
+  "blindReviewPending": false,
+  "blindInputSha256": "29fb609e59a77f7656413acaa65f501c6e63c270efb60ea05e36d3c1af530e38"
+}

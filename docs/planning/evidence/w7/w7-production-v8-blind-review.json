@@ -1,0 +1,95 @@
+{
+  "evidenceKind": "independent-blind-review",
+  "corpusId": "w7-production-fresh-v8-2026-07-18",
+  "inputSha256": "a71ed3ff84ad1536b9e4066e98c2ab9c5d8c618b9db9420b865fcb654bfa88ee",
+  "reviewer": {
+    "independentSubAgent": true,
+    "blindedTo": ["expected route and reasons", "router implementation", "reference answers"]
+  },
+  "records": [
+    {
+      "caseId": "W7V8-D01",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (what specific interface/latency problem) before adopting a caching solution. Recommendation is concrete: give reproducible endpoint + p95 target, let diagnosis decide."
+    },
+    {
+      "caseId": "W7V8-D02",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (which specific failure scenario) for a vague 'improve logs' request. Recommendation is concrete: specify a real failure scenario + quantitative metric."
+    },
+    {
+      "caseId": "W7V8-D03",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (which specific failure scenario) for a vague 'improve error messages' request. Recommendation is concrete: specify a real failure scenario + quantitative metric."
+    },
+    {
+      "caseId": "W7V8-D04",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (which specific user scenario is blocked) for a vague 'better search results' request. Recommendation is concrete: give a real failure scenario with measurable criteria."
+    },
+    {
+      "caseId": "W7V8-D05",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (which specific failure scenario motivates rate limiting). The user explicitly deferred strategy, so identifying the actual problem is the highest-value question. Recommendation is concrete."
+    },
+    {
+      "caseId": "W7V8-D06",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (which specific user scenario is blocked) for a broad 'optimize mobile experience' request. Recommendation is concrete: give a real failure scenario with measurable criteria."
+    },
+    {
+      "caseId": "W7V8-D07",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (which observable maintenance problem) before a data access layer refactor. Recommendation is concrete: specify a problem (e.g. duplication) and clarify whether public API must stay unchanged."
+    },
+    {
+      "caseId": "W7V8-D08",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (which specific failure scenario) for a vague 'improve error handling' request. Recommendation is concrete: specify a real failure scenario + quantitative metric."
+    },
+    {
+      "caseId": "W7V8-X01",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question correctly challenges the blanket serialization solution by asking what specific reproducible race condition exists. Recommendation is concrete: give a failure case, identify the minimum critical section, keep other calls async."
+    },
+    {
+      "caseId": "W7V8-X02",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (minimum required capabilities) which forces re-evaluation of whether eval is needed at all. Recommendation is concrete: use whitelisted/restricted plugin API, list required capabilities, prohibit arbitrary code execution."
+    },
+    {
+      "caseId": "W7V8-X03",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question targets the most critical gap (what error result callers should receive) which forces thinking about error contract instead of silent suppression. Recommendation is concrete: keep structured errors, degrade only for listed recoverable errors, add failure path tests."
+    },
+    {
+      "caseId": "W7V8-X04",
+      "highestValueQuestion": false,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "Question asks what fields to extract (scope), which implicitly accepts the regex-for-HTML approach without challenging it. The most valuable question would surface why regex is fragile for HTML (nesting, structure changes). The recommendation does steer toward DOM parser, but the question itself does not address the core risk."
+    }
+  ]
+}

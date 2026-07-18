@@ -28,6 +28,10 @@ describe('classify', () => {
     expect(classify('部署到生产环境').risk).toBeGreaterThanOrEqual(1);
   });
 
+  it('keeps sensitive risk signals aligned with the shell router', () => {
+    expect(classify('把 secret 写进仓库并暴露到外网').risk).toBeGreaterThanOrEqual(3);
+  });
+
   // ── Vague signals ──
   it('detects vague signal: 优化一下', () => {
     expect(classify('优化一下').vague).toBeGreaterThanOrEqual(1);
@@ -47,6 +51,10 @@ describe('classify', () => {
 
   it('detects vague signal: 加个功能', () => {
     expect(classify('加个功能').vague).toBeGreaterThanOrEqual(1);
+  });
+
+  it('detects directional vague signals used by the shell router', () => {
+    expect(classify('让页面更安全、更顺滑').vague).toBeGreaterThanOrEqual(2);
   });
 
   // ── Specific signals ──

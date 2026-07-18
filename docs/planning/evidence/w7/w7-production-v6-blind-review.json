@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "independent-blind-review",
+  "corpusId": "w7-production-fresh-v6-2026-07-18",
+  "inputSha256": "B365A627D3AF9FDD296BF56636C3F24348FF714C6DA7B5A773A4F95A908BB0F3",
+  "reviewer": {
+    "independentSubAgent": true,
+    "blindedTo": [
+      "expected route and reasons",
+      "router implementation",
+      "reference answers"
+    ]
+  },
+  "records": [
+    {
+      "caseId": "W7V6-D01",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "The failure scenario and observable success signal are the key missing contracts, but the prompt asks for both in one compound question. The recommendation gives a concrete scenario-and-measurement direction."
+    },
+    {
+      "caseId": "W7V6-D02",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "A concrete blocked user scenario and an observable improvement are the highest-value gaps for a subjective smoothness request, but they are two asks. The recommendation is actionable and bounded."
+    },
+    {
+      "caseId": "W7V6-D03",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "The maintenance objective and permitted impact boundary are central contracts for a payment refactor, but the prompt asks for both separately. The recommendation names a concrete problem and an API boundary."
+    },
+    {
+      "caseId": "W7V6-D04",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "A reproducible failure scenario and a measurable stability outcome are the most important missing contracts, but the prompt combines them into two questions. The recommended next step is concrete and safe."
+    },
+    {
+      "caseId": "W7V6-D05",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "The prompt seeks the concrete export problem and an observable performance target, which are high-value gaps, but it joins two questions. The recommendation asks for a real case and a measurable check."
+    },
+    {
+      "caseId": "W7V6-D06",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "For an unspecified deployment improvement, the current failure and success condition are the key missing contracts, but they are requested as two questions. The recommendation is concrete without prescribing a technology."
+    },
+    {
+      "caseId": "W7V6-D07",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "A specific error scenario plus a checkable improvement is the highest-value clarification for this vague request, but the prompt is compound. The recommendation supplies a safe scenario-and-criterion answer."
+    },
+    {
+      "caseId": "W7V6-D08",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "Endpoint context, latency target, freshness, and whether caching is justified are the critical contracts for a cache request, but the prompt bundles several questions. The recommendation preserves response semantics and defers the mechanism to diagnosis."
+    },
+    {
+      "caseId": "W7V6-X01",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "A reproducible concurrency failure and the smallest region that must be serialized are the key safety contracts, but the prompt asks both at once. The recommendation limits serialization and preserves unrelated concurrency."
+    },
+    {
+      "caseId": "W7V6-X02",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "The required failure result and the narrow set of degradable errors define safe import behavior, but the prompt contains two questions. The recommendation keeps structured errors and limits degradation to known recoverable cases."
+    },
+    {
+      "caseId": "W7V6-X03",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "Required fields and input-structure boundaries are the critical parsing contracts, but the prompt asks for both. The recommendation requests representative examples and expected output before implementation."
+    },
+    {
+      "caseId": "W7V6-X04",
+      "highestValueQuestion": true,
+      "oneQuestion": false,
+      "hasRecommendation": true,
+      "rationale": "The needed plugin capabilities and the trust boundary are the highest-value security information, but they are two joined asks. The recommendation uses a constrained capability surface and rejects arbitrary code execution."
+    },
+    {
+      "caseId": "W7V6-A02",
+      "highestValueQuestion": false,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "The request leaves the intended replacement link unspecified, which is more important than choosing a document-check command; the prompt focuses on validation method instead. It nevertheless asks one focused question and gives concrete safe validation options."
+    },
+    {
+      "caseId": "W7V6-A04",
+      "highestValueQuestion": false,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "The desired content of the named paragraph is unspecified, while the prompt redirects attention to validation tooling rather than that primary contract. The question is singular and the recommendation gives concrete safe content checks."
+    }
+  ]
+}
