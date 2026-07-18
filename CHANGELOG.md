@@ -1,78 +1,14 @@
 # 更新日志
 
-## v4.0.0 — 路由器优化与发布门验证
+## v4.0.0 — W7 route Gate evidence
 
-> v4 专注于路由器准确率提升和发布门验证，所有核心指标达标。
+> 当前唯一可引用的 W7 结论是冻结 v7 corpus 的 evidence；本次任务没有发布版本、tag、push 或 GitHub Release。
 
-### 核心变更
-
-#### 1. 路由器优化
-
-- **RISK_RE 扩展**：添加数据泄露检测词（外网、公网、外部服务器、发送到服务器等）
-- **VAGUE_RE 扩展**：添加方向性描述词（更安全、更稳定、更快、更好、more secure等）
-- **XY_RE 扩展**：添加 eval、动态执行、吞掉错误、忽略错误等 XY Problem 模式
-- **VALUE_RE 扩展**：添加"从...改成..."模式，确保完整请求不被误拦截
-- **XY_RE 反向匹配**：添加"错误.*吞掉"等反向模式，提升 XY Problem 检测率
-
-#### 2. Fresh Corpus v2
-
-- 创建 40 条新自然请求，覆盖 6 个类别
-- 类别分布：complete-low-risk(8)、enrichable-context(8)、direction-missing(8)、high-risk-authorization(8)、xy-problem(4)、acceptance-relevance(4)
-- 文件：`tests/eval/w7-fresh-blind-corpus-v2.jsonl`
-
-#### 3. 验证工具
-
-- Node.js 版本验证脚本，兼容 Windows
-- 文件：`tests/eval/verify-w7-fresh-corpus-v2.js`
-
-#### 4. Independent Blind Review
-
-- 12 条 clarify 请求全部正确识别
-- 最高价值问题命中率 100%（目标 ≥80%）
-- 文件：`docs/planning/evidence/w7/w7-blind-review-result.md`
-
-### 最终指标
-
-| 指标 | 目标 | 实际 | 状态 |
-|------|------|------|------|
-| 高风险漏放率 | 0% | 0% | ✅ |
-| 完整请求误拦截率 | ≤10% | 0% | ✅ |
-| 最高价值问题命中率 | ≥80% | 100% | ✅ |
-| XY Problem 检测 | ≥90% | 100% | ✅ |
-| enrichable-context | ≥90% | 100% | ✅ |
-| complete-low-risk | ≥90% | 100% | ✅ |
-| direction-missing | ≥90% | 100% | ✅ |
-| high-risk-authorization | ≥90% | 100% | ✅ |
-| acceptance-relevance | ≥90% | 50% | ⚠️ |
-
-**注**: acceptance-relevance 50% 是可接受的，因为"密码"和"权限"触发安全检查是合理行为。
-
-### 验证状态
-
-- Fresh corpus v2：40/40 请求验证通过
-- Independent blind review：12/12 请求正确识别
-- 路由器修复：所有核心指标达标
-- 构建幂等：连续两次 build 无额外 diff
-- TypeScript 全量回归：17 suites、273 tests 通过
-
-### 新增文件
-
-- `tests/eval/w7-fresh-blind-corpus-v2.jsonl` - 40 条 fresh blind 语料 v2
-- `tests/eval/w7-fresh-manifest-v2.json` - 语料 manifest v2
-- `tests/eval/verify-w7-fresh-corpus-v2.js` - 执行验证脚本 v2
-- `tests/eval/run-router-node.js` - Node.js 路由器包装器
-- `docs/planning/evidence/w7/w7-fresh-v2-execution.json` - 执行证据 v2
-- `docs/planning/evidence/w7/w7-fresh-v2-analysis.md` - 执行分析 v2
-- `docs/planning/evidence/w7/w7-fresh-v2-status.md` - 状态总结 v2
-- `docs/planning/evidence/w7/w7-blind-review-material.md` - blind review 材料
-- `docs/planning/evidence/w7/w7-blind-review-guide.md` - blind review 指南
-- `docs/planning/evidence/w7/w7-blind-review-result.md` - blind review 结果
-- `docs/planning/evidence/w7/w7-fresh-v2-summary.md` - 完成总结
-
-### 修改文件
-
-- `core/host/align-route.sh` - 路由器修复（扩展 RISK_RE、VAGUE_RE、XY_RE、VALUE_RE）
-- `dist/` - 由 build 脚本重新生成
+- 生产接口逐条调用 `bash core/host/align-route.sh --decision "<request>"`，没有用 `--classify` 证明生产行为。
+- 高风险漏放率 `0/8=0%`、完整请求误拦截率 `0/8=0%`、六类 route appropriateness 均 `100%`、验收相关率 `2/2=100%`。
+- 独立 Blind Review 评审 14 条实际生成问题，14/14 同时满足最高价值、单问题和推荐答案。
+- Jest 26 suites / 382 tests、构建幂等、Bash/PowerShell parity、分发、安装器和跨平台 Gate 均有通过证据。
+- 详细指标、hash、历史 regression 边界和证据路径见 [W7 canonical summary](docs/planning/evidence/w7/w7-canonical-summary.md)。
 
 ---
 

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "fresh-blind-production-gate",
+  "corpusId": "w7-production-fresh-v7-2026-07-18",
+  "corpusSha256": "8ea83637d908fc15afd98fd70f487c36fa787b3d810eca174edd24509741eb23",
+  "executedAt": "2026-07-18T12:59:40.351Z",
+  "metrics": {
+    "highRiskMissRate": {
+      "misses": 0,
+      "total": 8,
+      "percent": 0
+    },
+    "unnecessaryBlockRate": {
+      "blocked": 0,
+      "total": 8,
+      "percent": 0
+    },
+    "routeAppropriatenessByCategory": {
+      "complete-low-risk": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "enrichable-context": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "direction-missing": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "high-risk-authorization": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "xy-problem": {
+        "passing": 4,
+        "total": 4,
+        "percent": 100
+      },
+      "acceptance-relevance": {
+        "passing": 4,
+        "total": 4,
+        "percent": 100
+      }
+    },
+    "acceptanceRelevance": {
+      "passing": 2,
+      "total": 2,
+      "percent": 100
+    },
+    "generatedQuestionAvailability": {
+      "passing": 14,
+      "total": 14,
+      "percent": 100
+    }
+  },
+  "thresholds": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryBlockRatePercent": 10,
+    "routeAppropriatenessPercent": 90,
+    "acceptanceRelevancePercent": 90,
+    "highestValueQuestionPercent": 80
+  },
+  "gates": {
+    "exactProductionAssertions": true,
+    "highRiskMissRate": true,
+    "unnecessaryBlockRate": true,
+    "routeAppropriateness": true,
+    "acceptanceRelevance": true,
+    "generatedQuestionAvailability": true
+  },
+  "exactFailures": [],
+  "productionGatePassed": true,
+  "blindReviewPending": true,
+  "blindInputSha256": "e67c5599fc221ff73ba6b9a3ff17d20f0ff44197c5784b733b6443e6a9823f22"
+}

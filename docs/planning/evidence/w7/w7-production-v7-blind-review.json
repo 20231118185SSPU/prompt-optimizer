@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "independent-blind-review",
+  "corpusId": "w7-production-fresh-v7-2026-07-18",
+  "inputSha256": "e67c5599fc221ff73ba6b9a3ff17d20f0ff44197c5784b733b6443e6a9823f22",
+  "reviewer": {
+    "independentSubAgent": true,
+    "blindedTo": [
+      "expected route and reasons",
+      "router implementation",
+      "reference answers"
+    ]
+  },
+  "records": [
+    {
+      "caseId": "W7V7-D01",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "对仅说优化结算流程的请求，先锁定具体失败场景能直接确定目标、范围和验收方向；prompt 只问一个场景问题，推荐还要求指标或明确检查条件。"
+    },
+    {
+      "caseId": "W7V7-D02",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "顺滑是主观且范围宽，询问用户受阻的具体场景是最高价值的第一步；问句单一，推荐给出真实场景及耗时、完成率或人工检查条件。"
+    },
+    {
+      "caseId": "W7V7-D03",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "重构请求缺少要解决的维护目标，询问必须优先解决的可观察问题可约束范围；prompt 是单问，推荐给出问题示例并要求明确 API 和调用方边界。"
+    },
+    {
+      "caseId": "W7V7-D04",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "稳定性方向不能决定先修哪类故障，具体失败场景是最高价值缺口；问句只询问一个场景，推荐要求真实案例和可量化或可检查的结果。"
+    },
+    {
+      "caseId": "W7V7-D05",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "导出速度缺少实际慢在哪种负载或流程的信息，具体失败场景可先定位性能问题；问句单一，推荐同时要求指标或明确检查条件，能够形成可执行验收。"
+    },
+    {
+      "caseId": "W7V7-D06",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "部署流程的改进范围取决于当前失败场景，先询问该缺口最能降低方向偏差；prompt 只有一个问题，推荐要求真实失败和可判定结果。"
+    },
+    {
+      "caseId": "W7V7-D07",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "错误提示改进需要先知道具体失败场景，才能确定提示内容和验收；问句只问一个场景，推荐要求案例并补充量化或人工检查条件。"
+    },
+    {
+      "caseId": "W7V7-D08",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "用户已指定缓存方向但授权规则自定，先确认具体接口或延迟问题可避免无依据缓存和一致性风险；这是一个选择式单问，推荐要求可复现端点、p95 目标和保持响应语义。"
+    },
+    {
+      "caseId": "W7V7-X01",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "全量改串行的风险在于未确认真实竞态，询问可复现的顺序或竞态问题能锁定最小必要修复；问句单一，推荐要求失败用例和最小临界区。"
+    },
+    {
+      "caseId": "W7V7-X02",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "吞掉所有异常前最关键的是定义调用方可判定的错误行为；prompt 只问错误结果，推荐明确结构化错误、受限降级和失败路径测试。"
+    },
+    {
+      "caseId": "W7V7-X03",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "HTML 解析任务首先缺少输出字段契约，询问字段比直接接受正则方案更能确定目标；问句单一，推荐要求样本、期望字段、解析器和验证。"
+    },
+    {
+      "caseId": "W7V7-X04",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "执行用户脚本前必须先界定插件所需的最小能力，才能控制权限边界；prompt 是单问，推荐给出白名单或受限 API 并明确禁止任意代码执行。"
+    },
+    {
+      "caseId": "W7V7-A02",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "文档任务已限定文件但未说明具体文本改动，询问目标文本结果是最高价值缺口；问句单一，推荐给出内容检查方式而非依赖无关的 shell 语法验证。"
+    },
+    {
+      "caseId": "W7V7-A04",
+      "highestValueQuestion": true,
+      "oneQuestion": true,
+      "hasRecommendation": true,
+      "rationale": "限定段落仍缺少要新增、删除或替换的确切文本，先明确结果才能验收；prompt 只问一个文本结果问题，推荐提供 markdownlint、搜索或人工逐项检查。"
+    }
+  ]
+}
