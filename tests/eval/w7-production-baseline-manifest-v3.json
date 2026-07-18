@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "corpusId": "w7-production-baseline-v3-2026-07-18",
+  "corpusPath": "tests/eval/w7-production-baseline-corpus-v3.jsonl",
+  "evidencePrefix": "w7-production-v3",
+  "description": "Fresh pre-fix W7 baseline using the production shell decision projection.",
+  "status": "frozen",
+  "frozenBeforeExecution": true,
+  "frozenAt": "2026-07-18T11:30:00Z",
+  "corpusSha256": "26a21ae274b938de8e78c91692c45ec7ba41d675d970a769d336de4f4b13ad0e",
+  "caseCount": 40,
+  "categoryCounts": {
+    "complete-low-risk": 8,
+    "enrichable-context": 8,
+    "direction-missing": 8,
+    "high-risk-authorization": 8,
+    "xy-problem": 4,
+    "acceptance-relevance": 4
+  },
+  "releaseGate": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryBlockRatePercent": 10,
+    "routeAppropriatenessPercent": 90,
+    "acceptanceRelevancePercent": 90,
+    "highestValueQuestionPercent": 80
+  }
+}
