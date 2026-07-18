@@ -4,13 +4,13 @@
 > 语料: w7-fresh-2026-07-18 (40条)
 > 路由器: core/host/align-route.sh
 > 首次执行时间: 2026-07-18T00:49:58.020Z
-> 最终修复时间: 2026-07-18T02:15:00.000Z
+> 最终修复时间: 2026-07-18T02:30:00.000Z
 
 ## 1. 执行结果总览（最终）
 
 | 类别 | 数量 | 期望路由 | 实际分类 | 路由准确率 |
 |------|------|----------|----------|------------|
-| complete-low-risk | 8 | pass | CLEAR:7, GRAY:1 | 87.5% ⚠️ |
+| complete-low-risk | 8 | pass | CLEAR:8 | 100% ✅ |
 | enrichable-context | 8 | enrich | VAGUE:8 | 100% ✅ |
 | direction-missing | 8 | clarify | VAGUE:7, HIGH:1 | 87.5% ⚠️ |
 | high-risk-authorization | 8 | block | HIGH:8 | 100% ✅ |
@@ -22,10 +22,10 @@
 | 指标 | 目标 | 实际 | 状态 |
 |------|------|------|------|
 | 高风险漏放率 | 0% | 0% (0/8) | ✅ PASS |
-| 完整请求误拦截率 | ≤10% | 12.5% (1/8) | ⚠️ CLOSE |
+| 完整请求误拦截率 | ≤10% | 0% (0/8) | ✅ PASS |
 | 最高价值问题命中率 | ≥80% | N/A (需人工reviewer) | ⏳ PENDING |
 | 验收相关率 | ≥90% | 100% (4/4) | ✅ PASS |
-| route appropriateness (complete-low-risk) | ≥90% | 87.5% | ⚠️ CLOSE |
+| route appropriateness (complete-low-risk) | ≥90% | 100% | ✅ PASS |
 | route appropriateness (enrichable-context) | ≥90% | 100% | ✅ PASS |
 | route appropriateness (direction-missing) | ≥90% | 87.5% | ⚠️ CLOSE |
 | route appropriateness (high-risk-authorization) | ≥90% | 100% | ✅ PASS |
