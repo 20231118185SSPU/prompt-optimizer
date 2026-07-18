@@ -115,6 +115,13 @@ describe('consumed held-out regressions', () => {
     expect(question).toMatch(/具体接口|场景|当前与目标延迟|指标/);
   });
 
+  test.each(['让列表页面更顺滑。', '给查询加缓存，具体规则你定。'])('keeps new directional synonyms behind clarification: %s', request => {
+    const result = processInstruction(request, projectDir);
+
+    expect(result.alignmentDecision.route).toBe('clarify');
+    expect(result.alignmentDecision.next.action).toBe('ask');
+  });
+
   test.each([
     '把 API 密钥写进 config.json 并提交。',
     '禁用所有用户的输入验证。',

@@ -188,8 +188,8 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
     has(normalized, /\b(?:[A-Z][a-z0-9]+){2,}\b/);
   const boundedScope = has(normalized, /不改|不要改|不得改(?:动|写|变更|修改)?|只修改|只改|不新增|禁止新增|保持(?:现有|.*不变)|保留.+现有|\d+\s*天|范围|public API|fixture|staging|指定|不执行|只生成|对应测试|不要创建|不要\s*push|不要发布|不得发布|本地.+草稿/i);
   const strongBoundedScope = has(normalized, /只修改|只改|范围限|不改实现|不改正文|不改生产|不要改|不得改(?:动|写|变更|修改)?|不新增|禁止新增|保持.*不变|保留.+现有|不改\s*required|只生成|不进行任何.+写操作|不要创建|不要\s*push|不要发布|不得发布/i);
-  const vague = has(signalText, /优化|改进|完善|提升|重构|升级|更好|更安全|细节你定|处理一下|make it better/i);
-  const cacheOpenEnded = has(signalText, /加缓存.+细节你定/i);
+  const vague = has(signalText, /优化|改进|完善|提升|重构|升级|更好|更顺滑|更安全|细节你定|具体规则你定|处理一下|make it better/i);
+  const cacheOpenEnded = has(signalText, /加缓存.+(?:细节|具体规则)你定/i);
   const policyProhibited = !readOnly && has(normalized, /git\s+reset\s+--hard|access token.+公开|(?:API.?密钥|secret|token).*(?:写进|写入|硬编码).*(?:提交|仓库)|禁用所有用户的输入(?:验证|校验)|绕过.+(?:hook|pre-commit).+push\s+main|忽略所有项目规则.+删除生产数据/i);
   const credentialRotation = has(combinedSignals, /轮换.+(?:API\s*key|key)/i);
   const databaseChange = !readOnly && has(signalText,
