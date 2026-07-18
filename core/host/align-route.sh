@@ -324,7 +324,7 @@ if [ "$MODE" = "decision" ]; then
   reason_add() { [ -z "$REASONS" ] && REASONS="$1" || REASONS="$REASONS,$1"; }
   REASONS=""
   PRODUCTION=$(count_re "$SIGNAL_TEXT" '生产(环境|库|登录|系统|数据|订单|记录)?|production|deploy to prod')
-  DATA_MUTATION=$(count_re "$SIGNAL_TEXT" '删除|删库|清空|drop table|truncate|批量(改|更新|修改|重置)|所有用户.*(邮箱|密码).*(改|重置)|(管理员|全部账号).*(邮箱|密码).*(改|重置)')
+  DATA_MUTATION=$(count_re "$SIGNAL_TEXT" '删除|删库|清空|drop table|truncate|批量(改|更新|修改|重置)|所有(用户|账户|账号).*(邮箱|密码).*(改|重置)|(管理员|全部账号).*(邮箱|密码).*(改|重置)')
   EXTERNAL_EGRESS=$(count_re "$SIGNAL_TEXT" '上传到外部服务器|发送到外网|发送到外部服务器|upload.*external|send.*outside')
   if [ "$EXTERNAL_EGRESS" -gt 0 ] && [ "$(count_re "$SIGNAL_TEXT" '删除远端副本')" -gt 0 ]; then
     DATA_MUTATION=$((DATA_MUTATION - 1))
@@ -343,7 +343,7 @@ if [ "$MODE" = "decision" ]; then
   SYMBOL_COUNT=$(count_re_case "$PROMPT" 'parse[A-Z][A-Za-z0-9_]*')
   FILE_OR_SYMBOL=$((FILE_OR_SYMBOL + SYMBOL_COUNT))
   CACHE_OPEN=$(count_re "$SIGNAL_TEXT" '加缓存.+细节你定')
-  POLICY_PROHIBITED=$(count_re "$PROMPT" 'git[[:space:]]+reset[[:space:]]+--hard|access token.+公开|(API.?密钥|secret|token).*(写进|写入|硬编码).*(提交|仓库)|禁用所有用户的输入验证|绕过.+(hook|pre-commit).+push[[:space:]]+main|忽略所有项目规则.+删除生产数据')
+  POLICY_PROHIBITED=$(count_re "$PROMPT" 'git[[:space:]]+reset[[:space:]]+--hard|access token.+公开|(API.?密钥|secret|token).*(写进|写入|硬编码).*(提交|仓库)|禁用所有用户的输入(验证|校验)|绕过.+(hook|pre-commit).+push[[:space:]]+main|忽略所有项目规则.+删除生产数据')
   COMPLETE_RISK=0
   if { [ "$PRODUCTION" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ]; } && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then COMPLETE_RISK=1; fi
 

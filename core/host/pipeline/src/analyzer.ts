@@ -174,7 +174,7 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
   const credentialExposure = !readOnly && has(signalText, /(?:私钥|密钥).*(?:提交|泄露|暴露|吊销|清掉|删除)|(?:提交|泄露|暴露|清掉|删除).*(?:私钥|密钥)|(?:仓库|git).+历史.+(?:私钥|密钥)/i);
   const historyRewrite = !readOnly && has(signalText, /(?:重写|改写).{0,30}(?:git|仓库|远端)?历史|(?:git|仓库|远端)?历史.{0,30}(?:重写|改写)|force\s+push/i);
   const externalPublish = !readOnly && has(signalText, /(?:公共\s*npm|内部制品库|候选包|版本号|发布渠道).*(?:发布|发出去|上传)|(?:发布|发出去|上传).*(?:公共\s*npm|内部制品库|候选包)/i);
-  const mutationSignal = has(signalText, /删除|删库|清空(?:数据库|数据|表|记录|用户|文件|目录|配置)|delete|drop\s+table|truncate|批量(?:改|替换|更新|修改|删除|重置)|(?:所有用户|管理员|全部账号).*(?:邮箱|密码).*(?:改|重置)|替换.+(?:所有|全部|批量).+(?:用户|数据|记录|邮箱|密码|地址)/i) ||
+  const mutationSignal = has(signalText, /删除|删库|清空(?:数据库|数据|表|记录|用户|文件|目录|配置)|delete|drop\s+table|truncate|批量(?:改|替换|更新|修改|删除|重置)|(?:所有用户|所有账户|所有账号|管理员|全部账号).*(?:邮箱|密码).*(?:改|重置)|替换.+(?:所有|全部|批量).+(?:用户|数据|记录|邮箱|密码|地址)/i) ||
     (production && has(signalText, /删光|清掉|抹掉/i));
   const dataMutation = (mutationSignal || productionBulkMutation) &&
     !has(normalized, /删除.+(?:空行|文档)|解释.+删除|总结.+删除|翻译.+删除/i);
@@ -190,7 +190,7 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
   const strongBoundedScope = has(normalized, /只修改|只改|范围限|不改实现|不改正文|不改生产|不要改|不得改(?:动|写|变更|修改)?|不新增|禁止新增|保持.*不变|保留.+现有|不改\s*required|只生成|不进行任何.+写操作|不要创建|不要\s*push|不要发布|不得发布/i);
   const vague = has(signalText, /优化|改进|完善|提升|重构|升级|更好|更安全|细节你定|处理一下|make it better/i);
   const cacheOpenEnded = has(signalText, /加缓存.+细节你定/i);
-  const policyProhibited = !readOnly && has(normalized, /git\s+reset\s+--hard|access token.+公开|(?:API.?密钥|secret|token).*(?:写进|写入|硬编码).*(?:提交|仓库)|禁用所有用户的输入验证|绕过.+(?:hook|pre-commit).+push\s+main|忽略所有项目规则.+删除生产数据/i);
+  const policyProhibited = !readOnly && has(normalized, /git\s+reset\s+--hard|access token.+公开|(?:API.?密钥|secret|token).*(?:写进|写入|硬编码).*(?:提交|仓库)|禁用所有用户的输入(?:验证|校验)|绕过.+(?:hook|pre-commit).+push\s+main|忽略所有项目规则.+删除生产数据/i);
   const credentialRotation = has(combinedSignals, /轮换.+(?:API\s*key|key)/i);
   const databaseChange = !readOnly && has(signalText,
     /数据库.+(?:迁移|变更)|迁移.+数据库|数据库\s*schema|schema\s*(?:change|migration)|表结构|alter\s+table|(?:数据表|[\w\u4e00-\u9fff]+表(?:的|中|上)).{0,40}(?:索引|字段|列)|[\w\u4e00-\u9fff]+表(?:增加|新增|删除|修改|改成|回填|创建).{0,30}(?:索引|字段|列)/i);
