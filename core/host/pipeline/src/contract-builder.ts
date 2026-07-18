@@ -286,7 +286,39 @@ function clarificationFor(analysis: AnalysisResult): Clarification {
       recommendedAnswer: '推荐：以项目入口文档当前链接的流程为准，先列待删除清单再修改。'
     };
   }
-  if (/缓存|卡住|延迟|性能|响应时间/i.test(text) || reasons.has('intent.xy_problem')) {
+  if (reasons.has('intent.xy_problem') && /(?:异步|并发).*(?:同步|串行)|(?:同步|串行).*(?:异步|并发)/i.test(text)) {
+    return {
+      missing: '异步行为实际造成的可复现失败与顺序契约',
+      prompt: '当前异步实现具体造成了哪一种可复现的顺序、竞态或资源问题，哪些调用仍必须保持并发？',
+      why: '把全部异步调用改成同步会改变吞吐、等待和调用顺序，但未必解决真实故障。',
+      recommendedAnswer: '推荐：先给出一个失败用例并锁定必须串行的最小临界区，其他调用保持异步。'
+    };
+  }
+  if (reasons.has('intent.xy_problem') && /(?:吞掉|忽略|屏蔽).*(?:异常|错误)|(?:异常|错误).*(?:吞掉|忽略|屏蔽)/i.test(text)) {
+    return {
+      missing: '解析失败时调用方应观察到的错误契约',
+      prompt: '解析失败后，调用方应收到哪一种可判定的错误结果，哪些错误允许降级而不能被静默吞掉？',
+      why: '静默吞掉异常会隐藏数据损坏和真实故障，无法形成可验证行为。',
+      recommendedAnswer: '推荐：保留结构化错误并只对已列明的可恢复错误降级，同时补失败路径测试。'
+    };
+  }
+  if (reasons.has('intent.xy_problem') && /正则.*(?:HTML|网页)|(?:HTML|网页).*正则/i.test(text)) {
+    return {
+      missing: '需要提取的 HTML 结构及输入变化边界',
+      prompt: '需要提取哪些字段，输入 HTML 的嵌套、转义和结构变化范围是什么？',
+      why: '未定义输入边界时，正则解析 HTML 容易在嵌套或结构变化时静默产生错误结果。',
+      recommendedAnswer: '推荐：先给出代表性 HTML 样本和期望字段，再使用现有解析器或 DOM 接口实现并验证。'
+    };
+  }
+  if (reasons.has('intent.xy_problem') && /\beval\b|动态执行.*用户/i.test(text)) {
+    return {
+      missing: '插件需要开放的最小能力与不可信输入边界',
+      prompt: '插件实际需要开放哪些明确能力，用户输入中哪些内容必须视为不可信且禁止执行？',
+      why: '直接 eval 用户输入会把数据变成任意代码执行权限，超出插件功能所需边界。',
+      recommendedAnswer: '推荐：使用白名单配置或受限插件 API；先列出所需能力，禁止执行任意用户代码。'
+    };
+  }
+  if (/缓存|卡住|延迟|性能|响应时间/i.test(text)) {
     return {
       missing: '可复现的性能问题、目标指标与方案约束',
       prompt: '请先说明出现问题的具体接口或场景、当前与目标延迟，以及可接受的数据新鲜度；在确认根因前是否保持不预设缓存方案？',
@@ -329,9 +361,9 @@ function clarificationFor(analysis: AnalysisResult): Clarification {
   if (analysis.gap === 'directional' || reasons.has('intent.ambiguous_goal')) {
     return {
       missing: '会改变结果的真实目标或方向',
-      prompt: '这次最想让 AI 在什么具体场景中更懂你，完成后用哪个可观察结果判断方向正确？',
-      why: '项目上下文只能补充技术结构和现有约束，不能替你选择产品目标或 agent 的真实使用方向。',
-      recommendedAnswer: '推荐：先给出一个具体误解场景和成功标准；确认方向后，再由项目上下文补 core 范围、现有规则和相关验收。'
+      prompt: '当前最需要解决的具体失败场景是什么，完成后用哪个可观察结果判断已经解决？',
+      why: '当前请求只给出改进方向，项目上下文不能替你选择目标、影响范围或成功标准。',
+      recommendedAnswer: '推荐：先指定一个真实失败场景和一个量化指标或明确检查条件，再由项目上下文补足技术范围。'
     };
   }
   if (analysis.effective.d5 === 0 || reasons.has('verification.missing')) {

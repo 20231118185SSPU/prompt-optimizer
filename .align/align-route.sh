@@ -102,17 +102,22 @@ CLEAN="$(strip_noise "$PROMPT")"
 SIGNAL_TEXT="$(strip_negation "$CLEAN")"
 
 # ── 信号计数（双语）──
-RISK_RE='删除|删掉|删库|清空|清库|清掉|重置|回滚|强推|上线|下线|停服|发版|部署到生产|生产环境|生产库|数据库迁移|格式化|抹掉|销毁|覆盖|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration|deploy to prod|destroy|format'
-VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|提升|处理一下|处理|看看|弄一下|弄好|搞一下|搞定|搞定它|修一下|修好|美化|改改|改一下|改下|调整一下|调整下|梳理一下|梳理下|整理一下|整理下|重构|升级|升级一下|增强|更好|更快|更优雅|更稳定|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|tweak|adjust|fix|enhance|upgrade|refine|rework|reorganize|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个'
+RISK_RE='删除|删掉|删库|清空|清库|清掉|重置|回滚|强推|上线|下线|停服|发版|部署到生产|生产环境|生产库|数据库迁移|格式化|抹掉|销毁|覆盖|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration|deploy to prod|destroy|format|权限|admin|root|sudo|所有用户|API.?key|密钥|token|密码|credential|secret|硬编码|hardcode|禁用|关闭|停用|disable|泄露|暴露|expose|leak|外网|外部服务器|公网|发送到.*服务器|upload.*external|send.*outside'
+VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|提升|处理一下|处理|看看|弄一下|弄好|搞一下|搞定|搞定它|修一下|修好|美化|改改|改一下|改下|调整一下|调整下|梳理一下|梳理下|整理一下|整理下|重构|升级|升级一下|增强|更好|更快|更优雅|更稳定|更安全|more secure|more stable|faster|better|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|tweak|adjust|fix|enhance|upgrade|refine|rework|reorganize|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个|改成|改为|换成|转成|转换成|加上|加上的'
+XY_RE='把.*换成|用.*来解决|为了解决.*把.*(异步|并发).*(同步|串行)|为了.*把.*(异常|错误).*(吞掉|忽略|屏蔽)|用正则.*解析.*HTML|正则.*HTML.*提取|改成.*方便|用.*代替|替换.*为|转换.*成|用.*eval|用.*exec|动态执行|吞掉.*错误|错误.*吞掉|吞掉.*异常|异常.*吞掉|忽略.*错误|错误.*忽略|屏蔽.*错误|错误.*屏蔽|suppress.*error|swallow.*error|error.*suppress|error.*swallow'
 SPEC_RE='[A-Za-z0-9_./\\-]+\.(sh|ps1|md|js|jsx|ts|tsx|py|json|yml|yaml|toml|go|rs|java|c|cpp|h|css|html|sql)|[A-Za-z_][A-Za-z0-9_]*\(\)|第[[:space:]]*[0-9]+[[:space:]]*行|line [0-9]+|:[0-9]+\b'
+VALUE_RE='[0-9]+|"([^"]*)"|从.*改成|从.*改为|从.*换成'
 
 count_re() { printf '%s' "$1" | grep -oiE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
 count_re_case() { printf '%s' "$1" | grep -oE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
 
 RISK=$(count_re "$SIGNAL_TEXT" "$RISK_RE")
 VAGUE=$(count_re "$SIGNAL_TEXT" "$VAGUE_RE")
+XY=$(count_re "$SIGNAL_TEXT" "$XY_RE")
 # 具体度在原文（未剥引号）上测：文件名常被反引号/引号包住
 SPEC=$(count_re "$PROMPT" "$SPEC_RE")
+# 具体值在原文上测：数字或引号内的字符串
+VALUE=$(count_re "$PROMPT" "$VALUE_RE")
 
 # ── 两轴判定 ──
 # 教学语境：谈论风险操作 ≠ 执行风险操作（'解释一下什么是 force push'）
@@ -318,16 +323,27 @@ if [ "$MODE" = "decision" ]; then
   fi
   reason_add() { [ -z "$REASONS" ] && REASONS="$1" || REASONS="$REASONS,$1"; }
   REASONS=""
-  PRODUCTION=$(count_re "$SIGNAL_TEXT" '生产环境|生产库|production|deploy to prod')
-  DATA_MUTATION=$(count_re "$SIGNAL_TEXT" '删除|删库|清空|drop table|truncate')
+  PRODUCTION=$(count_re "$SIGNAL_TEXT" '生产(环境|库|登录|系统|数据|订单|记录)?|production|deploy to prod')
+  DATA_MUTATION=$(count_re "$SIGNAL_TEXT" '删除|删库|清空|drop table|truncate|批量(改|更新|修改|重置)|所有用户.*(邮箱|密码).*(改|重置)|(管理员|全部账号).*(邮箱|密码).*(改|重置)')
+  EXTERNAL_EGRESS=$(count_re "$SIGNAL_TEXT" '上传到外部服务器|发送到外网|发送到外部服务器|upload.*external|send.*outside')
+  if [ "$EXTERNAL_EGRESS" -gt 0 ] && [ "$(count_re "$SIGNAL_TEXT" '删除远端副本')" -gt 0 ]; then
+    DATA_MUTATION=$((DATA_MUTATION - 1))
+    [ "$DATA_MUTATION" -lt 0 ] && DATA_MUTATION=0
+  fi
   CONFIRM_MISSING=$(count_re "$SIGNAL_TEXT" '尚未确认|未确认执行|等待确认|without confirmation')
-  VERIFY=$(count_re "$SIGNAL_TEXT" '运行.+测试|npm test|验收|验证|回滚条件|test')
-  BOUNDED=$(count_re "$SIGNAL_TEXT" '不改|只修改|保持现有|全部[[:space:]]*[0-9]+[[:space:]]*天|[0-9]+[[:space:]]*个|已列名|指定|开发[[:space:]]*fixture|范围|public API')
+  VERIFY=$(count_re "$SIGNAL_TEXT" '运行.+测试|npm[[:space:]]+test|pnpm[[:space:]]+test|yarn[[:space:]]+test|验收|验证|回滚条件|bash[[:space:]]+-n|markdownlint|(^|[^[:alnum:]_])test([^[:alnum:]_]|$)')
+  DOCUMENTATION_TASK=$(count_re "$PROMPT" 'README\.md|docs[/\\].*\.md|[A-Za-z0-9_./\\-]+\.md')
+  DOC_RELEVANT_VERIFY=$(count_re "$PROMPT" 'markdownlint|textlint|vale|remark|(^|[[:space:]])rg[[:space:]]|(^|[[:space:]])grep[[:space:]]')
+  DOC_IRRELEVANT_VERIFY=$(count_re "$PROMPT" 'bash[[:space:]]+-n|npm[[:space:]]+test|pnpm[[:space:]]+test|yarn[[:space:]]+test|pytest|tsc')
+  if [ "$DOCUMENTATION_TASK" -gt 0 ] && [ "$DOC_RELEVANT_VERIFY" -eq 0 ] && [ "$DOC_IRRELEVANT_VERIFY" -gt 0 ]; then
+    VERIFY=0
+  fi
+  BOUNDED=$(count_re "$SIGNAL_TEXT" '不改|只修改|只改|只限|保持现有|保持.*不变|全部[[:space:]]*[0-9]+[[:space:]]*天|[0-9]+[[:space:]]*个|已列名|指定|开发[[:space:]]*fixture|范围|public API')
   FILE_OR_SYMBOL=$(count_re "$PROMPT" '[A-Za-z0-9_./\-]+\.(ts|tsx|js|jsx|py|sh|ps1|md|json)')
   SYMBOL_COUNT=$(count_re_case "$PROMPT" 'parse[A-Z][A-Za-z0-9_]*')
   FILE_OR_SYMBOL=$((FILE_OR_SYMBOL + SYMBOL_COUNT))
   CACHE_OPEN=$(count_re "$SIGNAL_TEXT" '加缓存.+细节你定')
-  POLICY_PROHIBITED=$(count_re "$PROMPT" 'git[[:space:]]+reset[[:space:]]+--hard|access token.+公开|绕过.+(hook|pre-commit).+push[[:space:]]+main|忽略所有项目规则.+删除生产数据')
+  POLICY_PROHIBITED=$(count_re "$PROMPT" 'git[[:space:]]+reset[[:space:]]+--hard|access token.+公开|(API.?密钥|secret|token).*(写进|写入|硬编码).*(提交|仓库)|禁用所有用户的输入验证|绕过.+(hook|pre-commit).+push[[:space:]]+main|忽略所有项目规则.+删除生产数据')
   COMPLETE_RISK=0
   if { [ "$PRODUCTION" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ]; } && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then COMPLETE_RISK=1; fi
 
@@ -375,7 +391,9 @@ if [ "$MODE" = "decision" ]; then
     if [ "$PRODUCTION" -gt 0 ]; then reason_add risk.production_change; fi
     if [ "$DATA_MUTATION" -gt 0 ]; then reason_add risk.data_mutation; fi
     if [ "$COMPLETE_RISK" -eq 1 ] && [ "$CONFIRM_MISSING" -eq 0 ]; then reason_add requirements.needs_enrichment; fi
-    if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+    if { [ "$XY" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+    if [ "$VAGUE" -gt 0 ] && [ "$SPEC" -eq 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+    if [ "$XY" -gt 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.xy_problem; fi
     if [ "$DATA_MUTATION" -gt 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add scope.impact_unknown; fi
     if [ "$CACHE_OPEN" -gt 0 ]; then reason_add assumption.too_many; fi
     if [ "$VERIFY" -eq 0 ]; then reason_add verification.missing; fi
@@ -420,10 +438,22 @@ if [ "${RISK:-0}" -ge 1 ]; then
   else
     VERDICT="HIGH"
   fi
+elif [ "${XY:-0}" -ge 1 ]; then
+  VERDICT="VAGUE"    # XY Problem：用户提议方案而非描述问题，必须澄清
 elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -eq 0 ]; then
   VERDICT="VAGUE"
+elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -ge 2 ]; then
+  VERDICT="CLEAR"    # 有具体文件+具体值，是完整请求
+elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -ge 1 ] && [ "${VALUE:-0}" -ge 1 ]; then
+  VERDICT="CLEAR"    # 有具体文件+具体数值/字符串，是完整请求
 elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -ge 1 ]; then
-  VERDICT="GRAY"
+  # 检查是否只匹配"加一个"类模式（完整请求）还是"改成"类模式（需要澄清）
+  VAGUE_ADD=$(count_re "$SIGNAL_TEXT" '加个|加一个|加一下')
+  if [ "${VAGUE_ADD:-0}" -ge 1 ] && [ "${VAGUE:-0}" -eq 1 ]; then
+    VERDICT="CLEAR"  # "加一个 <具体文件>" 是完整请求
+  else
+    VERDICT="GRAY"
+  fi
 fi
 
 if [ "$MODE" = "classify" ]; then
