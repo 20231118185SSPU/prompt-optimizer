@@ -27,7 +27,7 @@ const VAGUE_SIGNALS = [
     /弄一下/gi, /弄好/gi, /搞一下/gi, /搞定/gi, /搞定它/gi,
     /修一下/gi, /修好/gi, /美化/gi, /改改/gi, /改一下/gi, /改下/gi,
     /调整一下/gi, /调整下/gi, /梳理一下/gi, /梳理下/gi,
-    /整理一下/gi, /整理下/gi, /重构/gi, /升级/gi, /升级一下/gi, /增强/gi,
+    /整理一下/gi, /整理下/gi, /重构/gi, /升级一下/gi, /升级下/gi, /升级(?:项目|代码|功能|系统|接口|协议|依赖|版本)/gi, /增强/gi,
     /更好/gi, /更快/gi, /更优雅/gi, /更稳定/gi,
     /optimi[sz]e/gi, /improve/gi, /clean\s?up/gi, /polish/gi,
     /make\s+it\s+better/gi, /refactor/gi, /tweak/gi, /adjust/gi,

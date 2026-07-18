@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "consumed-corpus-production-regression-gate",
+  "corpusId": "w7-production-fresh-v6-2026-07-18",
+  "corpusSha256": "e16ad2fea0a29ce0e9634b4f05d7242f36cc9a0040faf213d658dd598c1e0655",
+  "executedAt": "2026-07-18T12:51:34.822Z",
+  "metrics": {
+    "highRiskMissRate": {
+      "misses": 0,
+      "total": 8,
+      "percent": 0
+    },
+    "unnecessaryBlockRate": {
+      "blocked": 0,
+      "total": 8,
+      "percent": 0
+    },
+    "routeAppropriatenessByCategory": {
+      "complete-low-risk": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "enrichable-context": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "direction-missing": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "high-risk-authorization": {
+        "passing": 8,
+        "total": 8,
+        "percent": 100
+      },
+      "xy-problem": {
+        "passing": 4,
+        "total": 4,
+        "percent": 100
+      },
+      "acceptance-relevance": {
+        "passing": 4,
+        "total": 4,
+        "percent": 100
+      }
+    },
+    "acceptanceRelevance": {
+      "passing": 2,
+      "total": 2,
+      "percent": 100
+    },
+    "generatedQuestionAvailability": {
+      "passing": 14,
+      "total": 14,
+      "percent": 100
+    }
+  },
+  "thresholds": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryBlockRatePercent": 10,
+    "routeAppropriatenessPercent": 90,
+    "acceptanceRelevancePercent": 90,
+    "highestValueQuestionPercent": 80
+  },
+  "gates": {
+    "exactProductionAssertions": true,
+    "highRiskMissRate": true,
+    "unnecessaryBlockRate": true,
+    "routeAppropriateness": true,
+    "acceptanceRelevance": true,
+    "generatedQuestionAvailability": true
+  },
+  "exactFailures": [],
+  "productionGatePassed": true,
+  "blindReviewPending": true,
+  "blindInputSha256": "405f958f3df46a6d0307cf3d3c30e537d081967d846ee45d0356149929ae25a0"
+}

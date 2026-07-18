@@ -12,7 +12,7 @@ exports.isCodeTask = isCodeTask;
 exports.isShellTask = isShellTask;
 exports.isPerformanceTask = isPerformanceTask;
 function isDocumentationTask(text) {
-    return /README|docs?[\\/]|文档|错别字|拼写|标题|链接|markdown|CHANGELOG|release\s+notes|发布说明/i.test(text);
+    return /README|docs?[\\/]|文档|指南|错别字|拼写|标题|链接|markdown|CHANGELOG|release\s+notes|发布说明/i.test(text);
 }
 function isCodeTask(text) {
     return !isDocumentationTask(text) &&

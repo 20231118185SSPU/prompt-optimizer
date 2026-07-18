@@ -188,7 +188,7 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
     has(normalized, /\b(?:[A-Z][a-z0-9]+){2,}\b/);
   const boundedScope = has(normalized, /不改|不要改|不得改(?:动|写|变更|修改)?|只修改|只改|不新增|禁止新增|保持(?:现有|.*不变)|保留.+现有|\d+\s*天|范围|public API|fixture|staging|指定|不执行|只生成|对应测试|不要创建|不要\s*push|不要发布|不得发布|本地.+草稿/i);
   const strongBoundedScope = has(normalized, /只修改|只改|范围限|不改实现|不改正文|不改生产|不要改|不得改(?:动|写|变更|修改)?|不新增|禁止新增|保持.*不变|保留.+现有|不改\s*required|只生成|不进行任何.+写操作|不要创建|不要\s*push|不要发布|不得发布/i);
-  const vague = has(signalText, /优化|改进|完善|提升|重构|升级|更好|更顺滑|更安全|细节你定|具体规则你定|处理一下|make it better/i);
+  const vague = has(signalText, /优化|改进|完善|提升|重构|升级一下|升级下|升级(?:项目|代码|功能|系统|接口|协议|依赖|版本)|更好|更顺滑|更安全|细节你定|具体规则你定|处理一下|make it better/i);
   const cacheOpenEnded = has(signalText, /加缓存.+(?:细节|具体规则)你定/i);
   const policyProhibited = !readOnly && has(normalized, /git\s+reset\s+--hard|access token.+公开|(?:API.?密钥|secret|token).*(?:写进|写入|硬编码).*(?:提交|仓库)|禁用所有用户的输入(?:验证|校验)|绕过.+(?:hook|pre-commit).+push\s+main|忽略所有项目规则.+删除生产数据/i);
   const credentialRotation = has(combinedSignals, /轮换.+(?:API\s*key|key)/i);
@@ -209,8 +209,10 @@ export function analyzeInstruction(text: string, context: SourceRef[] = [], cont
     /你(?:来|替我)?(?:选|挑|定)|帮我(?:选|挑|定)|交给你(?:选|定)|由你决定/i);
   const explicitlyDelegatedChoice = alternativesAcceptedByUser && choiceDelegatedToAgent;
   const localReleasePreparation = isLocalReleasePreparation(normalized);
+  const performanceBudgetContext = has(contextText, /(?:performance\s+target|性能目标|p95)/i) &&
+    has(contextText, /(?:benchmark|p95|性能|响应时间|延迟|耗时)/i);
   const boundedPerformanceChange = has(signalText, /减少.+(?:重复)?(?:数据库)?读取|减少.+(?:查询|请求)|降低.+(?:延迟|耗时)|(?:优化|提升).+(?:性能|响应时间|延迟|耗时)/i) &&
-    (fileOrSymbol || strongBoundedScope);
+    (fileOrSymbol || strongBoundedScope || performanceBudgetContext);
   const explicitLayoutGoal = has(normalized, /(?:真正|实际|核心)目标.+(?:按钮|界面).+(?:单行|不换行)/i);
   const explicitAction = fileOrSymbol || readOnly || has(signalText,
     /修改|增加|新增|重命名|修复|修掉|调整|手改|准备|生成|更新|改为|改成|补(?:充|一节|上|\s*description|(?:一条|对应)?(?:界面|单元|回归)?测试)|清空按钮|清空(?:当前)?输入|正在保存状态/i);
