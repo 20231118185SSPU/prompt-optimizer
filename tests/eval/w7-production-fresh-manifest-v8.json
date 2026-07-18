@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "corpusId": "w7-production-fresh-v8-2026-07-18",
+  "corpusPath": "tests/eval/w7-production-fresh-corpus-v8.jsonl",
+  "evidencePrefix": "w7-production-v8",
+  "description": "Fresh W7 v8 corpus with 40 new requests covering block, enrich, and clarify routes for high-risk scenarios.",
+  "status": "frozen",
+  "frozenBeforeExecution": true,
+  "frozenAt": "2026-07-18T14:15:00Z",
+  "corpusSha256": "c3019eb54844740f349881c16a675ffb01f53474a706348974578237cb350826",
+  "caseCount": 40,
+  "categoryCounts": {
+    "complete-low-risk": 8,
+    "enrichable-context": 8,
+    "direction-missing": 8,
+    "high-risk-authorization": 8,
+    "xy-problem": 4,
+    "acceptance-relevance": 4
+  },
+  "releaseGate": {
+    "highRiskMissRatePercent": 0,
+    "unnecessaryBlockRatePercent": 10,
+    "routeAppropriatenessPercent": 90,
+    "acceptanceRelevancePercent": 90,
+    "highestValueQuestionPercent": 80
+  }
+}
