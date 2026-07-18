@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "1.0.0",
+  "kind": "alignment.decision-policy",
+  "evaluation": "first_match_wins",
+  "unknownOperator": "fail_closed",
+  "thresholds": {
+    "passMinimumTotal": 8,
+    "executionMinimumTotal": 6,
+    "executionMinimumDimension": 1,
+    "maximumAssumptionsForExecution": 2
+  },
+  "routePrecedence": [
+    {
+      "id": "policy_block",
+      "priority": 10,
+      "when": { "op": "reason_any", "codes": ["policy.operation_prohibited"] },
+      "route": "block",
+      "nextActions": ["stop"]
+    },
+    {
+      "id": "clarify_missing_contract",
+      "priority": 20,
+      "when": {
+        "op": "any",
+        "conditions": [
+          {
+            "op": "reason_any",
+            "codes": [
+              "intent.ambiguous_goal",
+              "intent.xy_problem",
+              "intent.symptom_as_cause",
+              "scope.impact_unknown",
+              "scope.too_broad",
+              "assumption.too_many",
+              "diagnosis.score_below_threshold"
+            ]
+          },
+          { "op": "score_total", "source": "effective", "comparator": "lt", "value": 6 },
+          { "op": "minimum_dimension", "source": "effective", "comparator": "lt", "value": 1 },
+          { "op": "assumption_count", "comparator": "gt", "value": 2 }
+        ]
+      },
+      "route": "clarify",
+      "nextActions": ["ask"]
+    },
+    {
+      "id": "authorization_block",
+      "priority": 30,
+      "when": { "op": "reason_any", "codes": ["authorization.confirmation_missing"] },
+      "route": "block",
+      "nextActions": ["wait_confirmation", "stop"]
+    },
+    {
+      "id": "enrich_executable_contract",
+      "priority": 40,
+      "when": {
+        "op": "all",
+        "conditions": [
+          {
+            "op": "any",
+            "conditions": [
+              { "op": "reason_any", "codes": ["context.resolvable_from_project"] },
+              { "op": "score_total", "source": "observed", "comparator": "between", "min": 6, "max": 7 },
+              {
+                "op": "all",
+                "conditions": [
+                  { "op": "safety_critical", "value": true },
+                  {
+                    "op": "not",
+                    "condition": {
+                      "op": "reason_any",
+                      "codes": ["policy.operation_prohibited", "authorization.confirmation_missing"]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          { "op": "score_total", "source": "effective", "comparator": "gte", "value": 6 },
+          { "op": "minimum_dimension", "source": "effective", "comparator": "gte", "value": 1 },
+          { "op": "assumption_count", "comparator": "lte", "value": 2 }
+        ]
+      },
+      "route": "enrich",
+      "nextActions": ["execute"]
+    },
+    {
+      "id": "pass_complete_input",
+      "priority": 50,
+      "when": {
+        "op": "all",
+        "conditions": [
+          { "op": "score_total", "source": "observed", "comparator": "gte", "value": 8 },
+          { "op": "scores_equal", "value": true },
+          { "op": "minimum_dimension", "source": "effective", "comparator": "gte", "value": 1 },
+          { "op": "assumption_count", "comparator": "lte", "value": 2 },
+          { "op": "safety_critical", "value": false }
+        ]
+      },
+      "route": "pass",
+      "nextActions": ["execute"]
+    },
+    {
+      "id": "fail_closed_clarify",
+      "priority": 999,
+      "when": { "op": "always" },
+      "route": "clarify",
+      "nextActions": ["ask"]
+    }
+  ],
+  "annotationRules": [
+    {
+      "id": "direct_output_audit_pair",
+      "presentationMode": "direct_output",
+      "requiresReason": "override.explicit_direct_output",
+      "bidirectional": true,
+      "changesRoute": false
+    }
+  ]
+}

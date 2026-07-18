@@ -25,16 +25,23 @@ class LifecycleCoordinator {
         this.state = 'executing';
     }
     recordExecution(status) {
+        this.recordExecutionReceipt({ executionRef: 'compatibility:execution', status });
+    }
+    recordExecutionReceipt(receipt) {
         if (this.state !== 'executing')
             throw new Error(`execution receipt is invalid from ${this.state}`);
-        if (status !== 'completed')
-            throw new Error(`execution ${status}`);
+        if (receipt.status !== 'completed')
+            throw new Error(`execution ${receipt.status}`);
         this.state = 'executed';
     }
     recordCompletion(verification) {
         if (this.state !== 'executed')
             throw new Error('completion verification requires an execution receipt');
-        const status = verification.results.every(result => result.success) ? 'verified' : 'verification_failed';
+        const status = verification.results.length === 0
+            ? 'verification_inconclusive'
+            : verification.results.every(result => result.success)
+                ? 'verified'
+                : 'verification_failed';
         this.state = status;
         return status;
     }

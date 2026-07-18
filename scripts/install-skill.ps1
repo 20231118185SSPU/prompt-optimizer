@@ -1,16 +1,17 @@
-﻿[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [string]$Target = "all",
   [string]$SkillsDir = "",
   [string]$Repo = "https://github.com/20231118185SSPU/prompt-optimizer/archive/refs/heads/main.zip",
   [switch]$Version,
-  [switch]$Uninstall
+  [switch]$Uninstall,
+  [switch]$WireHook
 )
 
 $ErrorActionPreference = 'Stop'
 
 $ScriptVersion = "v3.2.0-rc.1"
-$Skills = @("optimize-prompt", "align-init", "optimize-prompt-lite")
+$Skills = @("optimize-prompt", "align-init", "optimize-prompt-lite", "align")
 $UserHome = $HOME
 if ([string]::IsNullOrWhiteSpace($UserHome)) {
   $UserHome = $env:USERPROFILE
@@ -51,22 +52,76 @@ function ConvertTo-OrderedHashtable {
     foreach ($item in $InputObject) {
       $list.Add((ConvertTo-OrderedHashtable $item)) | Out-Null
     }
-    return $list.ToArray()
+    return , $list.ToArray()
   }
   return $InputObject
+}
+
+function Assert-SettingsShape {
+  param($Data, [string]$Path)
+  if ($Data -isnot [System.Collections.IDictionary]) {
+    throw "Claude settings root must be a JSON object: $Path"
+  }
+  if (-not $Data.Contains('hooks') -or $null -eq $Data['hooks']) { return }
+  $hooks = $Data['hooks']
+  if ($hooks -isnot [System.Collections.IDictionary]) {
+    throw "Claude settings hooks must be a JSON object: $Path"
+  }
+  foreach ($eventName in @('UserPromptSubmit', 'Stop')) {
+    if (-not $hooks.Contains($eventName) -or $null -eq $hooks[$eventName]) { continue }
+    $entries = $hooks[$eventName]
+    if ($entries -is [string]) {
+      throw "Claude settings hooks.$eventName must be an array: $Path"
+    }
+    foreach ($group in @($entries)) {
+      if ($group -isnot [System.Collections.IDictionary] -or -not $group.Contains('hooks') -or
+          $null -eq $group['hooks'] -or $group['hooks'] -is [string]) {
+        throw "Claude settings hooks.$eventName contains an invalid group: $Path"
+      }
+      foreach ($hook in @($group['hooks'])) {
+        if ($hook -isnot [System.Collections.IDictionary]) {
+          throw "Claude settings hooks.$eventName contains an invalid hook: $Path"
+        }
+        if ($hook.Contains('command') -and $null -ne $hook['command'] -and $hook['command'] -isnot [string]) {
+          throw "Claude settings hooks.$eventName command must be a string: $Path"
+        }
+      }
+    }
+  }
 }
 
 function Read-SettingsJson {
   param([string]$Path)
   $raw = Get-Content -LiteralPath $Path -Raw
-  return ConvertTo-OrderedHashtable ($raw | ConvertFrom-Json)
+  $data = ConvertTo-OrderedHashtable ($raw | ConvertFrom-Json)
+  Assert-SettingsShape -Data $data -Path $Path
+  return $data
 }
 
 function Write-SettingsJson {
   param([string]$Path, $Data)
   $json = $Data | ConvertTo-Json -Depth 64
-  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-  [System.IO.File]::WriteAllText($Path, $json + "`n", $utf8NoBom)
+  $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+  $directory = Split-Path -Parent $Path
+  if ([string]::IsNullOrWhiteSpace($directory)) { $directory = (Get-Location).Path }
+  $temporary = Join-Path $directory ('.settings.json.' + [guid]::NewGuid().ToString('N'))
+  $replaceBackup = Join-Path $directory ('.settings.json.replace-' + [guid]::NewGuid().ToString('N') + '.bak')
+  try {
+    [System.IO.File]::WriteAllText($temporary, $json + "`n", $utf8WithBom)
+    if (Test-Path -LiteralPath $Path) {
+      [System.IO.File]::Replace($temporary, $Path, $replaceBackup)
+    } else {
+      [System.IO.File]::Move($temporary, $Path)
+    }
+  }
+  finally {
+    if (Test-Path -LiteralPath $temporary) {
+      Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -LiteralPath $replaceBackup) {
+      Remove-Item -LiteralPath $replaceBackup -Force -ErrorAction SilentlyContinue
+    }
+  }
 }
 
 if ($Version) {
@@ -208,6 +263,31 @@ if ($env:PROMPT_OPTIMIZER_HOME -and ($Target -eq 'claude' -or $Target -eq 'all')
 }
 
 if ($Uninstall) {
+  $claudeSkillsDir = Join-Path $UserHome ".claude\skills"
+  $uninstallClaude = $false
+  foreach ($target in $installTargets) {
+    if ((Get-InstallTargetValue -Target $target -Name "SkillsDir") -eq $claudeSkillsDir) { $uninstallClaude = $true }
+  }
+  if (-not $WhatIfPreference) {
+    $settingsPreflightPath = Join-Path $UserHome ".claude\settings.json"
+    if ($uninstallClaude -and (Test-Path -LiteralPath $settingsPreflightPath)) {
+      $null = Read-SettingsJson $settingsPreflightPath
+    }
+    $preflightRuntimeDestination = '.prompt-optimizer'
+    if (Test-Path -LiteralPath $RuntimePlanPointer -PathType Leaf) {
+      $installedLine = Get-Content -LiteralPath $RuntimePlanPointer | Where-Object { $_ -like "distribution`t*" } | Select-Object -First 1
+      $installedParts = @($installedLine -split "`t", 4)
+      if ($installedParts.Count -ne 4) { throw "Invalid installed runtime plan: $RuntimePlanPointer" }
+      $preflightRuntimeDestination = $installedParts[2]
+    }
+    $preflightRuntimeInstallDir = Join-Path $RuntimeHome $preflightRuntimeDestination
+    if (Test-Path -LiteralPath $preflightRuntimeInstallDir -PathType Container) {
+      $ownership = Join-Path $preflightRuntimeInstallDir '.prompt-optimizer-owned'
+      if ((-not (Test-Path -LiteralPath $ownership -PathType Leaf)) -or ((Get-Content -LiteralPath $ownership -Raw).Trim() -ne 'prompt-optimizer-runtime-v1')) {
+        throw "Refusing to remove unowned runtime directory: $preflightRuntimeInstallDir"
+      }
+    }
+  }
   foreach ($target in $installTargets) {
     $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
     if ([string]::IsNullOrWhiteSpace($skillsDir)) {
@@ -225,33 +305,36 @@ if ($Uninstall) {
   }
   Write-Host ""
   if ($WhatIfPreference) {
-    Write-Host "What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed."
-    Write-Host "What if: The align-route hook would be removed from ~/.claude/settings.json."
+    Write-Host "What if: Only optimize-prompt, align-init, optimize-prompt-lite and align would be removed."
+    if ($uninstallClaude) { Write-Host "What if: The Claude UserPromptSubmit and Stop hooks would be removed from ~/.claude/settings.json." }
     Write-Host "What if: The Prompt Optimizer runtime declared by the installed plan would be removed."
   } else {
     # 移除本协议安装的 hook 条目（只删自己的，其他 hooks 与字段不触碰）
-    $settingsPath = Join-Path $HOME ".claude\settings.json"
+    $settingsPath = Join-Path $UserHome ".claude\settings.json"
     $ourCmds = @(
       'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
       'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
       'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
       'bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true',
-      'cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
+      'cat .align/HOOK-REMINDER.txt 2>/dev/null || true',
+      'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi'
     )
-    if (Test-Path -LiteralPath $settingsPath) {
+    if ($uninstallClaude -and (Test-Path -LiteralPath $settingsPath)) {
       $data = Read-SettingsJson $settingsPath
       $changed = $false
-      if ($data["hooks"] -ne $null -and $data["hooks"]["UserPromptSubmit"] -ne $null) {
-        $groups = @()
-        foreach ($group in $data["hooks"]["UserPromptSubmit"]) {
-          $kept = @($group["hooks"] | Where-Object { $ourCmds -notcontains $_["command"] })
-          if ($kept.Count -ne @($group["hooks"]).Count) { $changed = $true }
-          if ($kept.Count -gt 0) { $group["hooks"] = $kept; $groups += , $group }
+      foreach ($eventName in @('UserPromptSubmit', 'Stop')) {
+        if ($data["hooks"] -ne $null -and $data["hooks"][$eventName] -ne $null) {
+          $groups = @()
+          foreach ($group in $data["hooks"][$eventName]) {
+            $kept = @($group["hooks"] | Where-Object { $ourCmds -notcontains $_["command"] })
+            if ($kept.Count -ne @($group["hooks"]).Count) { $changed = $true }
+            if ($kept.Count -gt 0) { $group["hooks"] = $kept; $groups += , $group }
+          }
+          if ($groups.Count -gt 0) { $data["hooks"][$eventName] = $groups }
+          else { $data["hooks"].Remove($eventName) }
         }
-        if ($groups.Count -gt 0) { $data["hooks"]["UserPromptSubmit"] = $groups }
-        else { $data["hooks"].Remove("UserPromptSubmit") }
-        if ($data["hooks"].Count -eq 0) { $data.Remove("hooks") }
       }
+      if ($data["hooks"] -ne $null -and $data["hooks"].Count -eq 0) { $data.Remove("hooks") }
       if ($changed) {
         Write-SettingsJson $settingsPath $data
         Write-Host "Removed align-route hook from $settingsPath"
@@ -276,7 +359,7 @@ if ($Uninstall) {
       Remove-Item -LiteralPath $RuntimePlanPointer -Force -ErrorAction SilentlyContinue
       Write-Host "Removed Prompt Optimizer runtime from: $runtimeInstallDir"
     }
-    Write-Host "Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed."
+    Write-Host "Uninstall complete. Only optimize-prompt, align-init, optimize-prompt-lite and align were removed."
   }
   Write-Host "Other skills and user content were not touched."
   return
@@ -316,6 +399,27 @@ try {
     if ($validatedAdapters[$adapter] -eq $null) {
       Test-AdapterSource -SourceRoot $sourceRoot -Adapter $adapter
       $validatedAdapters[$adapter] = $true
+    }
+  }
+
+  $claudeSkillsDir = Join-Path $UserHome ".claude\skills"
+  $isClaudeTarget = $false
+  foreach ($target in $installTargets) {
+    $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
+    if ($skillsDir -eq $claudeSkillsDir) { $isClaudeTarget = $true }
+  }
+  # Hook wiring requires explicit --wire-hook flag; silent wiring is prohibited
+  $wireClaude = $isClaudeTarget -and $WireHook
+  if ($isClaudeTarget -and -not $WireHook) {
+    Write-Host ""
+    Write-Host "Note: Claude Code hooks were NOT installed. To enable automatic alignment routing,"
+    Write-Host "  re-run with: -WireHook"
+    Write-Host "  Or run /align setup in your project for guided hook installation."
+  }
+  if ($wireClaude) {
+    $settingsPreflightPath = Join-Path $UserHome ".claude\settings.json"
+    if (Test-Path -LiteralPath $settingsPreflightPath) {
+      $null = Read-SettingsJson $settingsPreflightPath
     }
   }
 
@@ -378,16 +482,10 @@ try {
   Write-Host "Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout."
 
   # ── Claude Code hook 自动接线（幂等：已存在则跳过；只增不删既有字段）──
-  $claudeSkillsDir = Join-Path $HOME ".claude\skills"
-  $wireClaude = $false
-  foreach ($target in $installTargets) {
-    $skillsDir = Get-InstallTargetValue -Target $target -Name "SkillsDir"
-    if ($skillsDir -eq $claudeSkillsDir) { $wireClaude = $true }
-  }
-
   if ($wireClaude) {
-    $settingsPath = Join-Path $HOME ".claude\settings.json"
+    $settingsPath = Join-Path $UserHome ".claude\settings.json"
     $hookCmd = 'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+    $stopHookCmd = 'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi'
     $legacyCmds = @(
       'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
       'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
@@ -395,7 +493,7 @@ try {
       'bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
     )
 
-    New-Item -ItemType Directory -Force (Join-Path $HOME ".claude") | Out-Null
+    New-Item -ItemType Directory -Force (Join-Path $UserHome ".claude") | Out-Null
     $data = [ordered]@{}
     if (Test-Path -LiteralPath $settingsPath) {
       Copy-Item -LiteralPath $settingsPath -Destination "$settingsPath.bak-$(Get-Date -Format yyyyMMddHHmmss)"
@@ -404,14 +502,23 @@ try {
 
     if ($data["hooks"] -eq $null) { $data["hooks"] = @{} }
     if ($data["hooks"]["UserPromptSubmit"] -eq $null) { $data["hooks"]["UserPromptSubmit"] = @() }
+    if ($data["hooks"]["Stop"] -eq $null) { $data["hooks"]["Stop"] = @() }
 
     $entries = $data["hooks"]["UserPromptSubmit"]
+    $stopEntries = $data["hooks"]["Stop"]
     $present = $false
     $upgraded = $false
+    $stopPresent = $false
     foreach ($group in $entries) {
       foreach ($h in $group["hooks"]) {
         if ($h["command"] -eq $hookCmd) { $present = $true }
         elseif ($legacyCmds -contains $h["command"]) { $h["command"] = $hookCmd; $upgraded = $true }
+      }
+    }
+
+    foreach ($group in $stopEntries) {
+      foreach ($h in $group["hooks"]) {
+        if ($h["command"] -eq $stopHookCmd) { $stopPresent = $true }
       }
     }
 
@@ -426,8 +533,27 @@ try {
       Write-Host "Hook wiring: added UserPromptSubmit hook to $settingsPath"
     }
 
-    if (-not $present) {
+    if (-not $stopPresent) {
+      $data["hooks"]["Stop"] += , @{ hooks = @(@{ type = "command"; command = $stopHookCmd }) }
+      Write-Host "Hook wiring: added Stop hook to $settingsPath"
+    }
+
+    if (-not $present -or $upgraded -or -not $stopPresent) {
       Write-SettingsJson $settingsPath $data
+    }
+  }
+
+  $doctor = Join-Path $RuntimeHome '.prompt-optimizer\bin\align-doctor'
+  if ($wireClaude -and (Test-Path -LiteralPath $doctor -PathType Leaf)) {
+    Write-Host ''
+    Write-Host 'Post-install doctor (informational; run it again from the target project after /align-init):'
+    $doctorProject = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
+    $bash = Get-Command bash -ErrorAction SilentlyContinue
+    if ($bash) {
+      & $bash.Source $doctor $doctorProject
+      if ($LASTEXITCODE -ne 0) { Write-Host "Doctor reported incomplete project integration (status $LASTEXITCODE)." }
+    } else {
+      Write-Host 'Doctor unavailable: bash was not found; run the installed doctor from Git Bash or WSL.'
     }
   }
 

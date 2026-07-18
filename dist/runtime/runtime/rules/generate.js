@@ -47,6 +47,7 @@ exports.generateWindsurfRules = generateWindsurfRules;
 exports.writeRuleFiles = writeRuleFiles;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+/** @deprecated No production Adapter consumes these frozen rule-file generators. */
 const ALIGNMENT_RULES = `
 # Alignment Protocol
 

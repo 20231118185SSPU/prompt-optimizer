@@ -154,6 +154,24 @@ describe('consumed held-out regressions', () => {
     ]));
   });
 
+  test('does not reopen token-format direction when the request explicitly preserves behavior', () => {
+    writeContext(
+      'Authentication changes are limited to auth/. Token format is a public compatibility boundary and must not change.',
+      'npm test -- auth'
+    );
+
+    const result = processInstruction(
+      '登录请求被拒绝时，为内部日志增加稳定的 reason code。只增加诊断信息，不改变登录判定或对外响应；日志中禁止出现 token、密码和请求体。',
+      projectDir
+    );
+
+    expect(result.alignmentDecision.route).toBe('enrich');
+    expect(result.alignmentDecision.next.action).toBe('execute');
+    expect(result.alignmentDecision.acceptance).toEqual(expect.arrayContaining([
+      expect.objectContaining({ method: { kind: 'command', value: 'npm test -- auth' } })
+    ]));
+  });
+
   test('does not let project context choose between competing product goals', () => {
     writeContext('Target component: SearchBox. Follow existing patterns.', 'npm test -- SearchBox');
     const result = processInstruction(
@@ -392,5 +410,50 @@ describe('consumed held-out regressions', () => {
 
     expect(['pass', 'enrich']).toContain(result.alignmentDecision.route);
     expect(result.alignmentDecision.reasons).not.toContain('risk.irreversible_operation');
+  });
+
+  test('does not use an unrelated shell syntax check to accept a README typo fix', () => {
+    writeContext('Documentation is Chinese Markdown. Do not skip heading levels.', 'bash -n build/build.sh');
+
+    const result = processInstruction('把 README.md 的一个错别字改掉', projectDir);
+
+    expect(result.alignmentDecision.acceptance).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        method: { kind: 'command', value: 'bash -n build/build.sh' }
+      })
+    ]));
+  });
+
+  test('chooses a directly relevant code test instead of the first project command', () => {
+    writeContext(
+      'Parser changes are verified with npm test -- parser. Public APIs must remain backward compatible.',
+      'bash -n build/build.sh\nnpm test -- parser'
+    );
+
+    const result = processInstruction(
+      '修复 parser 的尾逗号兼容性，保持 public API 不变；补回归测试。',
+      projectDir
+    );
+
+    expect(result.alignmentDecision.acceptance).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        method: { kind: 'command', value: 'npm test -- parser' }
+      })
+    ]));
+    expect(result.alignmentDecision.acceptance).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        method: { kind: 'command', value: 'bash -n build/build.sh' }
+      })
+    ]));
+  });
+
+  test('uses explicit manual acceptance when no project command is relevant', () => {
+    writeContext('Documentation is Chinese Markdown. Do not skip heading levels.', 'bash -n build/build.sh');
+
+    const result = processInstruction('把 README.md 的一个错别字改掉', projectDir);
+
+    expect(result.alignmentDecision.acceptance).toEqual(expect.arrayContaining([
+      expect.objectContaining({ method: expect.objectContaining({ kind: 'manual' }) })
+    ]));
   });
 });

@@ -11,6 +11,7 @@ REPO_ZIP="${PROMPT_OPTIMIZER_ZIP:-https://github.com/20231118185SSPU/prompt-opti
 WHAT_IF=0
 UNINSTALL=0
 TARGET_SET=0
+WIRE_HOOK=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -23,6 +24,9 @@ for arg in "$@"; do
       ;;
     --uninstall|-uninstall)
       UNINSTALL=1
+      ;;
+    --wire-hook)
+      WIRE_HOOK=1
       ;;
     claude|codex|agents|all)
       if [ "$TARGET_SET" -eq 1 ]; then
@@ -50,7 +54,39 @@ if ! command -v node &> /dev/null; then
   echo "Install Node.js from https://nodejs.org/ or use shell fallback."
 fi
 
-SKILLS=("optimize-prompt" "align-init" "optimize-prompt-lite")
+SKILLS=("optimize-prompt" "align-init" "optimize-prompt-lite" "align")
+
+validate_claude_settings_file() {
+  local settings="$1"
+  SETTINGS="$settings" python3 - <<'PYEOF'
+import json, os
+
+settings_path = os.environ["SETTINGS"]
+with open(settings_path, encoding="utf-8") as handle:
+    data = json.load(handle)
+if not isinstance(data, dict):
+    raise ValueError("settings root must be an object")
+hooks = data.get("hooks", {})
+if hooks is None:
+    hooks = {}
+if not isinstance(hooks, dict):
+    raise ValueError("settings hooks must be an object")
+for event in ("UserPromptSubmit", "Stop"):
+    entries = hooks.get(event, [])
+    if entries is None:
+        continue
+    if not isinstance(entries, list):
+        raise ValueError(f"hooks.{event} must be an array")
+    for group in entries:
+        if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+            raise ValueError(f"hooks.{event} contains an invalid group")
+        for hook in group["hooks"]:
+            if not isinstance(hook, dict):
+                raise ValueError(f"hooks.{event} contains an invalid hook")
+            if "command" in hook and hook["command"] is not None and not isinstance(hook["command"], str):
+                raise ValueError(f"hooks.{event} command must be a string")
+PYEOF
+}
 
 resolve_install_targets() {
   case "$TARGET" in
@@ -90,6 +126,39 @@ else
 fi
 
 if [ "$UNINSTALL" -eq 1 ]; then
+  CLAUDE_UNINSTALL=0
+  while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
+    [ -n "$SKILLS_DIR" ] || continue
+    [ "$SKILLS_DIR" = "$HOME/.claude/skills" ] && CLAUDE_UNINSTALL=1
+  done <<EOF
+$INSTALL_TARGETS
+EOF
+  if [ "$WHAT_IF" -eq 0 ]; then
+    SETTINGS_FILE="$HOME/.claude/settings.json"
+    if [ "$CLAUDE_UNINSTALL" -eq 1 ] && [ -f "$SETTINGS_FILE" ]; then
+      if ! command -v python3 >/dev/null 2>&1; then
+        echo "Cannot safely uninstall Claude hooks without python3: $SETTINGS_FILE" >&2
+        exit 1
+      fi
+      if ! validate_claude_settings_file "$SETTINGS_FILE"
+      then
+        echo "Invalid Claude settings; uninstall was not changed: $SETTINGS_FILE" >&2
+        exit 1
+      fi
+    fi
+
+    RUNTIME_DEST_REL=".prompt-optimizer"
+    if [ -f "$RUNTIME_PLAN_POINTER" ]; then
+      RUNTIME_DEST_REL="$(awk -F '\t' '$1 == "distribution" { print $3; exit }' "$RUNTIME_PLAN_POINTER")"
+    fi
+    [ -n "$RUNTIME_DEST_REL" ] || { echo "Invalid installed runtime plan: $RUNTIME_PLAN_POINTER" >&2; exit 1; }
+    RUNTIME_INSTALL_DIR="$RUNTIME_HOME/$RUNTIME_DEST_REL"
+    if [ -d "$RUNTIME_INSTALL_DIR" ] && { [ ! -f "$RUNTIME_INSTALL_DIR/.prompt-optimizer-owned" ] ||
+       [ "$(tr -d '\r\n' < "$RUNTIME_INSTALL_DIR/.prompt-optimizer-owned")" != "prompt-optimizer-runtime-v1" ]; }; then
+      echo "Refusing to remove unowned runtime directory: $RUNTIME_INSTALL_DIR" >&2
+      exit 1
+    fi
+  fi
   while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
     [ -n "$SKILLS_DIR" ] || continue
     for SKILL in "${SKILLS[@]}"; do
@@ -110,15 +179,16 @@ $INSTALL_TARGETS
 EOF
   echo
   if [ "$WHAT_IF" -eq 1 ]; then
-    echo 'What if: Only optimize-prompt, align-init and optimize-prompt-lite would be removed.'
-    echo 'What if: The align-route hook would be removed from ~/.claude/settings.json.'
+    echo 'What if: Only optimize-prompt, align-init, optimize-prompt-lite and align would be removed.'
+    [ "$CLAUDE_UNINSTALL" -eq 1 ] && echo 'What if: The Claude UserPromptSubmit and Stop hooks would be removed from ~/.claude/settings.json.'
     echo 'What if: The Prompt Optimizer runtime declared by the installed plan would be removed.'
   else
     # 移除本协议安装的 hook 条目（只删自己的，其他 hooks 与字段不触碰）
     SETTINGS_FILE="$HOME/.claude/settings.json"
-    if [ -f "$SETTINGS_FILE" ] && command -v python3 >/dev/null 2>&1; then
+    if [ "$CLAUDE_UNINSTALL" -eq 1 ] && [ -f "$SETTINGS_FILE" ] && command -v python3 >/dev/null 2>&1; then
+      cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak-$(date +%Y%m%d%H%M%S)"
       SETTINGS="$SETTINGS_FILE" python3 - <<'PYEOF'
-import json, os
+import json, os, stat, tempfile
 
 settings_path = os.environ["SETTINGS"]
 ours = (
@@ -127,34 +197,48 @@ ours = (
     'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
     "bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true",
     "cat .align/HOOK-REMINDER.txt 2>/dev/null || true",
+    'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi',
 )
 with open(settings_path, encoding="utf-8") as f:
     data = json.load(f)
 
-entries = data.get("hooks", {}).get("UserPromptSubmit", [])
 changed = False
-for group in entries:
-    kept = [h for h in group.get("hooks", []) if h.get("command") not in ours]
-    if len(kept) != len(group.get("hooks", [])):
-        group["hooks"] = kept
-        changed = True
-data.setdefault("hooks", {})["UserPromptSubmit"] = [g for g in entries if g.get("hooks")]
-if not data["hooks"]["UserPromptSubmit"]:
-    del data["hooks"]["UserPromptSubmit"]
+for event in ("UserPromptSubmit", "Stop"):
+    entries = data.get("hooks", {}).get(event, [])
+    for group in entries:
+        kept = [h for h in group.get("hooks", []) if h.get("command") not in ours]
+        if len(kept) != len(group.get("hooks", [])):
+            group["hooks"] = kept
+            changed = True
+    data.setdefault("hooks", {})[event] = [g for g in entries if g.get("hooks")]
+    if not data["hooks"][event]:
+        del data["hooks"][event]
 if not data["hooks"]:
     del data["hooks"]
 
 if changed:
-    with open(settings_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.write("\n")
+    directory = os.path.dirname(settings_path) or "."
+    original_mode = stat.S_IMODE(os.stat(settings_path).st_mode)
+    descriptor, temporary = tempfile.mkstemp(prefix=".settings.json.", dir=directory)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.chmod(temporary, original_mode)
+        os.replace(temporary, settings_path)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
     print("Removed align-route hook from " + settings_path)
 else:
     print("No align-route hook found in settings.json (no change).")
 PYEOF
     elif [ -f "$SETTINGS_FILE" ]; then
       echo "Note: python3 not found — could not auto-remove the align-route hook."
-      echo "      Remove the UserPromptSubmit entry manually from $SETTINGS_FILE."
+      echo "      Remove the UserPromptSubmit and Stop entries manually from $SETTINGS_FILE."
     fi
     RUNTIME_DEST_REL=".prompt-optimizer"
     if [ -f "$RUNTIME_PLAN_POINTER" ]; then
@@ -172,7 +256,7 @@ PYEOF
       rm -f "$RUNTIME_PLAN_POINTER"
       echo "Removed Prompt Optimizer runtime from: $RUNTIME_INSTALL_DIR"
     fi
-    echo 'Uninstall complete. Only optimize-prompt, align-init and optimize-prompt-lite were removed.'
+    echo 'Uninstall complete. Only optimize-prompt, align-init, optimize-prompt-lite and align were removed.'
   fi
   echo 'Other skills and user content were not touched.'
   exit 0
@@ -257,6 +341,30 @@ done <<EOF
 $INSTALL_TARGETS
 EOF
 
+CLAUDE_INSTALLED=0
+while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
+  [ -n "$SKILLS_DIR" ] || continue
+  case "$SKILLS_DIR" in
+    "$HOME/.claude/skills") CLAUDE_INSTALLED=1 ;;
+  esac
+done <<EOF
+$INSTALL_TARGETS
+EOF
+
+validate_claude_settings() {
+  local settings="$HOME/.claude/settings.json"
+  [ "$CLAUDE_INSTALLED" -eq 1 ] || return 0
+  [ -f "$settings" ] || return 0
+  command -v python3 >/dev/null 2>&1 || return 0
+  if ! validate_claude_settings_file "$settings"
+  then
+    echo "Invalid Claude settings; installation was not changed: $settings" >&2
+    return 1
+  fi
+}
+
+validate_claude_settings
+
 install_distribution() {
   local plan="$SOURCE_ROOT/dist/runtime/install-plan.tsv"
   if [ ! -f "$plan" ]; then
@@ -311,10 +419,11 @@ done <<EOF
 $INSTALL_TARGETS
 EOF
 
-# ── Claude Code hook 自动接线（幂等：已存在则跳过；只增不删既有字段）──
+# ── Claude Code hook 接线（需要 --wire-hook 明确启用；幂等：已存在则跳过）──
 wire_claude_hooks() {
   local settings="$HOME/.claude/settings.json"
   local hook_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+  local stop_hook_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi'
   local old_anchored_cmd='bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
   local project_only_cmd='if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi'
   local legacy_cmd='cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
@@ -331,11 +440,12 @@ wire_claude_hooks() {
     cp "$settings" "$settings.bak-$(date +%Y%m%d%H%M%S)"
   fi
 
-  HOOK_CMD="$hook_cmd" LEGACY_CMD="$legacy_cmd" OLD_ANCHORED_CMD="$old_anchored_cmd" PROJECT_ONLY_CMD="$project_only_cmd" OLD_CMD="$old_relative_cmd" SETTINGS="$settings" python3 - <<'PYEOF'
-import json, os
+HOOK_CMD="$hook_cmd" STOP_HOOK_CMD="$stop_hook_cmd" LEGACY_CMD="$legacy_cmd" OLD_ANCHORED_CMD="$old_anchored_cmd" PROJECT_ONLY_CMD="$project_only_cmd" OLD_CMD="$old_relative_cmd" SETTINGS="$settings" python3 - <<'PYEOF'
+import json, os, stat, tempfile
 
 settings_path = os.environ["SETTINGS"]
 hook_cmd = os.environ["HOOK_CMD"]
+stop_hook_cmd = os.environ["STOP_HOOK_CMD"]
 # 旧形态（纯提醒 hook、CWD 相对路径 hook）都识别并原地升级到锚定版
 legacy = (os.environ["LEGACY_CMD"], os.environ["OLD_ANCHORED_CMD"], os.environ["PROJECT_ONLY_CMD"], os.environ["OLD_CMD"])
 
@@ -346,6 +456,8 @@ if os.path.exists(settings_path):
 
 hooks = data.setdefault("hooks", {})
 entries = hooks.setdefault("UserPromptSubmit", [])
+stop_entries = hooks.setdefault("Stop", [])
+changed = False
 
 def commands(entries):
     for group in entries:
@@ -362,27 +474,53 @@ else:
             upgraded = True
     if upgraded:
         print("Hook wiring: upgraded existing hook to project-anchored align-route.")
+        changed = True
     else:
         entries.append({"hooks": [{"type": "command", "command": hook_cmd}]})
         print(f"Hook wiring: added UserPromptSubmit hook to {settings_path}")
-    with open(settings_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.write("\n")
+        changed = True
+
+if not any(h.get("command") == stop_hook_cmd for h in commands(stop_entries)):
+    stop_entries.append({"hooks": [{"type": "command", "command": stop_hook_cmd}]})
+    print(f"Hook wiring: added Stop hook to {settings_path}")
+    changed = True
+
+if changed:
+    directory = os.path.dirname(settings_path) or "."
+    original_mode = stat.S_IMODE(os.stat(settings_path).st_mode) if os.path.exists(settings_path) else None
+    descriptor, temporary = tempfile.mkstemp(prefix=".settings.json.", dir=directory)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        if original_mode is not None:
+            os.chmod(temporary, original_mode)
+        os.replace(temporary, settings_path)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
 PYEOF
 }
 
-CLAUDE_INSTALLED=0
-while IFS='|' read -r SKILLS_DIR ADAPTER TARGET_LABEL; do
-  [ -n "$SKILLS_DIR" ] || continue
-  case "$SKILLS_DIR" in
-    "$HOME/.claude/skills") CLAUDE_INSTALLED=1 ;;
-  esac
-done <<EOF
-$INSTALL_TARGETS
-EOF
-
 if [ "$CLAUDE_INSTALLED" -eq 1 ]; then
-  wire_claude_hooks
+  if [ "$WIRE_HOOK" -eq 1 ]; then
+    wire_claude_hooks
+  else
+    echo ""
+    echo "Note: Claude Code hooks were NOT installed. To enable automatic alignment routing,"
+    echo "  re-run with: --wire-hook"
+    echo "  Or run /align setup in your project for guided hook installation."
+  fi
+  if [ -x "$RUNTIME_HOME/.prompt-optimizer/bin/align-doctor" ]; then
+    echo
+    echo 'Post-install doctor (informational; run it again from the target project after /align-init):'
+    doctor_project="${CLAUDE_PROJECT_DIR:-$PWD}"
+    CLAUDE_PROJECT_DIR="$doctor_project" \
+      bash "$RUNTIME_HOME/.prompt-optimizer/bin/align-doctor" "$doctor_project" || true
+  fi
 fi
 
 # ── 复制 hooks/ 脚本到全局目录（align-init 从此处复制到项目 .align/）──
@@ -410,8 +548,10 @@ EOF
 copy_hooks_scripts
 
 echo
-echo 'Installed skills: optimize-prompt, align-init, optimize-prompt-lite'
-echo 'Use optimize-prompt with: $optimize-prompt optimize: your rough idea'
-echo 'Use align-init with: /align-init (in your project directory)'
-echo 'Claude Code also supports: /optimize-prompt and /align-init'
-echo 'Note: ~/.agents/skills uses the dist/claude-code package because agents-style tools consume the Claude-compatible skill layout.'
+echo 'Next steps:'
+echo '  1. Enter your project directory: cd your-project'
+echo '  2. Run: /align-init'
+echo '  3. Check wiring: bash "$HOME/.prompt-optimizer/bin/align-doctor" --json "$PWD"'
+echo
+echo 'Installed: optimize-prompt (main entry), align-init (project setup), optimize-prompt-lite (weak models)'
+echo 'Claude Code is the reference host. Other hosts use the same Alignment Decision with reduced enforcement.'

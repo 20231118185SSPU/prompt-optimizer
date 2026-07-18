@@ -106,12 +106,13 @@ describe('Integration Tests — real .align/ directory', () => {
       expect(result.enrichedMessage).toContain('项目规范');
     });
 
-    test('enriches message with real context', () => {
+    test('enriches message with real classified context', () => {
       const result = enrich('重构模块', realProjectDir);
 
-      expect(result.context.context).toBeTruthy();
-      expect(result.context.context).toContain('项目目标');
-      expect(result.enrichedMessage).toContain('项目上下文');
+      expect(result.context.facts).toBeTruthy();
+      expect(result.context.facts).toContain('产品定位');
+      expect(result.context.context).toBe('');
+      expect(result.enrichedMessage).toContain('项目事实');
     });
 
     test('enriches message with real decisions', () => {

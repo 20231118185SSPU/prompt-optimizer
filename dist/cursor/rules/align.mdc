@@ -20,6 +20,8 @@ notice: Do not edit dist/ manually
 
 Agent 意图入口层。先降低意图偏差、范围偏差和验收偏差，再执行；不得退化成文案润色。
 
+> **收敛说明**：`optimize-prompt` 已收敛为 `/align` 的内部 **full alignment profile**。触发名称在兼容期内保持不变，但建议使用 `/align <请求>` 作为统一入口。本 skill 的全部行为与 `/align` 显式调用完全一致。
+
 ## 三类入口
 
 - **user-invoked**：用户调用 `$optimize-prompt`、`/optimize-prompt`、`优化：`或要求优化 prompt。输出完整 Agent Brief。

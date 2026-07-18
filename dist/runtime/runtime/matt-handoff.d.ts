@@ -2,6 +2,7 @@
 // Generated from core/
 // Do not edit dist/ manually
 import { AlignmentDecision } from './contract-builder';
+/** @internal Explicit CLI composition only; never part of ordinary pipeline output. */
 export declare const MATT_SKILLS: readonly ["ask-matt", "code-review", "diagnosing-bugs", "grill-with-docs", "implement", "prototype", "tdd", "to-spec", "to-tickets"];
 export type MattSkill = typeof MATT_SKILLS[number];
 export interface MattEnvironment {

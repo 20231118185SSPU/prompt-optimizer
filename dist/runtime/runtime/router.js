@@ -6,8 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.route = route;
 const host_projection_1 = require("./host-projection");
 /**
- * Compatibility projection for consumers of the former router API.
- * The Alignment Decision is the only route source; classifier signals are not accepted here.
+ * @deprecated Compatibility projection for consumers of the former router
+ * API. The Alignment Decision is the only route source; prefer alignInstruction().
  */
 function route(decision) {
     const projection = (0, host_projection_1.projectAlignmentDecision)(decision);

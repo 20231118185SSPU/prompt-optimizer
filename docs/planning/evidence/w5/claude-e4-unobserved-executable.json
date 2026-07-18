@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceKind": "real-host-e4-unobserved-executable",
+  "e4Level": "E4",
+  "status": "not_observable",
+  "caseRef": "e4-final-config",
+  "provider": "claude-cli/first-party",
+  "requestedModel": "sonnet",
+  "actualModels": ["mimo-v2.5-pro[1M]"],
+  "paidModelExecutions": 1,
+  "turnsReported": 5,
+  "maxBudgetUsd": 0.5,
+  "costUsd": 0.167653,
+  "durationMs": 36112,
+  "exitStatus": 0,
+  "hookObserved": false,
+  "publicLifecycleArtifactCount": 0,
+  "blocker": "Real model execution completed, but the isolated project hook did not expose a public BaselineReport, ExecutionHandoff, ExecutionReceipt, or CompletionReport.",
+  "realSettings": {
+    "sha256Before": "a95ff9606ea1792568af52d4bbd09bbb880cff2831a20ac2f92cac3ad7cc9a45",
+    "sha256After": "a95ff9606ea1792568af52d4bbd09bbb880cff2831a20ac2f92cac3ad7cc9a45",
+    "unchangedDuringRun": true
+  },
+  "privacy": {
+    "promptStored": false,
+    "sessionIdStored": false,
+    "transcriptStored": false,
+    "tokenStored": false,
+    "absolutePathStored": false
+  }
+}

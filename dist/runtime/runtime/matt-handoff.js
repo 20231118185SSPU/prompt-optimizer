@@ -10,6 +10,7 @@ const crypto_1 = require("crypto");
 const node_fs_1 = require("node:fs");
 const node_os_1 = require("node:os");
 const node_path_1 = require("node:path");
+/** @internal Explicit CLI composition only; never part of ordinary pipeline output. */
 exports.MATT_SKILLS = [
     'ask-matt',
     'code-review',

@@ -94,3 +94,13 @@
   影响：只有冻结门槛通过或用户明确接受实测偏差后才能关闭 G5；完整 E5、真实成功率和返工数据延后到稳定版前积累，支持口径继续降级披露
   依据：用户确认精简评测方案
   日期：2026-07-12
+
+- [v4 W0 范围冻结] 当前波次只冻结 committed baseline、失败行为、测试基线和公开能力；不修复 runtime、不改测试 oracle、不删除或重命名公开入口
+  影响：W1 必须先添加失败测试；连续两个版本内不新增 skill、宿主、模板、handoff 或 route 名称
+  依据：用户明确启动指令与 V4 W0 方案
+  日期：2026-07-15
+
+- [v4 术语契约] Execution Readiness、Observed Contract、Effective Contract、Structural Gap、Directional Gap、Context Evidence、Acceptance Relevance、Host Projection 和 Verification Plan 作为后续 W1+ 的统一术语
+  影响：代码、契约、文档和评测不得把项目事实存在性当作相关证据，不得把 verification plan 当作 completion evidence
+  依据：V4 方案领域模型与 W0-07 任务
+  日期：2026-07-15

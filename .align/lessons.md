@@ -6,6 +6,8 @@
 
 <!-- 沉淀门（门 5）自动追加经验规则到此处 -->
 
+- [Windows/Git Bash 路由回归] 规则：`verify-router.sh` 的两份 router 共 84 次 shell 调用可能耗时数分钟，不应误判为死锁或重跑模型 → 下次执行：保留单次运行并分段观察至完成
+
 - [安装验收] 规则：接入后强制链路三件套必须齐全（settings.json 含 UserPromptSubmit hook、.align/HOOK-REMINDER.txt、CLAUDE.md 挂载区）→ 下次执行：安装/接入后逐项验证，缺任一条即"没有强制手段"
 - [settings.json 修改] 规则：~/.claude/settings.json 是用户全局配置 → 下次执行：修改前先备份 settings.json.bak-{date}，只增不删既有字段
 - [hook 生效范围] 规则：settings.json 的 hook 只在新会话生效 → 下次执行：验证 hook 效果必须换新会话测，当前会话测不出来
@@ -37,3 +39,18 @@
 - [英文关键词路由] 规则：裸子串会把 `preview` 误判为 `review` → 下次执行：英文技能关键词使用词边界，并添加包含关系反例
 - [生成产物提交] 规则：本地 build 通过不代表新增 `dist/` 文件可被 Git 收录 → 下次执行：分发 gate 检查 ignored 未跟踪产物，提交前核对 `git status --ignored dist`
 - [风险能力口径] 规则：风险信号必须经过安全路由但不等于永久阻断 → 下次更新介绍时区分信息不足的 `clarify`、授权阻断的 `block` 与授权完整的 `enrich`
+- [PowerShell runtime 沙箱] 规则：`tests/verify-runtime-installer.ps1` 可能触碰真实 `~/.claude/settings.json` → 下次执行后立即核对并恢复 `UserPromptSubmit` hook
+- [W5 doctor 能力口径] 规则：Claude L3 ingress/block 不等于 completion ready → 下次执行：Stop hook 缺失时 doctor 报 `completion=unavailable`，并单独报告 `completionChain=missing`
+- [W5 completion 命令执行] 规则：`.align/check-commands.txt` 命令即使来自项目也不能过 shell 展开 → 下次执行：completion verifier 用 `shell=false` argv 执行，拒绝 shell operator、解释器 eval flag 和路径穿越
+- [W5 Stop deadline] 规则：Stop hook 不得把多个 completion command 的累计时长暴露给宿主 → 下次执行：adapter 保留 watchdog，verifier 以同一总 deadline 记录 `verification_failed`。
+- [W5 installer rollback] 规则：全局 settings 或 runtime 的预检失败必须发生在删除 skills 前 → 下次执行：先解析 settings、校验 ownership，再以同目录临时文件原子替换。
+- [W5 Windows hook watchdog] 规则：TERM-resistant 子进程不得直接继承 hook stdout，否则会延长 command substitution → 下次执行：仅缓冲正常输出，timeout 时销毁 streams 并在受限 escalation budget 内降级。
+- [Windows/Git Bash 构建 Gate] 规则：`verify-build-idempotence.sh` 双构建可能超过 120 秒，外层超时后子进程仍会继续 → 下次执行：预留至少 6 分钟并确认残留进程结束后再重跑。
+- [Lifecycle artifact consumer] 规则：生产校验必须覆盖冻结 schema 的唯一性、长度和条件分支 → 下次执行：先用 schema-invalid 篡改 artifact 证明 consumer fail closed。
+- [真实 Claude E4] 规则：`claude -p` 必须从临时项目 cwd 加载可观察 hook；模型有响应但无 lifecycle artifact 时不得计作 E4 → 下次执行：先用零模型阻断哨兵确认 UserPromptSubmit/Stop 接线，再付费调用。
+- [G5 remediation] 规则：verifier 失败或 gate summary 的 runtime hash 过期时不得沿用旧 summary 宣称通过 → 下次执行：修复后重新冻结代码并按授权重新生成一次 consumed evidence。
+- [项目验收 provenance] 规则：`.align/check-commands.txt` 只能补 effective d5，不能提升 observed d5 或把 `enrich` 伪装成 `pass` → 下次执行：通过 `alignInstruction` seam 同时断言 observed/effective 分数。
+- [隔离 E4 provider] 规则：隔离 `CLAUDE_CONFIG_DIR` 还需提供 provider 所需认证环境变量，模型有响应但无公共 lifecycle artifact 不计 E4 → 下次执行：先保存真实 settings hash，再把凭据仅注入临时子进程并清理。
+- [runtime hash 冻结] 规则：core 源码修改并 rebuild 后 runtime bundle hash 会变 → 下次执行：E4 证据的 runtime hash 必须在 dist 构建完成后立即记录，不得沿用旧 hash。
+- [PS5.1 UTF-8 BOM] 规则：PS 5.1 的 `ConvertFrom-Json` 无法正确解析无 BOM UTF-8 中的非 ASCII 字符 → 下次执行：`Write-SettingsJson` 使用 `UTF8Encoding($true)` 带 BOM 写出 settings.json。
+- [hook 直接调用 E4] 规则：直接调用 hook adapter 产生完整 lifecycle 链可证明机制正确，但不等价于交互式 Claude Code 会话 → 下次执行：E4 证据标注 `invocationMethod`，区分 hook-simulated 与 interactive session。

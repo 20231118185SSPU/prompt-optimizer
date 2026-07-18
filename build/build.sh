@@ -21,6 +21,7 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 core_root="$repo_root/core"
 protocol_root="$core_root/protocol"
 templates_root="$core_root/templates"
+contracts_root="$core_root/contracts"
 dist_root="$repo_root/dist"
 
 assert_dir() {
@@ -34,8 +35,10 @@ assert_dir() {
 align_init_skill_root="$core_root/skills/align-init"
 optimize_skill_root="$core_root/skills/optimize-prompt"
 lite_skill_root="$core_root/skills/optimize-prompt-lite"
+align_skill_root="$core_root/skills/align"
 spec_kit_root="$core_root/spec-kit"
 host_root="$core_root/host"
+policy_projection_helper="$script_dir/policy-projection.js"
 node_command="${ALIGN_NODE_COMMAND:-node}"
 npm_command="${ALIGN_NPM_COMMAND:-npm}"
 
@@ -143,6 +146,68 @@ write_generated_file() {
   local tmp="${path}.tmp.$$"
   "$@" > "$tmp"
   mv "$tmp" "$path"
+}
+
+copy_generated_asset() {
+  local path="$1"
+  local source_path="$2"
+
+  case "$path" in
+    "$dist_root"/*) ;;
+    *)
+      printf 'Refusing to write outside dist/: %s\n' "$path" >&2
+      exit 1
+      ;;
+  esac
+  if [[ ! -f "$source_path" ]]; then
+    printf 'Required generated asset source not found: %s\n' "$source_path" >&2
+    exit 1
+  fi
+  if [[ "$whatif" -eq 1 ]]; then
+    printf 'Would copy generated asset: %s\n' "$path"
+    return
+  fi
+
+  mkdir -p "$(dirname "$path")"
+  local tmp="${path}.tmp.$$"
+  cp "$source_path" "$tmp"
+  mv "$tmp" "$path"
+}
+
+sha256_file() {
+  local path="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$path" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$path" | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$path" | sed -E 's/^.*= //'
+  else
+    return 1
+  fi
+}
+
+verify_embedded_policy_sources() {
+  local asset variable expected actual
+  while IFS='|' read -r asset variable; do
+    expected="$(sed -n "s/^${variable}='\([0-9a-f]\{64\}\)'$/\1/p" "$host_root/align-route.sh" | head -1)"
+    if [[ -z "$expected" ]]; then
+      printf 'Embedded policy projection is missing %s.\n' "$variable" >&2
+      return 1
+    fi
+    actual="$(sha256_file "$contracts_root/$asset")" || {
+      printf '%s\n' 'No SHA-256 implementation is available for no-Node policy verification.' >&2
+      return 1
+    }
+    if [[ "$actual" != "$expected" ]]; then
+      printf 'Embedded policy projection is stale for %s.\n' "$asset" >&2
+      return 1
+    fi
+  done <<'HASHES'
+decision-policy.json|POLICY_PROJECTION_POLICY_FILE_SHA256
+decision-policy.schema.json|POLICY_PROJECTION_SCHEMA_FILE_SHA256
+reason-registry.json|POLICY_PROJECTION_REGISTRY_FILE_SHA256
+HASHES
 }
 
 emit_universal_prompt() {
@@ -289,6 +354,10 @@ emit_optimize_skill() {
   emit_file_lf "$optimize_skill_root/SKILL.md"
 }
 
+emit_align_skill() {
+  emit_file_lf "$align_skill_root/SKILL.md"
+}
+
 emit_protocol_branch() {
   local branch_name="$1"
   local when_to_read="$2"
@@ -406,11 +475,36 @@ copy_spec_kit() {
 
 assert_dir "$protocol_root"
 assert_dir "$templates_root"
+assert_dir "$contracts_root"
 assert_dir "$align_init_skill_root"
 assert_dir "$optimize_skill_root"
 assert_dir "$lite_skill_root"
+assert_dir "$align_skill_root"
 assert_dir "$spec_kit_root"
 assert_dir "$host_root"
+
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+  if [[ ! -f "$contracts_root/$contract_asset" ]]; then
+    printf 'Required policy contract not found: %s\n' "$contracts_root/$contract_asset" >&2
+    exit 1
+  fi
+done
+if command -v "$node_command" &> /dev/null; then
+  "$node_command" "$policy_projection_helper" --check \
+    --policy "$contracts_root/decision-policy.json" \
+    --schema "$contracts_root/decision-policy.schema.json" \
+    --registry "$contracts_root/reason-registry.json" \
+    --router "$host_root/align-route.sh"
+  printf '%s\n' 'Policy projection verified from core/contracts/decision-policy.json'
+elif ! grep -q '^POLICY_PROJECTION_SHA256=' "$host_root/align-route.sh" ||
+     ! grep -q '^# policy-projection:end$' "$host_root/align-route.sh"; then
+  printf '%s\n' 'Error: Node.js is unavailable and the embedded shell policy projection is missing.' >&2
+  exit 1
+else
+  verify_embedded_policy_sources || exit 1
+  printf '%s\n' 'Embedded shell policy projection matches all contract SHA-256 values.'
+  printf '%s\n' 'Warning: Node.js not found; using the embedded policy projection.'
+fi
 
 write_generated_file "$dist_root/universal/SYSTEM-PROMPT.md" emit_universal_prompt
 write_generated_file "$dist_root/claude-code/optimize-prompt/SKILL.md" emit_optimize_skill
@@ -427,6 +521,10 @@ write_generated_file "$dist_root/claude-code/optimize-prompt-lite/SKILL.md" emit
 write_generated_file "$dist_root/codex/optimize-prompt-lite/SKILL.md" emit_lite_skill
 write_generated_file "$dist_root/universal/optimize-prompt-lite/SKILL.md" emit_lite_skill
 
+write_generated_file "$dist_root/claude-code/align/SKILL.md" emit_align_skill
+write_generated_file "$dist_root/codex/align/SKILL.md" emit_align_skill
+write_generated_file "$dist_root/universal/align/SKILL.md" emit_align_skill
+
 copy_references "$dist_root/universal/references"
 copy_references "$dist_root/claude-code/optimize-prompt/references"
 copy_references "$dist_root/codex/optimize-prompt/references"
@@ -440,6 +538,14 @@ write_protocol_branches "$dist_root/cursor/references"
 copy_references "$dist_root/claude-code/align-init/references"
 copy_references "$dist_root/codex/align-init/references"
 copy_references "$dist_root/universal/align-init/references"
+
+copy_references "$dist_root/claude-code/align/references"
+copy_references "$dist_root/codex/align/references"
+copy_references "$dist_root/universal/align/references"
+
+write_protocol_branches "$dist_root/claude-code/align/references"
+write_protocol_branches "$dist_root/codex/align/references"
+write_protocol_branches "$dist_root/universal/align/references"
 
 copy_spec_kit "$dist_root/claude-code/align-init/references"
 copy_spec_kit "$dist_root/codex/align-init/references"
@@ -488,10 +594,15 @@ else
   echo "Warning: Node.js/npm not found; preserving the existing generated structured runtime."
 fi
 
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+  copy_generated_asset "$dist_root/runtime/contracts/$contract_asset" "$contracts_root/$contract_asset"
+done
+
 write_generated_file "$dist_root/runtime/runtime/shell/align-route.sh" emit_file_lf "$host_root/align-route.sh"
 write_generated_file "$dist_root/runtime/adapters/claude-code.sh" emit_file_lf "$host_root/pipeline/adapters/hook/claude-code.sh"
 write_generated_file "$dist_root/runtime/adapters/codex.sh" emit_file_lf "$host_root/pipeline/adapters/cli/codex.sh"
 write_generated_file "$dist_root/runtime/bin/align-doctor" emit_file_lf "$host_root/doctor.sh"
 write_generated_file "$dist_root/runtime/bin/align-cli" emit_file_lf "$host_root/align-cli.sh"
+write_generated_file "$dist_root/runtime/bin/align-setup" emit_file_lf "$host_root/align-setup.sh"
 write_generated_file "$dist_root/runtime/install-plan.tsv" emit_file_lf "$repo_root/core/distribution/install-plan.tsv"
 write_generated_file "$dist_root/runtime/.prompt-optimizer-owned" emit_file_lf "$repo_root/core/distribution/OWNERSHIP"

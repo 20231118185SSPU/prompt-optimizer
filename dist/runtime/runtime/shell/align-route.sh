@@ -24,7 +24,7 @@ fi
 CONF="$ALIGN_DIR/route.conf"
 ARBITER="${ALIGN_ARBITER:-auto}"   # auto|off
 ARBITER_TIMEOUT=5
-BLOCK_ON_HIGH="off"                # legacy 配置名；on 时仅 block + wait_confirmation|stop 会 exit 2
+BLOCK_ON_HIGH="${BLOCK_ON_HIGH:-off}" # legacy 配置名；on 时仅 block + wait_confirmation|stop 会 exit 2
 # route.conf 只做白名单解析，绝不 source 任意 shell（防仓库内 route.conf 注入代码）
 if [ -f "$CONF" ]; then
   while IFS='=' read -r _k _v; do
@@ -102,25 +102,225 @@ CLEAN="$(strip_noise "$PROMPT")"
 SIGNAL_TEXT="$(strip_negation "$CLEAN")"
 
 # ── 信号计数（双语）──
-RISK_RE='删除|删掉|删库|清空|清库|清掉|重置|回滚|强推|上线|下线|停服|发版|部署到生产|生产环境|生产库|数据库迁移|格式化|抹掉|销毁|覆盖|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration|deploy to prod|destroy|format'
-VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|提升|处理一下|处理|看看|弄一下|弄好|搞一下|搞定|搞定它|修一下|修好|美化|改改|改一下|改下|调整一下|调整下|梳理一下|梳理下|整理一下|整理下|重构|升级|升级一下|增强|更好|更快|更优雅|更稳定|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|tweak|adjust|fix|enhance|upgrade|refine|rework|reorganize|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个'
+RISK_RE='删除|删掉|删库|清空|清库|清掉|重置|回滚|强推|上线|下线|停服|发版|部署到生产|生产环境|生产库|数据库迁移|格式化|抹掉|销毁|覆盖|drop table|truncate|rm -rf|reset --hard|force push|push --force|rollback|production|db migration|deploy to prod|destroy|format|权限|admin|root|sudo|所有用户|API.?key|密钥|token|密码|credential|secret|硬编码|hardcode|禁用|关闭|停用|disable|泄露|暴露|expose|leak|外网|外部服务器|公网|发送到.*服务器|upload.*external|send.*outside'
+VAGUE_RE='优化一下|优化下|优化|改进|完善|完善一下|提升一下|提升|处理一下|处理|看看|弄一下|弄好|搞一下|搞定|搞定它|修一下|修好|美化|改改|改一下|改下|调整一下|调整下|梳理一下|梳理下|整理一下|整理下|重构|升级|升级一下|增强|更好|更快|更优雅|更稳定|更安全|more secure|more stable|faster|better|optimi[sz]e|improve|clean ?up|polish|make it better|refactor|tweak|adjust|fix|enhance|upgrade|refine|rework|reorganize|做个|做一个|做一下|加个|加一个|加一下|写个|写一个|写一下|搞个|搞一个|弄个|弄一个|实现个|实现一个|实现一下|建个|建一个|新建一个|创建一个|改成|改为|换成|转成|转换成|加上|加上的'
+XY_RE='把.*换成|用.*来解决|改成.*方便|用.*代替|替换.*为|转换.*成|用.*eval|用.*exec|动态执行|吞掉.*错误|错误.*吞掉|忽略.*错误|错误.*忽略|屏蔽.*错误|错误.*屏蔽|suppress.*error|swallow.*error|error.*suppress|error.*swallow'
 SPEC_RE='[A-Za-z0-9_./\\-]+\.(sh|ps1|md|js|jsx|ts|tsx|py|json|yml|yaml|toml|go|rs|java|c|cpp|h|css|html|sql)|[A-Za-z_][A-Za-z0-9_]*\(\)|第[[:space:]]*[0-9]+[[:space:]]*行|line [0-9]+|:[0-9]+\b'
+VALUE_RE='[0-9]+|"([^"]*)"|从.*改成|从.*改为|从.*换成'
 
 count_re() { printf '%s' "$1" | grep -oiE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
 count_re_case() { printf '%s' "$1" | grep -oE "$2" 2>/dev/null | wc -l | tr -d '[:space:]'; }
 
 RISK=$(count_re "$SIGNAL_TEXT" "$RISK_RE")
 VAGUE=$(count_re "$SIGNAL_TEXT" "$VAGUE_RE")
+XY=$(count_re "$SIGNAL_TEXT" "$XY_RE")
 # 具体度在原文（未剥引号）上测：文件名常被反引号/引号包住
 SPEC=$(count_re "$PROMPT" "$SPEC_RE")
+# 具体值在原文上测：数字或引号内的字符串
+VALUE=$(count_re "$PROMPT" "$VALUE_RE")
 
 # ── 两轴判定 ──
 # 教学语境：谈论风险操作 ≠ 执行风险操作（'解释一下什么是 force push'）
 EDU_RE='解释|什么是|介绍一下|翻译|explain|what is|translate'
 EDU=$(count_re "$CLEAN" "$EDU_RE")
 
+# ── Policy operator runtime（route precedence 由下方生成投影拥有）──
+policy_reason_any() {
+  local expected
+  for expected in "$@"; do
+    case ",${POLICY_REASONS:-}," in *",$expected,"*) return 0 ;; esac
+  done
+  return 1
+}
+
+policy_score_total() {
+  local source="$1" comparator="$2" first="$3" second="${4:-}" total
+  case "$source" in
+    observed) total="${POLICY_OBSERVED_TOTAL:-}" ;;
+    effective) total="${POLICY_EFFECTIVE_TOTAL:-}" ;;
+    *) return 2 ;;
+  esac
+  case "$comparator" in
+    lt) [ "$total" -lt "$first" ] ;;
+    gte) [ "$total" -ge "$first" ] ;;
+    between) [ "$total" -ge "$first" ] && [ "$total" -le "$second" ] ;;
+    *) return 2 ;;
+  esac
+}
+
+policy_minimum_dimension() {
+  local source="$1" comparator="$2" expected="$3" minimum
+  case "$source" in
+    observed) minimum="${POLICY_OBSERVED_MINIMUM:-}" ;;
+    effective) minimum="${POLICY_EFFECTIVE_MINIMUM:-}" ;;
+    *) return 2 ;;
+  esac
+  case "$comparator" in
+    lt) [ "$minimum" -lt "$expected" ] ;;
+    gte) [ "$minimum" -ge "$expected" ] ;;
+    *) return 2 ;;
+  esac
+}
+
+policy_assumption_count() {
+  local comparator="$1" expected="$2"
+  case "$comparator" in
+    gt) [ "${POLICY_ASSUMPTION_COUNT:-}" -gt "$expected" ] ;;
+    lte) [ "${POLICY_ASSUMPTION_COUNT:-}" -le "$expected" ] ;;
+    *) return 2 ;;
+  esac
+}
+
+policy_scores_equal() { [ "${POLICY_SCORES_EQUAL:-}" = "$1" ]; }
+policy_safety_critical() { [ "${POLICY_SAFETY_CRITICAL:-}" = "$1" ]; }
+
+policy_projection_safety_from_reasons() {
+  local code meta priority allowed safety
+  local old_ifs="$IFS"
+  IFS=','
+  for code in ${POLICY_REASONS:-}; do
+    meta="$(policy_projection_reason_meta "$code")" || { IFS="$old_ifs"; return 1; }
+    IFS=$'\t' read -r priority allowed safety <<EOF
+$meta
+EOF
+    IFS=','
+    if [ "$safety" = "true" ]; then IFS="$old_ifs"; printf '%s\n' true; return 0; fi
+  done
+  IFS="$old_ifs"
+  printf '%s\n' false
+}
+
+policy_projection_sorted_reasons() {
+  local route="$1" code meta priority allowed safety rows=""
+  local old_ifs="$IFS"
+  IFS=','
+  for code in ${POLICY_REASONS:-}; do
+    [ -n "$code" ] || continue
+    meta="$(policy_projection_reason_meta "$code")" || { IFS="$old_ifs"; return 1; }
+    IFS=$'\t' read -r priority allowed safety <<EOF
+$meta
+EOF
+    IFS=','
+    case ",$allowed," in *",$route,"*) ;; *) IFS="$old_ifs"; return 1 ;; esac
+    rows="${rows}${priority}"$'\t'"${code}"$'\n'
+  done
+  IFS="$old_ifs"
+  [ -n "$rows" ] || return 1
+  printf '%s' "$rows" | LC_ALL=C sort -t $'\t' -k1,1n -k2,2 | awk -F '\t' '
+    !seen[$2]++ { if (result != "") result = result ","; result = result $2 }
+    END { print result }
+  '
+}
+
+policy_projection_fail_closed() {
+  POLICY_ROUTE=clarify
+  POLICY_ACTION=ask
+  POLICY_REASONS=runtime.degraded
+}
+
+# policy-projection:begin
+# Generated from core/contracts/decision-policy.json and reason-registry.json.
+# Do not edit this block manually; run: node build/policy-projection.js --write
+POLICY_PROJECTION_SHA256='6b0fa6a8d546fdf30108a9f6ffa9bee0d9c23b4f68f37ff10199dc79c7de5761'
+POLICY_PROJECTION_POLICY_SHA256='250f46b5faadd5b2a096d36398b2b88fef0635b40dbc14a05809be3b1e332ee6'
+POLICY_PROJECTION_REGISTRY_SHA256='6a432505c58b0c4038d2797fc4f55148929f82332f88482e49fd0427c2ea0c63'
+POLICY_PROJECTION_POLICY_FILE_SHA256='184c0577d2c067ddbea91bf66b81ac0b9edadcfe7be75dce68075d7afb51e942'
+POLICY_PROJECTION_SCHEMA_FILE_SHA256='63d692ed2c26a92f6ee7cd3297258b98f6a86dc6520dc0f10e23bf5b9078a93e'
+POLICY_PROJECTION_REGISTRY_FILE_SHA256='bd876da51c8a425ee81881da355cf348e753587e7d6a2ecd43974f96990902a2'
+POLICY_PROJECTION_VERSION='1.0.0'
+POLICY_THRESHOLD_PASS_MINIMUM_TOTAL='8'
+POLICY_THRESHOLD_EXECUTION_MINIMUM_TOTAL='6'
+POLICY_THRESHOLD_EXECUTION_MINIMUM_DIMENSION='1'
+POLICY_THRESHOLD_MAXIMUM_ASSUMPTIONS='2'
+
+policy_projection_reason_meta() {
+  case "$1" in
+    'policy.operation_prohibited') printf '%s\t%s\t%s\n' '10' 'block' 'true' ;;
+    'authorization.confirmation_missing') printf '%s\t%s\t%s\n' '20' 'block' 'true' ;;
+    'lifecycle.baseline_failed') printf '%s\t%s\t%s\n' '30' 'block' 'true' ;;
+    'risk.irreversible_operation') printf '%s\t%s\t%s\n' '40' 'enrich,clarify,block' 'true' ;;
+    'risk.production_change') printf '%s\t%s\t%s\n' '41' 'enrich,clarify,block' 'true' ;;
+    'risk.data_mutation') printf '%s\t%s\t%s\n' '42' 'enrich,clarify,block' 'true' ;;
+    'intent.ambiguous_goal') printf '%s\t%s\t%s\n' '100' 'clarify' 'false' ;;
+    'intent.xy_problem') printf '%s\t%s\t%s\n' '101' 'clarify' 'false' ;;
+    'intent.symptom_as_cause') printf '%s\t%s\t%s\n' '102' 'clarify' 'false' ;;
+    'scope.impact_unknown') printf '%s\t%s\t%s\n' '110' 'clarify' 'false' ;;
+    'scope.too_broad') printf '%s\t%s\t%s\n' '111' 'clarify' 'false' ;;
+    'assumption.too_many') printf '%s\t%s\t%s\n' '120' 'clarify' 'false' ;;
+    'verification.missing') printf '%s\t%s\t%s\n' '130' 'enrich,clarify' 'false' ;;
+    'diagnosis.score_below_threshold') printf '%s\t%s\t%s\n' '140' 'clarify' 'false' ;;
+    'runtime.degraded') printf '%s\t%s\t%s\n' '150' 'clarify,block' 'false' ;;
+    'context.resolvable_from_project') printf '%s\t%s\t%s\n' '200' 'enrich' 'false' ;;
+    'requirements.needs_enrichment') printf '%s\t%s\t%s\n' '205' 'enrich' 'false' ;;
+    'requirements.sufficient') printf '%s\t%s\t%s\n' '210' 'pass' 'false' ;;
+    'override.explicit_direct_output') printf '%s\t%s\t%s\n' '900' 'pass,enrich,clarify,block' 'false' ;;
+    'lifecycle.completion_failed') printf '%s\t%s\t%s\n' '30' '' 'false' ;;
+    *) return 1 ;;
+  esac
+}
+
+policy_projection_action_allowed() {
+  case "$1:$2" in
+    'block:stop'|'block:wait_confirmation'|'clarify:ask'|'enrich:execute'|'pass:execute') return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+policy_projection_evaluate() {
+  POLICY_ROUTE=
+  POLICY_ACTION=
+  # 10: policy_block
+  if policy_reason_any 'policy.operation_prohibited'; then
+    POLICY_ROUTE='block'
+    POLICY_ACTION='stop'
+    return 0
+  fi
+  # 20: clarify_missing_contract
+  if ( policy_reason_any 'intent.ambiguous_goal' 'intent.xy_problem' 'intent.symptom_as_cause' 'scope.impact_unknown' 'scope.too_broad' 'assumption.too_many' 'diagnosis.score_below_threshold' || policy_score_total 'effective' 'lt' '6' || policy_minimum_dimension 'effective' 'lt' '1' || policy_assumption_count 'gt' '2' ); then
+    POLICY_ROUTE='clarify'
+    POLICY_ACTION='ask'
+    return 0
+  fi
+  # 30: authorization_block
+  if policy_reason_any 'authorization.confirmation_missing'; then
+    POLICY_ROUTE='block'
+    POLICY_ACTION='wait_confirmation'
+    return 0
+  fi
+  # 40: enrich_executable_contract
+  if ( ( policy_reason_any 'context.resolvable_from_project' || policy_score_total 'observed' 'between' '6' '7' || ( policy_safety_critical 'true' && ! ( policy_reason_any 'policy.operation_prohibited' 'authorization.confirmation_missing' ) ) ) && policy_score_total 'effective' 'gte' '6' && policy_minimum_dimension 'effective' 'gte' '1' && policy_assumption_count 'lte' '2' ); then
+    POLICY_ROUTE='enrich'
+    POLICY_ACTION='execute'
+    return 0
+  fi
+  # 50: pass_complete_input
+  if ( policy_score_total 'observed' 'gte' '8' && policy_scores_equal 'true' && policy_minimum_dimension 'effective' 'gte' '1' && policy_assumption_count 'lte' '2' && policy_safety_critical 'false' ); then
+    POLICY_ROUTE='pass'
+    POLICY_ACTION='execute'
+    return 0
+  fi
+  # 999: fail_closed_clarify
+  if :; then
+    POLICY_ROUTE='clarify'
+    POLICY_ACTION='ask'
+    return 0
+  fi
+  return 1
+}
+# policy-projection:end
+
 # ── Alignment Decision 最小投影（无 Node fallback）──
 if [ "$MODE" = "decision" ]; then
+  if [ -z "${POLICY_PROJECTION_SHA256:-}" ] ||
+     [ -z "${POLICY_THRESHOLD_PASS_MINIMUM_TOTAL:-}" ] ||
+     [ -z "${POLICY_THRESHOLD_EXECUTION_MINIMUM_TOTAL:-}" ] ||
+     [ -z "${POLICY_THRESHOLD_EXECUTION_MINIMUM_DIMENSION:-}" ] ||
+     ! declare -F policy_projection_reason_meta >/dev/null ||
+     ! declare -F policy_projection_action_allowed >/dev/null ||
+     ! declare -F policy_projection_evaluate >/dev/null; then
+    printf '%s\n' $'clarify\truntime.degraded\task\ttrue'
+    exit 0
+  fi
   reason_add() { [ -z "$REASONS" ] && REASONS="$1" || REASONS="$REASONS,$1"; }
   REASONS=""
   PRODUCTION=$(count_re "$SIGNAL_TEXT" '生产环境|生产库|production|deploy to prod')
@@ -136,6 +336,43 @@ if [ "$MODE" = "decision" ]; then
   COMPLETE_RISK=0
   if { [ "$PRODUCTION" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ]; } && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then COMPLETE_RISK=1; fi
 
+  PROJECT_CONTEXT=0
+  case "${ALIGN_CONTEXT_REFS:-}" in *project:*) PROJECT_CONTEXT=1 ;; esac
+  PROJECT_VERIFICATION=0
+  if [ "$VERIFY" -eq 0 ] && [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$PROJECT_CONTEXT" -eq 1 ]; then
+    PROJECT_VERIFICATION=1
+  fi
+
+  POLICY_OBSERVED_TOTAL=1
+  POLICY_EFFECTIVE_TOTAL=1
+  POLICY_OBSERVED_MINIMUM=0
+  POLICY_EFFECTIVE_MINIMUM=0
+  POLICY_ASSUMPTION_COUNT=0
+  POLICY_SCORES_EQUAL=true
+  if [ "$CACHE_OPEN" -gt 0 ]; then
+    POLICY_OBSERVED_TOTAL=2
+    POLICY_EFFECTIVE_TOTAL=2
+    POLICY_ASSUMPTION_COUNT=3
+  elif [ "$COMPLETE_RISK" -eq 1 ] || { [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; }; then
+    POLICY_OBSERVED_TOTAL=8
+    POLICY_EFFECTIVE_TOTAL=8
+    POLICY_OBSERVED_MINIMUM=1
+    POLICY_EFFECTIVE_MINIMUM=1
+  elif [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ]; then
+    POLICY_OBSERVED_TOTAL=7
+    POLICY_EFFECTIVE_TOTAL=7
+    if [ "$PROJECT_VERIFICATION" -eq 1 ]; then
+      POLICY_EFFECTIVE_TOTAL=8
+      POLICY_EFFECTIVE_MINIMUM=1
+      POLICY_SCORES_EQUAL=false
+    fi
+  elif [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then
+    POLICY_OBSERVED_TOTAL=7
+    POLICY_EFFECTIVE_TOTAL=7
+    POLICY_OBSERVED_MINIMUM=1
+    POLICY_EFFECTIVE_MINIMUM=1
+  fi
+
   if [ "$POLICY_PROHIBITED" -gt 0 ]; then
     reason_add policy.operation_prohibited
   else
@@ -143,45 +380,43 @@ if [ "$MODE" = "decision" ]; then
     if [ "$PRODUCTION" -gt 0 ]; then reason_add risk.production_change; fi
     if [ "$DATA_MUTATION" -gt 0 ]; then reason_add risk.data_mutation; fi
     if [ "$COMPLETE_RISK" -eq 1 ] && [ "$CONFIRM_MISSING" -eq 0 ]; then reason_add requirements.needs_enrichment; fi
-    if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+    if { [ "$XY" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+    if [ "$VAGUE" -gt 0 ] && [ "$SPEC" -eq 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.ambiguous_goal; fi
+    if [ "$XY" -gt 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add intent.xy_problem; fi
     if [ "$DATA_MUTATION" -gt 0 ] && [ "$COMPLETE_RISK" -eq 0 ]; then reason_add scope.impact_unknown; fi
     if [ "$CACHE_OPEN" -gt 0 ]; then reason_add assumption.too_many; fi
     if [ "$VERIFY" -eq 0 ]; then reason_add verification.missing; fi
+    if [ "$PROJECT_VERIFICATION" -eq 1 ]; then reason_add context.resolvable_from_project; fi
   fi
 
-  LOW_SCORE=0
-  if { [ "$VAGUE" -gt 0 ] || [ "$DATA_MUTATION" -gt 0 ] || [ "$CACHE_OPEN" -gt 0 ]; } && [ "$COMPLETE_RISK" -eq 0 ]; then LOW_SCORE=1; fi
-  if [ "$LOW_SCORE" -eq 1 ]; then reason_add diagnosis.score_below_threshold; fi
-
-  PROJECT_CONTEXT=0
-  case "${ALIGN_CONTEXT_REFS:-}" in *project:*) PROJECT_CONTEXT=1 ;; esac
-  if [ "$POLICY_PROHIBITED" -gt 0 ]; then
-    ROUTE=block
-  elif [ "$VERIFY" -eq 0 ] && [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$PROJECT_CONTEXT" -eq 1 ]; then
-    REASONS="$(printf '%s' "$REASONS" | sed 's/,\{0,1\}diagnosis\.score_below_threshold//')"
-    reason_add context.resolvable_from_project
-    ROUTE=enrich
-  elif [ "$LOW_SCORE" -eq 1 ] || [ "$CACHE_OPEN" -gt 0 ]; then
-    ROUTE=clarify
-  elif [ "$CONFIRM_MISSING" -gt 0 ]; then
-    ROUTE=block
-  elif [ "$FILE_OR_SYMBOL" -gt 0 ] && [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then
-    ROUTE=pass
-    [ -n "$REASONS" ] || reason_add requirements.sufficient
-  elif [ "$BOUNDED" -gt 0 ] && [ "$VERIFY" -gt 0 ]; then
-    ROUTE=enrich
-    [ -n "$REASONS" ] || reason_add requirements.needs_enrichment
-  else
-    ROUTE=clarify
-    [ -n "$REASONS" ] || reason_add intent.ambiguous_goal
+  if [ "$POLICY_PROHIBITED" -eq 0 ] && [ "$POLICY_EFFECTIVE_TOTAL" -lt "$POLICY_THRESHOLD_EXECUTION_MINIMUM_TOTAL" ]; then
+    reason_add diagnosis.score_below_threshold
+  fi
+  if [ "$POLICY_PROHIBITED" -eq 0 ] && [ -z "$REASONS" ]; then
+    if [ "$POLICY_OBSERVED_TOTAL" -ge "$POLICY_THRESHOLD_PASS_MINIMUM_TOTAL" ]; then
+      reason_add requirements.sufficient
+    elif [ "$POLICY_OBSERVED_TOTAL" -ge "$POLICY_THRESHOLD_EXECUTION_MINIMUM_TOTAL" ] &&
+         [ "$POLICY_EFFECTIVE_MINIMUM" -ge "$POLICY_THRESHOLD_EXECUTION_MINIMUM_DIMENSION" ]; then
+      reason_add requirements.needs_enrichment
+    else
+      reason_add intent.ambiguous_goal
+    fi
   fi
   if [ "$DIRECT_OUTPUT" -eq 1 ]; then reason_add override.explicit_direct_output; fi
-  case "$ROUTE" in
-    pass|enrich) ACTION=execute ;;
-    clarify) ACTION=ask ;;
-    block) [ "$POLICY_PROHIBITED" -gt 0 ] && ACTION=stop || ACTION=wait_confirmation ;;
-  esac
-  printf '%s\t%s\t%s\ttrue\n' "$ROUTE" "$REASONS" "$ACTION"
+
+  POLICY_REASONS="$REASONS"
+  POLICY_SAFETY_CRITICAL="$(policy_projection_safety_from_reasons)" || policy_projection_fail_closed
+  if [ "$POLICY_REASONS" != "runtime.degraded" ]; then
+    policy_projection_evaluate || policy_projection_fail_closed
+  fi
+  if ! policy_projection_action_allowed "$POLICY_ROUTE" "$POLICY_ACTION"; then
+    policy_projection_fail_closed
+  fi
+  SORTED_REASONS="$(policy_projection_sorted_reasons "$POLICY_ROUTE")" || policy_projection_fail_closed
+  if [ "$POLICY_REASONS" = "runtime.degraded" ]; then
+    SORTED_REASONS=runtime.degraded
+  fi
+  printf '%s\t%s\t%s\ttrue\n' "$POLICY_ROUTE" "$SORTED_REASONS" "$POLICY_ACTION"
   exit 0
 fi
 
@@ -192,10 +427,22 @@ if [ "${RISK:-0}" -ge 1 ]; then
   else
     VERDICT="HIGH"
   fi
+elif [ "${XY:-0}" -ge 1 ]; then
+  VERDICT="VAGUE"    # XY Problem：用户提议方案而非描述问题，必须澄清
 elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -eq 0 ]; then
   VERDICT="VAGUE"
+elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -ge 2 ]; then
+  VERDICT="CLEAR"    # 有具体文件+具体值，是完整请求
+elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -ge 1 ] && [ "${VALUE:-0}" -ge 1 ]; then
+  VERDICT="CLEAR"    # 有具体文件+具体数值/字符串，是完整请求
 elif [ "${VAGUE:-0}" -ge 1 ] && [ "${SPEC:-0}" -ge 1 ]; then
-  VERDICT="GRAY"
+  # 检查是否只匹配"加一个"类模式（完整请求）还是"改成"类模式（需要澄清）
+  VAGUE_ADD=$(count_re "$SIGNAL_TEXT" '加个|加一个|加一下')
+  if [ "${VAGUE_ADD:-0}" -ge 1 ] && [ "${VAGUE:-0}" -eq 1 ]; then
+    VERDICT="CLEAR"  # "加一个 <具体文件>" 是完整请求
+  else
+    VERDICT="GRAY"
+  fi
 fi
 
 if [ "$MODE" = "classify" ]; then

@@ -106,6 +106,10 @@ function countMatches(text, patterns) {
  * 7. Count specific signals on ORIGINAL text (file names are often quoted)
  * 8. Count educational signals on text after steps 1-3 (before negation strip)
  */
+/**
+ * @deprecated Compatibility-only signal inspection. Use the Alignment
+ * Decision returned by alignInstruction() as the route source of truth.
+ */
 function classify(instruction) {
     if (!instruction) {
         return { risk: 0, vague: 0, specific: 0, edu: 0 };

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0.0",
+  "corpusId": "w7-fresh-v2-2026-07-18",
+  "corpusPath": "tests/eval/w7-fresh-blind-corpus-v2.jsonl",
+  "evidencePrefix": "w7-fresh-v2",
+  "description": "Fresh blind corpus v2 for W7 v4 release validation. 40 new natural requests across 6 categories.",
+  "categories": {
+    "complete-low-risk": {
+      "count": 8,
+      "expectedRoute": "pass",
+      "description": "Simple, complete requests that should execute without clarification"
+    },
+    "enrichable-context": {
+      "count": 8,
+      "expectedRoute": "enrich",
+      "description": "Requests with gaps that can be filled from project context"
+    },
+    "direction-missing": {
+      "count": 8,
+      "expectedRoute": "clarify",
+      "description": "Vague requests that must ask for the highest-value question"
+    },
+    "high-risk-authorization": {
+      "count": 8,
+      "expectedRoute": "block",
+      "description": "Dangerous requests that need authorization or policy checks"
+    },
+    "xy-problem": {
+      "count": 4,
+      "expectedRoute": "clarify",
+      "description": "Requests with proposed solutions that may not address the real problem"
+    },
+    "acceptance-relevance": {
+      "count": 4,
+      "expectedRoute": "enrich",
+      "description": "Requests that need executable acceptance criteria"
+    }
+  },
+  "totalRequests": 40,
+  "frozenAt": "2026-07-18T12:00:00Z",
+  "consumedAfter": "2026-07-18T03:05:28.723Z"
+}

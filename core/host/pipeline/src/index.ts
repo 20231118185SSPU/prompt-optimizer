@@ -9,20 +9,15 @@
 
 export const VERSION = '3.2.0-rc.1';
 
-// Re-export pipeline components
+// Public seam: callers consume the Alignment Decision and host projection.
+// The remaining compatibility exports are intentionally kept narrow while
+// older consumers migrate to alignInstruction(...).
+/** @deprecated Use alignInstruction(...).decision. */
 export { classify, Classification } from './classifier';
+/** @deprecated Use alignInstruction(...).decision and .host. */
 export { route, Verdict, RoutingResult } from './router';
-export { enrich, AlignContext, EnrichmentResult } from './enricher';
-export { getVerificationCommands, runVerification, VerificationResult } from './verifier';
-export {
-  processInstruction,
-  PipelineEcosystem,
-  PipelineOptions,
-  PipelineResult
-} from './pipeline';
-export { analyzeInstruction, AnalysisResult, DimensionScores, SourceRef } from './analyzer';
-export { decideRoute, DecisionRoute, RouteDecision } from './decision-engine';
-export { buildAlignmentDecision, AlignmentDecision } from './contract-builder';
+export { alignInstruction, AlignmentHostCapabilities, AlignmentInterfaceResult } from './alignment-interface';
+export { AlignmentDecision } from './contract-builder';
 export {
   projectAlignmentDecision,
   CompatibilityVerdict,
@@ -31,40 +26,59 @@ export {
   HostNextAction,
   HostProjection
 } from './host-projection';
-export { LifecycleCoordinator, LifecycleState } from './lifecycle';
+// Legacy context projection remains an explicit CLI compatibility capability.
 export { writeContextProjection, ProjectionResult } from './context-projection';
-export {
-  buildMattHandoff,
-  discoverMattEnvironment,
-  MATT_SKILLS,
-  MattEnvironment,
-  MattEnvironmentDiscoveryOptions,
-  MattHandoff,
-  MattSkill
-} from './matt-handoff';
-export { generateCopilotRules, generateAiderRules, generateWindsurfRules } from './rules/generate';
 
 // ── CLI Entry Point ──
 
 // Import for CLI use
 import { processInstruction } from './pipeline';
+import { alignInstruction as alignForHost } from './alignment-interface';
 import { writeContextProjection } from './context-projection';
+import { completeReferenceHostRun, recordReferenceHostHandoff } from './reference-host';
+import { createMattHandoff } from './matt-cli';
 
 // Tool-specific output modes
 const toolModes: Record<string, (instruction: string, projectDir: string) => void> = {
   'claude-code': (instruction, projectDir) => {
     // Claude Code hook mode: output hook-compatible format
-    const result = processInstruction(instruction, projectDir, {
+    const result = alignForHost(instruction, projectDir, {
       hostCapabilities: {
         adapter: 'claude-code',
         nativeBlocking: process.env.BLOCK_ON_HIGH === 'on'
       }
     });
-    console.log(result.instructions);
-
-    if (result.hostProjection.shouldBlock) {
+    const lifecycleInvocation = Object.prototype.hasOwnProperty.call(process.env, 'ALIGN_SESSION_REF');
+    const sessionRef = process.env.ALIGN_SESSION_REF || undefined;
+    const executable = result.decision.route === 'pass' || result.decision.route === 'enrich';
+    let lifecycleStatus = 'not_observable';
+    if (sessionRef) {
+      try {
+        lifecycleStatus = recordReferenceHostHandoff(projectDir, instruction, result.decision, sessionRef).status;
+      } catch {
+        lifecycleStatus = 'baseline_incomplete';
+      }
+    }
+    if (executable && lifecycleInvocation && lifecycleStatus !== 'handoff_issued') {
+      console.error(`[对齐] baseline=${lifecycleStatus}。未签发 execution handoff，已阻断执行。`);
       process.exit(2);
     }
+    console.log(result.host.instructions);
+
+    if (result.host.shouldBlock) {
+      process.exit(2);
+    }
+  },
+
+  'claude-stop': (_instruction, projectDir) => {
+    const sessionRef = process.env.ALIGN_SESSION_REF || undefined;
+    const lifecycle = sessionRef
+      ? completeReferenceHostRun(projectDir, { kind: 'claude-code.stop' }, sessionRef)
+      : { status: 'not_observable' as const };
+    console.log(
+      `[对齐] execution receipt/completion status=${lifecycle.status} ` +
+      'failed/cancelled=enforcement_unavailable'
+    );
   },
 
   'codex': (instruction, projectDir) => {
@@ -111,18 +125,19 @@ const toolModes: Record<string, (instruction: string, projectDir: string) => voi
   },
 
   'json': (instruction, projectDir) => {
-    const result = processInstruction(instruction, projectDir);
+    // Thin adapters may identify their host without creating a second route.
+    const hostCapabilities = process.env.ALIGN_HOST_ADAPTER === 'codex'
+      ? { adapter: 'codex' }
+      : undefined;
+    const result = processInstruction(instruction, projectDir, { hostCapabilities });
     console.error(`[alignment] route=${result.alignmentDecision.route} reasons=${result.alignmentDecision.reasons.join(',')}`);
     process.stdout.write(`${JSON.stringify(result.alignmentDecision)}\n`);
   },
 
   'matt': (instruction, projectDir) => {
-    const result = processInstruction(instruction, projectDir, { ecosystem: 'matt-pocock-skills' });
-    if (!result.handoff) {
-      throw new Error('Matt handoff was not generated.');
-    }
-    console.error(`[alignment] route=${result.alignmentDecision.route} status=${result.handoff.status}`);
-    process.stdout.write(`${JSON.stringify(result.handoff)}\n`);
+    const handoff = createMattHandoff(instruction, projectDir);
+    console.error(`[alignment] route=${handoff.source.route} status=${handoff.status}`);
+    process.stdout.write(`${JSON.stringify(handoff)}\n`);
   },
 
   'context-project': (instruction, projectDir) => {

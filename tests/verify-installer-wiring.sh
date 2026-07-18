@@ -64,7 +64,7 @@ env_preserved() { # env_preserved <file>
 }
 
 run_install() {
-  PROMPT_OPTIMIZER_ZIP="$ROOT" bash "$ROOT/scripts/install-skill.sh" claude >/dev/null 2>&1
+  PROMPT_OPTIMIZER_ZIP="$ROOT" bash "$ROOT/scripts/install-skill.sh" --wire-hook claude >/dev/null 2>&1
 }
 
 echo "=== Test 0: 未认领 runtime 目录 → 拒绝覆盖 ==="

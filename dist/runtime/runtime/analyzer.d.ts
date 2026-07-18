@@ -13,6 +13,21 @@ export interface DimensionScores {
     d5: number;
     total: number;
 }
+export type ScoreDimension = 'd1' | 'd2' | 'd3' | 'd4' | 'd5';
+export type GapKind = 'none' | 'structural' | 'directional';
+export interface ContextEvidence {
+    source: SourceRef;
+    gap: 'structural';
+    fields: ScoreDimension[];
+    statement: string;
+}
+export interface EffectiveScoreSource {
+    dimension: ScoreDimension;
+    from: number;
+    to: number;
+    source: SourceRef;
+    evidence: string;
+}
 export interface AnalysisResult {
     text: string;
     contextText: string;
@@ -21,6 +36,9 @@ export interface AnalysisResult {
     observed: DimensionScores;
     effective: DimensionScores;
     assumptionCount: number;
+    gap: GapKind;
+    contextEvidence: ContextEvidence[];
+    effectiveScoreSources: EffectiveScoreSource[];
     appliedContext: SourceRef[];
 }
 export declare function isLocalReleasePreparation(text: string): boolean;
