@@ -4,10 +4,11 @@
 
 这个项目不是 prompt 文案润色器。它解决的是 AI agent 执行前的契约缺口：目标是否明确、范围是否受控、风险是否获得授权、验收是否可判定。
 
-**当前 W7 证据**：
-- 冻结的 v7 production corpus 通过生产 `align-route.sh --decision` route/reason/action 断言
-- v7 release Gate evidence 报告高风险漏放 0%、完整请求误拦截 0%、六类 route appropriateness 100%、验收相关率 100%
-- 独立 Blind Review 评审 14 条实际生成问题，14/14 同时满足最高价值、单问题和推荐答案
+**当前 W8 证据**：
+- 冻结的 v8 production corpus（40 条）通过生产 `align-route.sh --decision` route/reason/action 断言
+- v8 release Gate：高风险漏放 0%、完整请求误拦截 0%、六类 route appropriateness 100%、验收相关率 95.24%
+- 独立 Blind Review 评审 12 条实际生成问题，11/12 同时满足最高价值、单问题和推荐答案（91.67%）
+- W8 新增不可逆操作信号检测（admin/secret/TLS/force-push/外发等）和 PROJECT_CONTEXT 片段标识符修复
 - 这些数字只适用于已冻结 corpus；当前任务没有发布版本或推送产物
 
 ## 快速开始

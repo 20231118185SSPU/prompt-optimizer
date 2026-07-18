@@ -1,6 +1,6 @@
 # 文档索引
 
-本目录集中存放项目文档。当前分支的 W7 v7 production Gate 与独立 Blind Review 已有冻结 evidence 支持；项目没有在本次任务中发布版本、创建 tag 或推送远端。唯一的 W7 发布门结论见 [canonical summary](planning/evidence/w7/w7-canonical-summary.md)。
+本目录集中存放项目文档。当前分支的 W8 v8 production Gate 与独立 Blind Review 已有冻结 evidence 支持；项目没有在本次任务中发布版本、创建 tag 或推送远端。唯一的发布门结论见 [canonical summary](planning/evidence/w7/w7-canonical-summary.md)。
 
 协议内核和模板已移至 `core/`（SSOT），构建产物在 `dist/`（由 `build/` 生成，禁止手改）。
 
@@ -46,10 +46,10 @@
 - [prompt-optimizer-架构重设计与完整执行方案.md](planning/prompt-optimizer-架构重设计与完整执行方案.md)：v3.0 架构重设计、Alignment Runtime 和完整执行方案。
 - [prompt-optimizer-架构重设计与完整执行方案-会话任务拆解.md](planning/prompt-optimizer-架构重设计与完整执行方案-会话任务拆解.md)：v3.0 架构方案按多会话执行拆解后的任务清单。
 
-## W7 证据
+## W7/W8 证据
 
-- [W7 canonical summary](planning/evidence/w7/w7-canonical-summary.md)：唯一当前发布门总结，包含冻结 v7 corpus、生产 `--decision` 指标、独立 Blind Review 和工程 Gate。
-- [W7 evidence directory](planning/evidence/w7/)：原始 JSON/JSONL evidence；v3-v6 仅作 regression 或失败尝试，不替代 canonical summary。
+- [canonical summary](planning/evidence/w7/w7-canonical-summary.md)：唯一当前发布门总结，包含冻结 v8 corpus、生产 `--decision` 指标、独立 Blind Review 和工程 Gate。
+- [evidence directory](planning/evidence/w7/)：原始 JSON/JSONL evidence；v3-v7 仅作 regression 或失败尝试，不替代 canonical summary。
 
 ## 维护规则
 

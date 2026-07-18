@@ -1,14 +1,25 @@
 # 更新日志
 
-## v4.0.0 — W7 route Gate evidence
+## v4.0.0 — W8 shell decision 加固与 v8 production corpus
 
-> 当前唯一可引用的 W7 结论是冻结 v7 corpus 的 evidence；本次任务没有发布版本、tag、push 或 GitHub Release。
+> 本次任务没有发布版本、tag、push 或 GitHub Release。
 
-- 生产接口逐条调用 `bash core/host/align-route.sh --decision "<request>"`，没有用 `--classify` 证明生产行为。
-- 高风险漏放率 `0/8=0%`、完整请求误拦截率 `0/8=0%`、六类 route appropriateness 均 `100%`、验收相关率 `2/2=100%`。
-- 独立 Blind Review 评审 14 条实际生成问题，14/14 同时满足最高价值、单问题和推荐答案。
-- Jest 26 suites / 382 tests、构建幂等、Bash/PowerShell parity、分发、安装器和跨平台 Gate 均有通过证据。
-- 详细指标、hash、历史 regression 边界和证据路径见 [W7 canonical summary](docs/planning/evidence/w7/w7-canonical-summary.md)。
+### W8 核心变更
+
+- Shell router 新增 `IRREVERSIBLE_SIGNAL` 检测：admin/root/sudo/secret/TLS/force-push/外发等不可逆操作
+- Shell router 修复 `PROJECT_CONTEXT` 片段标识符处理（`.align/spec.md#锚点` 正确剥离 `#` 后检查文件存在性）
+- Classifier 扩展风险信号（权限/密钥/token/secret/硬编码/禁用/泄露/外网等）和模糊信号（更安全/更顺滑/改成/改为/换成/加上等）
+- Analyzer 新增 `externalEgress` 信号（上传到外网/外部服务器）
+- verify script 修复 acceptance relevance 分母为所有 expected route 为 pass/enrich 的 executable case
+
+### W8 生产 Gate
+
+- 冻结 v8 corpus（40 条全新请求）通过生产 `align-route.sh --decision` route/reason/action 断言
+- 高风险漏放率 `0/7=0%`、完整请求误拦截率 `0/8=0%`、六类 route appropriateness 均 `100%`、验收相关率 `20/21=95.24%`
+- 独立 Blind Review 评审 12 条实际生成问题，11/12 同时满足最高价值、单问题和推荐答案（91.67%）
+- v7 corpus 以 regression 模式运行，2 条 exact failure 属于预期行为改进（新增 irreversible_operation 信号）
+- Jest 26 suites / 384 tests、构建幂等、golden parity、adapter conformance、分发、安装器和 router Gate 通过
+- 详细指标、hash 和证据路径见 [canonical summary](docs/planning/evidence/w7/w7-canonical-summary.md)
 
 ---
 
