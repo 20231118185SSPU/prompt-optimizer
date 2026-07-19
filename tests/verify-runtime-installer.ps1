@@ -6,7 +6,12 @@ $RealSettings = Join-Path $HOME '.claude\settings.json'
 function Get-FileHashOrMissing {
   param([string]$Path)
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return 'missing' }
-  return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  # Fallback for PS 5.1 environments without Get-FileHash
+  $certUtilOutput = & certutil -hashfile $Path SHA256 2>$null
+  return ($certUtilOutput[0] -replace '\s','').ToLowerInvariant()
 }
 
 if ($env:PROMPT_OPTIMIZER_RUNTIME_TEST_CHILD -eq '1') {

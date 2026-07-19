@@ -54,3 +54,8 @@
 - [runtime hash 冻结] 规则：core 源码修改并 rebuild 后 runtime bundle hash 会变 → 下次执行：E4 证据的 runtime hash 必须在 dist 构建完成后立即记录，不得沿用旧 hash。
 - [PS5.1 UTF-8 BOM] 规则：PS 5.1 的 `ConvertFrom-Json` 无法正确解析无 BOM UTF-8 中的非 ASCII 字符 → 下次执行：`Write-SettingsJson` 使用 `UTF8Encoding($true)` 带 BOM 写出 settings.json。
 - [hook 直接调用 E4] 规则：直接调用 hook adapter 产生完整 lifecycle 链可证明机制正确，但不等价于交互式 Claude Code 会话 → 下次执行：E4 证据标注 `invocationMethod`，区分 hook-simulated 与 interactive session。
+- [W7 fresh verifier] 规则：`verify-w7-fresh-corpus-v2.js` 会重写 execution 与 manifest 时间戳 → 下次执行：只在隔离副本运行，或先保存并恢复证据文件。
+- [W8 fragment identifier] 规则：`.align/spec.md#锚点` 形式的 context ref 在 shell 文件存在性检查前必须剥离 `#` 后缀 → 下次执行：`${path%%#*}` 截断后再 `-f` 判断。
+- [W8 bash ETIMEDOUT] 规则：Windows Git Bash 连续 spawn 40+ 次时偶发 ETIMEDOUT（15s 不够）→ 下次执行：`verify-w7-production-corpus.js` timeout 设 30000，或分批运行。
+- [W8 g5 hash 冻结] 规则：W8 修改 classifier/analyzer 后 runtime bundle hash 变化，g5 remediation 证据必须重新冻结 → 下次执行：改 pipeline 源码后立即重跑 `verify-g5-remediation.js` 并更新 evidence。
+- [W8 PS5.1 Get-FileHash] 规则：`Get-FileHash` 是 PS4+ cmdlet 但部分 Win10 环境仍缺失 → 下次执行：用 `CertUtil -hashfile` 做 fallback。
