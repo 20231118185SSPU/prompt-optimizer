@@ -10,10 +10,12 @@ trap 'rm -rf "$SANDBOX"' EXIT
 export HOME="$SANDBOX/home"
 mkdir -p "$HOME/.claude"
 
-HOOK_CMD='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+HOOK_CMD='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+OLD_CANONICAL_CMD='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
 OLD_ANCHORED_CMD='bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
 LEGACY_CMD='cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
 OLD_RELATIVE_CMD='bash .align/align-route.sh 2>/dev/null || cat .align/HOOK-REMINDER.txt 2>/dev/null || true'
+STOP_HOOK_CMD='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi'
 
 fail=0
 check() { # check <desc> <cond-exit-code>
@@ -43,6 +45,18 @@ print(sum(h.get("command") == cmd
 PYEOF
 }
 
+json_has_stop_cmd() { # json_has_stop_cmd <file> <cmd>
+  CMD="$2" python3 - "$1" <<'PYEOF'
+import json, os, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+cmd = os.environ["CMD"]
+found = any(h.get("command") == cmd
+            for g in data.get("hooks", {}).get("Stop", [])
+            for h in g.get("hooks", []))
+sys.exit(0 if found else 1)
+PYEOF
+}
+
 write_settings_with_cmd() { # write_settings_with_cmd <file> <cmd>
   CMD="$2" python3 - "$1" <<'PYEOF'
 import json, os, sys
@@ -67,6 +81,18 @@ run_install() {
   PROMPT_OPTIMIZER_ZIP="$ROOT" bash "$ROOT/scripts/install-skill.sh" --wire-hook claude >/dev/null 2>&1
 }
 
+echo "=== Test -1: 默认安装 → 不接线 Claude hook ==="
+cat > "$HOME/.claude/settings.json" <<'EOF'
+{"env": {"MY_KEY": "my-value"}}
+EOF
+cp "$HOME/.claude/settings.json" "$SANDBOX/default-settings-before.json"
+PROMPT_OPTIMIZER_ZIP="$ROOT" bash "$ROOT/scripts/install-skill.sh" claude >/dev/null 2>&1
+check "default install succeeds without hook wiring" $?
+cmp -s "$HOME/.claude/settings.json" "$SANDBOX/default-settings-before.json"
+check "default install leaves Claude settings byte-for-byte unchanged" $?
+test -d "$HOME/.claude/skills/align"; check "default install still installs skills" $?
+rm -rf "$HOME/.prompt-optimizer" "$HOME/.claude/skills"
+
 echo "=== Test 0: 未认领 runtime 目录 → 拒绝覆盖 ==="
 mkdir -p "$HOME/.prompt-optimizer"
 printf '%s\n' 'user data' > "$HOME/.prompt-optimizer/user-file"
@@ -81,6 +107,7 @@ cat > "$HOME/.claude/settings.json" <<'EOF'
 EOF
 run_install
 json_has_cmd "$HOME/.claude/settings.json" "$HOOK_CMD"; check "hook added on fresh install" $?
+json_has_stop_cmd "$HOME/.claude/settings.json" "$STOP_HOOK_CMD"; check "Stop hook added on fresh install" $?
 env_preserved "$HOME/.claude/settings.json"
 check "existing env preserved" $?
 test -d "$HOME/.claude/skills/optimize-prompt-lite"; check "lite skill installed" $?
@@ -88,10 +115,28 @@ test -f "$HOME/.prompt-optimizer/runtime/index.js"; check "structured runtime in
 test -f "$HOME/.prompt-optimizer/bin/align-doctor"; check "doctor installed" $?
 test -f "$HOME/.prompt-optimizer/adapters/claude-code.sh"; check "Claude adapter installed" $?
 test -f "$HOME/.prompt-optimizer/adapters/codex.sh"; check "Codex adapter installed" $?
-printf '%s' '{"prompt":"[直出] 删除生产库中全部 90 天未登录用户；备份和回滚条件已定义，但尚未确认执行。"}' |
-  CLAUDE_PROJECT_DIR="$ROOT" bash -c "$HOOK_CMD" > "$SANDBOX/hook-out" 2> "$SANDBOX/hook-err"
+SESSION_STATE_HOME="$SANDBOX/session-state"
+HOOK_SESSION_ID='installer-wiring-session'
+HOOK_PROMPT='[直出] 删除生产库中全部 90 天未登录用户；备份和回滚条件已定义，但尚未确认执行。'
+printf '{"session_id":"%s","prompt":"%s"}' "$HOOK_SESSION_ID" "$HOOK_PROMPT" |
+  PROMPT_OPTIMIZER_STATE_HOME="$SESSION_STATE_HOME" CLAUDE_PROJECT_DIR="$ROOT" bash -c "$HOOK_CMD" > "$SANDBOX/hook-out" 2> "$SANDBOX/hook-err"
 HOOK_STATUS=$?
-[ "$HOOK_STATUS" -eq 2 ]; check "installed Claude hook reaches runtime adapter and blocks (status=$HOOK_STATUS)" $?
+[ "$HOOK_STATUS" -eq 2 ]; check "inactive Claude session blocks before routing (status=$HOOK_STATUS)" $?
+grep -q '请先运行 /align' "$SANDBOX/hook-out"; check "inactive Claude session prompts for /align" $?
+if grep -q 'route=' "$SANDBOX/hook-out"; then
+  check "inactive Claude session does not reach runtime" 1
+else
+  check "inactive Claude session does not reach runtime" 0
+fi
+printf '{"session_id":"%s","prompt":"/align"}' "$HOOK_SESSION_ID" |
+  PROMPT_OPTIMIZER_STATE_HOME="$SESSION_STATE_HOME" CLAUDE_PROJECT_DIR="$ROOT" bash -c "$HOOK_CMD" > "$SANDBOX/activate-out" 2> "$SANDBOX/activate-err"
+ACTIVATE_STATUS=$?
+[ "$ACTIVATE_STATUS" -eq 0 ]; check "Claude /align session activation succeeds (status=$ACTIVATE_STATUS)" $?
+grep -q '当前会话已启用' "$SANDBOX/activate-out"; check "Claude /align activates current session" $?
+printf '{"session_id":"%s","prompt":"%s"}' "$HOOK_SESSION_ID" "$HOOK_PROMPT" |
+  PROMPT_OPTIMIZER_STATE_HOME="$SESSION_STATE_HOME" CLAUDE_PROJECT_DIR="$ROOT" bash -c "$HOOK_CMD" > "$SANDBOX/hook-out" 2> "$SANDBOX/hook-err"
+HOOK_STATUS=$?
+[ "$HOOK_STATUS" -eq 2 ]; check "activated Claude session reaches runtime and blocks (status=$HOOK_STATUS)" $?
 DOCTOR_JSON="$(CLAUDE_SETTINGS_PATH="$HOME/.claude/settings.json" bash "$HOME/.prompt-optimizer/bin/align-doctor" --json "$ROOT")"
 printf '%s' "$DOCTOR_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); raise SystemExit(0 if d["hosts"]["claude-code"]["level"] == "L3" else 1)'
 check "doctor reports activated Claude L3 wiring" $?
@@ -109,6 +154,43 @@ run_install
 json_has_cmd "$HOME/.claude/settings.json" "$HOOK_CMD"; check "legacy hook upgraded" $?
 json_has_cmd "$HOME/.claude/settings.json" "$LEGACY_CMD"
 [ $? -ne 0 ]; check "legacy command removed after upgrade" $?
+
+echo "=== Test 3a: 旧 canonical hook → session activation 升级 ==="
+write_settings_with_cmd "$HOME/.claude/settings.json" "$OLD_CANONICAL_CMD"
+run_install
+json_has_cmd "$HOME/.claude/settings.json" "$HOOK_CMD"; check "old canonical hook upgraded to session activation" $?
+json_has_cmd "$HOME/.claude/settings.json" "$OLD_CANONICAL_CMD"
+[ $? -ne 0 ]; check "old canonical command removed after upgrade" $?
+
+echo "=== Test 3ab: 新旧 owned hook 并存 → 归一为单条 session hook ==="
+python3 - "$HOME/.claude/settings.json" "$HOOK_CMD" "$OLD_CANONICAL_CMD" <<'PYEOF'
+import json, sys
+
+path, current, legacy = sys.argv[1:]
+data = {
+    "hooks": {"UserPromptSubmit": [
+        {"hooks": [
+            {"type": "command", "command": current},
+            {"type": "command", "command": legacy},
+        ]}
+    ]}
+}
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False)
+    f.write("\n")
+PYEOF
+run_install
+json_has_cmd "$HOME/.claude/settings.json" "$HOOK_CMD"; check "coexisting owned hooks retain session hook" $?
+json_has_cmd "$HOME/.claude/settings.json" "$OLD_CANONICAL_CMD"
+[ $? -ne 0 ]; check "coexisting legacy hook removed" $?
+COUNT=$(json_cmd_count "$HOME/.claude/settings.json" "$HOOK_CMD")
+[ "$COUNT" -eq 1 ]; check "coexisting owned hooks normalize to one command (count=$COUNT)" $?
+
+echo "=== Test 3aa: 非 owned hook → 保留并新增本协议 hook ==="
+write_settings_with_cmd "$HOME/.claude/settings.json" 'echo user-owned-hook'
+run_install
+json_has_cmd "$HOME/.claude/settings.json" 'echo user-owned-hook'; check "foreign hook is not replaced" $?
+json_has_cmd "$HOME/.claude/settings.json" "$HOOK_CMD"; check "owned session hook added alongside foreign hook" $?
 
 echo "=== Test 3b: 旧版相对路径 hook（CWD 劫持漏洞）→ 升级为项目锚定 ==="
 write_settings_with_cmd "$HOME/.claude/settings.json" "$OLD_RELATIVE_CMD"
@@ -137,6 +219,8 @@ PYEOF
 bash "$ROOT/scripts/install-skill.sh" --uninstall claude >/dev/null 2>&1
 json_has_cmd "$HOME/.claude/settings.json" "$HOOK_CMD"
 [ $? -ne 0 ]; check "our hook removed on uninstall" $?
+json_has_stop_cmd "$HOME/.claude/settings.json" "$STOP_HOOK_CMD"
+[ $? -ne 0 ]; check "our Stop hook removed on uninstall" $?
 json_has_cmd "$HOME/.claude/settings.json" "echo user-own-hook"; check "user's own hook untouched" $?
 env_preserved "$HOME/.claude/settings.json"
 check "env still preserved after uninstall" $?

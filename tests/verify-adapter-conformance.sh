@@ -38,7 +38,8 @@ while IFS='|' read -r id prompt_b64 context_b64 expected_route expected_action; 
   fi
 
   codex="$(bash "$CODEX_ADAPTER" "$prompt" "$case_project" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["route"]+"\t"+d["next"]["action"])')"
-  cursor="$(node "$CLI" cursor "$prompt" --project-dir "$case_project" | sed -n 's/.*route=\([a-z_]*\) next.action=\([a-z_]*\).*/\1\t\2/p' | head -1)"
+  # Cursor's user channel is Brief-only; route/action conformance uses the canonical public interface.
+  cursor="$(node -e 'const { alignInstruction } = require(process.argv[1]); const result = alignInstruction(process.argv[2], process.argv[3], { hostCapabilities: { adapter: "cursor" } }); process.stdout.write(`${result.decision.route}\t${result.decision.next.action}`);' "$CLI" "$prompt" "$case_project")"
   hook_json="$(CASE_ID="$id" PROMPT="$prompt" PYTHONIOENCODING=utf-8 python3 -c 'import json,os; print(json.dumps({"session_id":"conformance-"+os.environ["CASE_ID"],"prompt":os.environ["PROMPT"]}, ensure_ascii=False))')"
   claude="$(printf '%s' "$hook_json" | BLOCK_ON_HIGH=off CLAUDE_PROJECT_DIR="$case_project" bash "$CLAUDE_ADAPTER" | sed -n 's/.*route=\([a-z_]*\) next.action=\([a-z_]*\).*/\1\t\2/p' | head -1)"
   claude_shell="$(printf '%s' "$hook_json" | ALIGN_NODE_COMMAND=__missing_node__ BLOCK_ON_HIGH=off CLAUDE_PROJECT_DIR="$case_project" bash "$CLAUDE_ADAPTER" | sed -n 's/.*route=\([a-z_]*\) next.action=\([a-z_]*\).*/\1\t\2/p' | head -1)"

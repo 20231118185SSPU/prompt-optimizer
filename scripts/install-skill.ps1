@@ -70,12 +70,12 @@ function Assert-SettingsShape {
   foreach ($eventName in @('UserPromptSubmit', 'Stop')) {
     if (-not $hooks.Contains($eventName) -or $null -eq $hooks[$eventName]) { continue }
     $entries = $hooks[$eventName]
-    if ($entries -is [string]) {
+    if ($entries -isnot [System.Collections.IList]) {
       throw "Claude settings hooks.$eventName must be an array: $Path"
     }
     foreach ($group in @($entries)) {
       if ($group -isnot [System.Collections.IDictionary] -or -not $group.Contains('hooks') -or
-          $null -eq $group['hooks'] -or $group['hooks'] -is [string]) {
+          $null -eq $group['hooks'] -or $group['hooks'] -isnot [System.Collections.IList]) {
         throw "Claude settings hooks.$eventName contains an invalid group: $Path"
       }
       foreach ($hook in @($group['hooks'])) {
@@ -312,6 +312,7 @@ if ($Uninstall) {
     # 移除本协议安装的 hook 条目（只删自己的，其他 hooks 与字段不触碰）
     $settingsPath = Join-Path $UserHome ".claude\settings.json"
     $ourCmds = @(
+      'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
       'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
       'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
       'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
@@ -484,9 +485,10 @@ try {
   # ── Claude Code hook 自动接线（幂等：已存在则跳过；只增不删既有字段）──
   if ($wireClaude) {
     $settingsPath = Join-Path $UserHome ".claude\settings.json"
-    $hookCmd = 'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+    $hookCmd = 'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
     $stopHookCmd = 'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi'
     $legacyCmds = @(
+      'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
       'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
       'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
       'cat .align/HOOK-REMINDER.txt 2>/dev/null || true',
@@ -504,17 +506,41 @@ try {
     if ($data["hooks"]["UserPromptSubmit"] -eq $null) { $data["hooks"]["UserPromptSubmit"] = @() }
     if ($data["hooks"]["Stop"] -eq $null) { $data["hooks"]["Stop"] = @() }
 
-    $entries = $data["hooks"]["UserPromptSubmit"]
-    $stopEntries = $data["hooks"]["Stop"]
-    $present = $false
+    $entries = @($data["hooks"]["UserPromptSubmit"])
+    $stopEntries = @($data["hooks"]["Stop"])
+    $hasSessionHook = $false
     $upgraded = $false
+    $deduplicated = $false
+    $normalizedEntries = @()
     $stopPresent = $false
     foreach ($group in $entries) {
-      foreach ($h in $group["hooks"]) {
-        if ($h["command"] -eq $hookCmd) { $present = $true }
-        elseif ($legacyCmds -contains $h["command"]) { $h["command"] = $hookCmd; $upgraded = $true }
+      $originalHooks = @($group["hooks"])
+      $keptHooks = @()
+      foreach ($h in $originalHooks) {
+        $command = $h["command"]
+        if ($legacyCmds -contains $command) {
+          $h["command"] = $hookCmd
+          $command = $hookCmd
+          $upgraded = $true
+        }
+        if ($command -eq $hookCmd) {
+          if ($hasSessionHook) {
+            $deduplicated = $true
+            continue
+          }
+          $hasSessionHook = $true
+        }
+        $keptHooks += ,$h
+      }
+      if ($originalHooks.Count -eq 0 -or $keptHooks.Count -gt 0) {
+        if ($keptHooks.Count -ne $originalHooks.Count) { $group["hooks"] = $keptHooks }
+        $normalizedEntries += ,$group
+      }
+      else {
+        $deduplicated = $true
       }
     }
+    $data["hooks"]["UserPromptSubmit"] = $normalizedEntries
 
     foreach ($group in $stopEntries) {
       foreach ($h in $group["hooks"]) {
@@ -522,15 +548,17 @@ try {
       }
     }
 
-    if ($present) {
-      Write-Host "Hook wiring: already present (no change)."
-    }
-    elseif ($upgraded) {
-      Write-Host "Hook wiring: upgraded legacy reminder hook to align-route."
-    }
-    else {
+    $added = $false
+    if (-not $hasSessionHook) {
       $data["hooks"]["UserPromptSubmit"] += , @{ hooks = @(@{ type = "command"; command = $hookCmd }) }
       Write-Host "Hook wiring: added UserPromptSubmit hook to $settingsPath"
+      $added = $true
+    }
+    elseif ($upgraded -or $deduplicated) {
+      Write-Host "Hook wiring: normalized owned hooks to one session-activation hook."
+    }
+    else {
+      Write-Host "Hook wiring: already present (no change)."
     }
 
     if (-not $stopPresent) {
@@ -538,7 +566,7 @@ try {
       Write-Host "Hook wiring: added Stop hook to $settingsPath"
     }
 
-    if (-not $present -or $upgraded -or -not $stopPresent) {
+    if ($added -or $upgraded -or $deduplicated -or -not $stopPresent) {
       Write-SettingsJson $settingsPath $data
     }
   }

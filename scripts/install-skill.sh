@@ -192,6 +192,7 @@ import json, os, stat, tempfile
 
 settings_path = os.environ["SETTINGS"]
 ours = (
+    'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
     'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
     'if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi',
     'bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true',
@@ -422,7 +423,8 @@ EOF
 # ── Claude Code hook 接线（需要 --wire-hook 明确启用；幂等：已存在则跳过）──
 wire_claude_hooks() {
   local settings="$HOME/.claude/settings.json"
-  local hook_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+  local hook_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+  local old_canonical_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
   local stop_hook_cmd='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi'
   local old_anchored_cmd='bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh" 2>/dev/null || cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" 2>/dev/null || true'
   local project_only_cmd='if [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 .align/ 运行时。请运行 /align-init 接入对齐协议后再开发。"; fi'
@@ -440,14 +442,14 @@ wire_claude_hooks() {
     cp "$settings" "$settings.bak-$(date +%Y%m%d%H%M%S)"
   fi
 
-HOOK_CMD="$hook_cmd" STOP_HOOK_CMD="$stop_hook_cmd" LEGACY_CMD="$legacy_cmd" OLD_ANCHORED_CMD="$old_anchored_cmd" PROJECT_ONLY_CMD="$project_only_cmd" OLD_CMD="$old_relative_cmd" SETTINGS="$settings" python3 - <<'PYEOF'
+HOOK_CMD="$hook_cmd" STOP_HOOK_CMD="$stop_hook_cmd" OLD_CANONICAL_CMD="$old_canonical_cmd" LEGACY_CMD="$legacy_cmd" OLD_ANCHORED_CMD="$old_anchored_cmd" PROJECT_ONLY_CMD="$project_only_cmd" OLD_CMD="$old_relative_cmd" SETTINGS="$settings" python3 - <<'PYEOF'
 import json, os, stat, tempfile
 
 settings_path = os.environ["SETTINGS"]
 hook_cmd = os.environ["HOOK_CMD"]
 stop_hook_cmd = os.environ["STOP_HOOK_CMD"]
 # 旧形态（纯提醒 hook、CWD 相对路径 hook）都识别并原地升级到锚定版
-legacy = (os.environ["LEGACY_CMD"], os.environ["OLD_ANCHORED_CMD"], os.environ["PROJECT_ONLY_CMD"], os.environ["OLD_CMD"])
+legacy = (os.environ["OLD_CANONICAL_CMD"], os.environ["LEGACY_CMD"], os.environ["OLD_ANCHORED_CMD"], os.environ["PROJECT_ONLY_CMD"], os.environ["OLD_CMD"])
 
 data = {}
 if os.path.exists(settings_path):
@@ -464,21 +466,46 @@ def commands(entries):
         for h in group.get("hooks", []):
             yield h
 
-if any(h.get("command") == hook_cmd for h in commands(entries)):
-    print("Hook wiring: already present (no change).")
-else:
-    upgraded = False
-    for h in commands(entries):
-        if h.get("command") in legacy:
+seen_hook = False
+upgraded = False
+deduplicated = False
+normalized_entries = []
+
+for group in entries:
+    original_hooks = group.get("hooks", [])
+    kept_hooks = []
+    for h in original_hooks:
+        command = h.get("command")
+        if command in legacy:
             h["command"] = hook_cmd
+            command = hook_cmd
             upgraded = True
-    if upgraded:
-        print("Hook wiring: upgraded existing hook to project-anchored align-route.")
+        if command == hook_cmd:
+            if seen_hook:
+                deduplicated = True
+                continue
+            seen_hook = True
+        kept_hooks.append(h)
+    if not original_hooks or kept_hooks:
+        if len(kept_hooks) != len(original_hooks):
+            group["hooks"] = kept_hooks
+        normalized_entries.append(group)
+    else:
+        deduplicated = True
+
+if len(normalized_entries) != len(entries):
+    entries[:] = normalized_entries
+
+if seen_hook:
+    if upgraded or deduplicated:
+        print("Hook wiring: normalized owned hooks to one session-activation hook.")
         changed = True
     else:
-        entries.append({"hooks": [{"type": "command", "command": hook_cmd}]})
-        print(f"Hook wiring: added UserPromptSubmit hook to {settings_path}")
-        changed = True
+        print("Hook wiring: already present (no change).")
+else:
+    entries.append({"hooks": [{"type": "command", "command": hook_cmd}]})
+    print(f"Hook wiring: added UserPromptSubmit hook to {settings_path}")
+    changed = True
 
 if not any(h.get("command") == stop_hook_cmd for h in commands(stop_entries)):
     stop_entries.append({"hooks": [{"type": "command", "command": stop_hook_cmd}]})

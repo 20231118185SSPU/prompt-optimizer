@@ -3,6 +3,7 @@
 set -euo pipefail
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "=== Test 1: Uninstall removes mount area, preserves user content ==="
 
@@ -65,19 +66,12 @@ echo ""
 echo "=== Test 2: Upgrade replaces old version, preserves user content ==="
 
 INPUT2="$FIXTURE_DIR/CLAUDE-with-old-version.md"
-TMP_FILE2="$(mktemp)"
-cleanup2() { rm -f "$TMP_FILE2"; }
+TMP_DIR2="$(mktemp -d)"
+cleanup2() { rm -rf "$TMP_DIR2"; }
 trap cleanup2 EXIT
-
-# Simulate upgrade: remove old marker interval, insert new mount area
-NEW_MOUNT='<!-- align-protocol:begin v3.0 -->
-## 对齐协议（Alignment Protocol）v3.0
-每条开发指令执行前，静默完成三档路由评估。
-硬性红线：高风险静默假设 = 无效输出。
-<!-- align-protocol:end -->'
-
-# Remove old marker interval
-sed '/<!-- align-protocol:begin.*-->/,/<!-- align-protocol:end.*-->/d' "$INPUT2" > "$TMP_FILE2"
+cp "$INPUT2" "$TMP_DIR2/CLAUDE.md"
+bash "$PROJECT_ROOT/core/host/align-setup.sh" mount "$TMP_DIR2" CLAUDE.md > "$TMP_DIR2/mount.json"
+TMP_FILE2="$TMP_DIR2/CLAUDE.md"
 
 # Verify user content preserved after upgrade
 if grep -q "Always use TypeScript" "$TMP_FILE2"; then
@@ -108,6 +102,23 @@ if grep -q "align-protocol:begin v2.0" "$TMP_FILE2"; then
   exit 1
 else
   echo "PASS: Old begin marker removed"
+fi
+
+if [ "$(grep -c 'align-protocol:begin v4.0' "$TMP_FILE2")" -ne 1 ] || [ "$(grep -c 'align-protocol:end' "$TMP_FILE2")" -ne 1 ]; then
+  echo "FAIL: Upgraded mount markers are not unique"
+  exit 1
+else
+  echo "PASS: Upgraded mount markers are unique"
+fi
+
+BEFORE_LINE="$(grep -n 'Always use TypeScript' "$TMP_FILE2" | cut -d: -f1)"
+MOUNT_LINE="$(grep -n 'align-protocol:begin v4.0' "$TMP_FILE2" | cut -d: -f1)"
+AFTER_LINE="$(grep -n 'Tests must pass before merge' "$TMP_FILE2" | cut -d: -f1)"
+if [ "$BEFORE_LINE" -lt "$MOUNT_LINE" ] && [ "$MOUNT_LINE" -lt "$AFTER_LINE" ]; then
+  echo "PASS: User content order preserved after upgrade"
+else
+  echo "FAIL: User content order changed after upgrade"
+  exit 1
 fi
 
 echo ""

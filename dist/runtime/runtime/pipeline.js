@@ -10,11 +10,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processInstruction = processInstruction;
-const enricher_1 = require("./enricher");
-const acceptance_plan_1 = require("./acceptance-plan");
-const analyzer_1 = require("./analyzer");
-const contract_builder_1 = require("./contract-builder");
-const host_projection_1 = require("./host-projection");
+const alignment_interface_1 = require("./alignment-interface");
 const matt_handoff_1 = require("./matt-handoff");
 /**
  * Process a user instruction through the align pipeline.
@@ -23,54 +19,57 @@ const matt_handoff_1 = require("./matt-handoff");
  * details. New callers should use alignInstruction().
  *
  * Steps:
- * 1. Detect presentation preference without bypassing alignment
- * 2. Enrich message with .align/ context
- * 3. Produce one Alignment Decision
- * 4. Project that decision into host instructions and compatibility fields
- * 5. Return the completion verification plan without executing it
+ * 1. Delegate to the canonical interface
+ * 2. Project its bounded evidence into deprecated compatibility fields
+ * 3. Return the completion verification plan without executing it
  */
 function processInstruction(instruction, projectDir, options = {}) {
-    const normalizedInstruction = instruction.trimStart();
-    const presentationMode = options.bypass || normalizedInstruction.startsWith('[直出]') || normalizedInstruction.startsWith('直出')
-        ? 'direct_output'
-        : 'default';
-    // Step 1: Enrich message with .align/ context
-    const { enrichedMessage, context } = (0, enricher_1.enrich)(instruction, projectDir);
-    // Step 2: Build the completion verification plan. Execution happens only
-    // after an execution receipt is registered by the lifecycle coordinator.
-    const verificationCommands = (0, acceptance_plan_1.getVerificationCommands)(projectDir);
-    const contextEntries = [
-        ['lessons', context.lessons],
-        ['spec', context.spec],
-        ['facts', context.facts],
-        ['glossary', context.glossary],
-        ['state', context.state],
-        ['context', context.context],
-        ['decisions.log', context.decisions]
-    ].filter(([, content]) => Boolean(content));
-    if (verificationCommands.length > 0) {
-        contextEntries.push(['check-commands', verificationCommands.join('\n')]);
-    }
-    const semanticContext = contextEntries.map(([name]) => ({
-        kind: 'project',
-        ref: name === 'check-commands' ? '.align/check-commands.txt' : `.align/${name}.md`
-    }));
-    const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
-        .filter(Boolean)
-        .concat(verificationCommands)
-        .join('\n');
-    const analysis = (0, analyzer_1.analyzeInstruction)(instruction, semanticContext, contextText);
-    const alignmentDecision = (0, contract_builder_1.buildAlignmentDecision)(analysis, {
-        verificationCommands,
-        adapter: options.hostCapabilities?.adapter,
-        nativeHook: options.hostCapabilities?.nativeBlocking
+    const coreResult = (0, alignment_interface_1.alignInstruction)(instruction, projectDir, {
+        hostCapabilities: options.hostCapabilities,
+        model: options.model,
+        directOutput: options.directOutput || options.bypass,
+        includeTrace: true,
+        includeHandoff: options.includeHandoff
     });
-    const hostProjection = (0, host_projection_1.projectAlignmentDecision)(alignmentDecision);
+    const alignmentDecision = coreResult.decision;
+    const hostProjection = coreResult.host;
+    const context = {
+        lessons: '',
+        spec: '',
+        facts: '',
+        glossary: '',
+        state: '',
+        context: '',
+        decisions: ''
+    };
+    const contextFieldByRef = {
+        '.align/lessons.md': 'lessons',
+        '.align/spec.md': 'spec',
+        '.align/facts.md': 'facts',
+        '.align/glossary.md': 'glossary',
+        '.align/state.md': 'state',
+        '.align/context.md': 'context',
+        '.align/decisions.log.md': 'decisions'
+    };
+    for (const evidence of coreResult.trace?.evidence ?? []) {
+        const field = contextFieldByRef[evidence.source.ref];
+        if (field)
+            context[field] = [context[field], evidence.statement].filter(Boolean).join('\n');
+    }
+    const verificationCommands = [...new Set((coreResult.trace?.evidence ?? [])
+            .filter(item => item.source.ref === '.align/check-commands.txt')
+            .map(item => item.statement))];
     const result = {
+        mode: coreResult.mode,
+        degradedReasons: coreResult.degradedReasons,
+        taskRoute: coreResult.taskRoute,
+        brief: coreResult.brief,
+        ...(options.includeTrace && coreResult.trace ? { trace: coreResult.trace } : {}),
+        ...(coreResult.handoff ? { briefHandoff: coreResult.handoff } : {}),
         verdict: hostProjection.verdict,
-        presentationMode,
+        presentationMode: alignmentDecision.presentation.mode === 'direct_output' ? 'direct_output' : 'default',
         instructions: hostProjection.instructions,
-        enrichedMessage,
+        enrichedMessage: coreResult.brief.markdown,
         context,
         verificationCommands,
         alignmentDecision,

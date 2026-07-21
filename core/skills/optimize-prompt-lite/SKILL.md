@@ -111,4 +111,4 @@ Generated from core/. Do not edit dist/ manually.
 
 ## 与完整版的关系
 
-本 lite 版是 `optimize-prompt` 完整协议的子集，两者可共存。宿主支持 hooks 时，机械层（align-route.sh 路由 + PreToolUse 拦截）会自动兜底；不支持 hooks 的宿主（部分 Codex/Cursor 环境）请确保本文件被加载为规则/系统提示，它就是弱模型的全部护栏。
+本 lite 版是 `optimize-prompt` 完整协议的子集，两者可共存。仅当 Claude Code 已显式接线且当前会话已 `/align` 时，机械层（align-route.sh 路由 + PreToolUse 拦截）才会持续兜底；其他宿主或未激活会话必须显式调用 `/align <请求>`，并确保本文件被加载为规则/系统提示，它就是弱模型的全部护栏。

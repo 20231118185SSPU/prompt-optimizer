@@ -19,6 +19,8 @@ $HostRoot = Join-Path $CoreRoot 'host'
 $PolicyProjectionHelper = Join-Path $PSScriptRoot 'policy-projection.js'
 $NodeCommand = if ($env:ALIGN_NODE_COMMAND) { $env:ALIGN_NODE_COMMAND } else { 'node' }
 $NpmCommand = if ($env:ALIGN_NPM_COMMAND) { $env:ALIGN_NPM_COMMAND } else { 'npm' }
+$BuildLockPath = Join-Path $RepoRoot '.build.lock'
+$BuildLockHeld = $false
 
 $TemplateMap = @(
     @('ACCEPTANCE-CHECKLIST.md', 'acceptance-checklist.md'),
@@ -66,6 +68,26 @@ function Read-TextFile {
     return Normalize-Lf ([System.IO.File]::ReadAllText($Path, $Utf8NoBom))
 }
 
+function Move-GeneratedTemp {
+    param(
+        [string]$TempPath,
+        [string]$FullPath
+    )
+
+    if (Test-Path -LiteralPath $FullPath) {
+        $BackupPath = $TempPath + '.bak'
+        try {
+            [System.IO.File]::Replace($TempPath, $FullPath, $BackupPath)
+        } finally {
+            if (Test-Path -LiteralPath $BackupPath) {
+                Remove-Item -LiteralPath $BackupPath -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } else {
+        [System.IO.File]::Move($TempPath, $FullPath)
+    }
+}
+
 function Write-GeneratedFile {
     param(
         [string]$Path,
@@ -85,12 +107,15 @@ function Write-GeneratedFile {
         if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
             New-Item -ItemType Directory -Force -Path $Parent | Out-Null
         }
-        $tmpPath = $FullPath + '.tmp'
-        [System.IO.File]::WriteAllText($tmpPath, (Normalize-Lf $Content), $Utf8NoBom)
-        if (Test-Path -LiteralPath $FullPath) {
-            Remove-Item -LiteralPath $FullPath -Force
+        $tmpPath = $FullPath + '.tmp.' + [guid]::NewGuid().ToString('N')
+        try {
+            [System.IO.File]::WriteAllText($tmpPath, (Normalize-Lf $Content), $Utf8NoBom)
+            Move-GeneratedTemp -TempPath $tmpPath -FullPath $FullPath
+        } finally {
+            if (Test-Path -LiteralPath $tmpPath) {
+                Remove-Item -LiteralPath $tmpPath -Force -ErrorAction SilentlyContinue
+            }
         }
-        [System.IO.File]::Move($tmpPath, $FullPath)
     }
 }
 
@@ -118,12 +143,15 @@ function Copy-GeneratedAsset {
         if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
             New-Item -ItemType Directory -Force -Path $Parent | Out-Null
         }
-        $TmpPath = $FullPath + '.tmp'
-        [System.IO.File]::Copy($SourcePath, $TmpPath, $true)
-        if (Test-Path -LiteralPath $FullPath) {
-            Remove-Item -LiteralPath $FullPath -Force
+        $TmpPath = $FullPath + '.tmp.' + [guid]::NewGuid().ToString('N')
+        try {
+            [System.IO.File]::Copy($SourcePath, $TmpPath, $false)
+            Move-GeneratedTemp -TempPath $TmpPath -FullPath $FullPath
+        } finally {
+            if (Test-Path -LiteralPath $TmpPath) {
+                Remove-Item -LiteralPath $TmpPath -Force -ErrorAction SilentlyContinue
+            }
         }
-        [System.IO.File]::Move($TmpPath, $FullPath)
     }
 }
 
@@ -463,6 +491,14 @@ $SourceContent
     }
 }
 
+try {
+    New-Item -ItemType Directory -Path $BuildLockPath -ErrorAction Stop | Out-Null
+    $BuildLockHeld = $true
+} catch {
+    throw "Another build is already running for this project: $BuildLockPath"
+}
+
+try {
 Assert-Directory $ProtocolRoot
 Assert-Directory $TemplatesRoot
 Assert-Directory $ContractsRoot
@@ -474,7 +510,8 @@ Assert-Directory $SpecKitRoot
 Assert-Directory $HostRoot
 
 $PolicyContractAssets = @('decision-policy.json', 'decision-policy.schema.json', 'reason-registry.json')
-foreach ($ContractAsset in $PolicyContractAssets) {
+$RuntimeContractAssets = $PolicyContractAssets + @('task-route.schema.json', 'alignment-brief.schema.json')
+foreach ($ContractAsset in $RuntimeContractAssets) {
     $ContractPath = Join-Path $ContractsRoot $ContractAsset
     if (-not (Test-Path -LiteralPath $ContractPath -PathType Leaf)) {
         throw "Required policy contract not found: $ContractPath"
@@ -594,7 +631,7 @@ if ((Get-Command $NodeCommand -ErrorAction SilentlyContinue) -and (Get-Command $
   Write-Host "Warning: Node.js/npm not found; preserving the existing generated structured runtime"
 }
 
-foreach ($ContractAsset in $PolicyContractAssets) {
+foreach ($ContractAsset in $RuntimeContractAssets) {
     Copy-GeneratedAsset `
         -Path (Join-Path $DistRoot "runtime/contracts/$ContractAsset") `
         -SourcePath (Join-Path $ContractsRoot $ContractAsset)
@@ -608,3 +645,8 @@ Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/bin/align-cli') -Content
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/bin/align-setup') -Content (Read-TextFile (Join-Path $HostRoot 'align-setup.sh'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/install-plan.tsv') -Content (Read-TextFile (Join-Path $RepoRoot 'core/distribution/install-plan.tsv'))
 Write-GeneratedFile -Path (Join-Path $DistRoot 'runtime/.prompt-optimizer-owned') -Content (Read-TextFile (Join-Path $RepoRoot 'core/distribution/OWNERSHIP'))
+} finally {
+    if ($BuildLockHeld -and (Test-Path -LiteralPath $BuildLockPath -PathType Container)) {
+        Remove-Item -LiteralPath $BuildLockPath -Force -ErrorAction SilentlyContinue
+    }
+}

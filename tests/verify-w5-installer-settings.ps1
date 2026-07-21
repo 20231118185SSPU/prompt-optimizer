@@ -9,7 +9,12 @@ $RealSettings = Join-Path $HOME '.claude\settings.json'
 function Get-FileHashOrMissing {
   param([string]$Path)
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return 'missing' }
-  return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  $certUtilOutput = & CertUtil.exe -hashfile $Path SHA256
+  if ($LASTEXITCODE -ne 0) { throw "CertUtil failed to hash $Path" }
+  return ((@($certUtilOutput | Where-Object { $_ -match '^[0-9A-Fa-f ]+$' })[0] -replace ' ', '').ToLowerInvariant())
 }
 
 function New-TestSandbox {
@@ -62,11 +67,13 @@ function Invoke-IsolatedPowerShell {
 function Invoke-Installer {
   param(
     [string]$Sandbox,
-    [switch]$Uninstall
+    [switch]$Uninstall,
+    [switch]$WireHook
   )
   $uninstallArgument = if ($Uninstall) { ' -Uninstall' } else { '' }
+  $wireHookArgument = if ($WireHook) { ' -WireHook' } else { '' }
   $code = '$InformationPreference = "SilentlyContinue"; & ''' + $Installer +
-    ''' -Target claude -Repo ''' + $Root + '''' + $uninstallArgument
+    ''' -Target claude -Repo ''' + $Root + '''' + $uninstallArgument + $wireHookArgument
   return Invoke-IsolatedPowerShell -Code $code -Sandbox $Sandbox
 }
 
@@ -78,6 +85,21 @@ function Read-Commands {
 
 $realSettingsHashBefore = Get-FileHashOrMissing $RealSettings
 try {
+  $default = New-TestSandbox 'settings-default-no-hook'
+  $defaultSettingsPath = Join-Path $default '.claude\settings.json'
+  New-Item -ItemType Directory -Force (Split-Path -Parent $defaultSettingsPath) | Out-Null
+  [System.IO.File]::WriteAllText($defaultSettingsPath, '{"env":{"KEEP":"yes"}}' + "`n")
+  $defaultSettingsHash = Get-FileHashOrMissing $defaultSettingsPath
+  $defaultInstall = Invoke-Installer -Sandbox $default
+  if ($defaultInstall.TimedOut -or $defaultInstall.ExitCode -ne 0) {
+    throw "Default install failed: $($defaultInstall.Stdout) $($defaultInstall.Stderr)"
+  }
+  if ((Get-FileHashOrMissing $defaultSettingsPath) -ne $defaultSettingsHash -or
+      -not (Test-Path -LiteralPath (Join-Path $default '.prompt-optimizer\runtime\index.js')) -or
+      -not (Test-Path -LiteralPath (Join-Path $default '.claude\skills\align'))) {
+    throw 'Default install wired Claude settings or did not install the requested runtime and skills.'
+  }
+
   $malformed = New-TestSandbox 'settings-malformed'
   $malformedSettings = Join-Path $malformed '.claude\settings.json'
   $malformedRuntime = Join-Path $malformed '.prompt-optimizer'
@@ -89,7 +111,7 @@ try {
   [System.IO.File]::WriteAllText((Join-Path $malformedRuntime 'user-sentinel'), "keep-runtime`n")
   [System.IO.File]::WriteAllText((Join-Path $malformedSkill 'user-sentinel'), "keep-skill`n")
 
-  $malformedResult = Invoke-Installer -Sandbox $malformed
+  $malformedResult = Invoke-Installer -Sandbox $malformed -WireHook
   if ($malformedResult.TimedOut -or $malformedResult.ExitCode -eq 0) {
     throw "Malformed settings unexpectedly allowed installation: $($malformedResult.Stdout) $($malformedResult.Stderr)"
   }
@@ -110,7 +132,7 @@ try {
   [System.IO.File]::WriteAllText((Join-Path $invalidShapeRuntime 'user-sentinel'), "keep-runtime`n")
   [System.IO.File]::WriteAllText((Join-Path $invalidShapeSkill 'user-sentinel'), "keep-skill`n")
 
-  $invalidShapeResult = Invoke-Installer -Sandbox $invalidShape
+  $invalidShapeResult = Invoke-Installer -Sandbox $invalidShape -WireHook
   if ($invalidShapeResult.TimedOut -or $invalidShapeResult.ExitCode -eq 0) {
     throw 'Structurally invalid hooks unexpectedly allowed installation.'
   }
@@ -118,6 +140,27 @@ try {
       -not (Test-Path -LiteralPath (Join-Path $invalidShapeRuntime 'user-sentinel')) -or
       -not (Test-Path -LiteralPath (Join-Path $invalidShapeSkill 'user-sentinel'))) {
     throw 'Late settings merge failure did not roll back existing runtime and skills.'
+  }
+
+  $invalidEvent = New-TestSandbox 'settings-event-shape'
+  $invalidEventSettings = Join-Path $invalidEvent '.claude\settings.json'
+  $invalidEventRuntime = Join-Path $invalidEvent '.prompt-optimizer'
+  $invalidEventSkill = Join-Path $invalidEvent '.claude\skills\optimize-prompt'
+  New-Item -ItemType Directory -Force (Split-Path -Parent $invalidEventSettings), $invalidEventRuntime, $invalidEventSkill | Out-Null
+  [System.IO.File]::WriteAllText($invalidEventSettings, '{"hooks":{"UserPromptSubmit":{"hooks":[]}},"env":{"KEEP":"yes"}}' + "`n")
+  $invalidEventBefore = Get-Content -LiteralPath $invalidEventSettings -Raw
+  [System.IO.File]::WriteAllText((Join-Path $invalidEventRuntime '.prompt-optimizer-owned'), "prompt-optimizer-runtime-v1`n")
+  [System.IO.File]::WriteAllText((Join-Path $invalidEventRuntime 'user-sentinel'), "keep-runtime`n")
+  [System.IO.File]::WriteAllText((Join-Path $invalidEventSkill 'user-sentinel'), "keep-skill`n")
+
+  $invalidEventResult = Invoke-Installer -Sandbox $invalidEvent -WireHook
+  if ($invalidEventResult.TimedOut -or $invalidEventResult.ExitCode -eq 0) {
+    throw 'Object-shaped UserPromptSubmit unexpectedly allowed installation.'
+  }
+  if ((Get-Content -LiteralPath $invalidEventSettings -Raw) -ne $invalidEventBefore -or
+      -not (Test-Path -LiteralPath (Join-Path $invalidEventRuntime 'user-sentinel')) -or
+      -not (Test-Path -LiteralPath (Join-Path $invalidEventSkill 'user-sentinel'))) {
+    throw 'Object-shaped UserPromptSubmit changed existing settings, runtime, or skills.'
   }
 
   $valid = New-TestSandbox 'settings-valid'
@@ -136,12 +179,33 @@ try {
 '@)
   [System.IO.File]::WriteAllText($projectFacts, "keep-project-data`n")
 
-  $firstInstall = Invoke-Installer -Sandbox $valid
+  $firstInstall = Invoke-Installer -Sandbox $valid -WireHook
   if ($firstInstall.TimedOut -or $firstInstall.ExitCode -ne 0) {
     throw "Valid settings installation failed: $($firstInstall.Stdout) $($firstInstall.Stderr)"
   }
+
+  $settingsWithBothOwnedHooks = Get-Content -LiteralPath $validSettingsPath -Raw | ConvertFrom-Json
+  $sessionHookCommand = @($settingsWithBothOwnedHooks.hooks.UserPromptSubmit | ForEach-Object hooks | ForEach-Object command |
+    Where-Object { $_ -match 'ALIGN_SESSION_ACTIVATION=on' })[0]
+  $oldCanonicalHookCommand = $sessionHookCommand -replace 'ALIGN_SESSION_ACTIVATION=on ', ''
+  $settingsWithBothOwnedHooks.hooks.UserPromptSubmit += [pscustomobject]@{
+    hooks = @([pscustomobject]@{ type = 'command'; command = $oldCanonicalHookCommand })
+  }
+  [System.IO.File]::WriteAllText($validSettingsPath, ($settingsWithBothOwnedHooks | ConvertTo-Json -Depth 10) + "`n")
+
+  $coexistInstall = Invoke-Installer -Sandbox $valid -WireHook
+  if ($coexistInstall.TimedOut -or $coexistInstall.ExitCode -ne 0) {
+    throw "Coexisting owned hooks installation failed: $($coexistInstall.Stdout) $($coexistInstall.Stderr)"
+  }
+  $coexistSettings = Get-Content -LiteralPath $validSettingsPath -Raw | ConvertFrom-Json
+  $coexistCommands = @(Read-Commands $coexistSettings)
+  if (@($coexistCommands | Where-Object { $_ -eq $sessionHookCommand }).Count -ne 1 -or
+      @($coexistCommands | Where-Object { $_ -eq $oldCanonicalHookCommand }).Count -ne 0) {
+    throw 'Coexisting owned hooks were not normalized to one session hook.'
+  }
+
   $settingsHashAfterFirstInstall = Get-FileHashOrMissing $validSettingsPath
-  $secondInstall = Invoke-Installer -Sandbox $valid
+  $secondInstall = Invoke-Installer -Sandbox $valid -WireHook
   if ($secondInstall.TimedOut -or $secondInstall.ExitCode -ne 0) {
     throw "Idempotent settings installation failed: $($secondInstall.Stdout) $($secondInstall.Stderr)"
   }
@@ -153,6 +217,7 @@ try {
   if ($validSettings.env.KEEP -ne 'yes' -or $validSettings.permissions.allow[0] -ne 'Read' -or
       @($commands | Where-Object { $_ -eq 'echo foreign-user-hook' }).Count -ne 1 -or
       @($commands | Where-Object { $_ -eq 'echo foreign-stop-hook' }).Count -ne 1 -or
+      @($commands | Where-Object { $_ -match 'ALIGN_SESSION_ACTIVATION=on' }).Count -ne 1 -or
       @($commands | Where-Object { $_ -match 'BLOCK_ON_HIGH=on' }).Count -ne 1 -or
       @($commands | Where-Object { $_ -match 'ALIGN_HOOK_PHASE=stop' }).Count -ne 1) {
     throw 'Settings merge did not preserve user fields or exactly one owned hook per event.'
@@ -162,7 +227,7 @@ try {
     throw 'Settings atomic replacement left a temporary file.'
   }
 
-  $uninstall = Invoke-Installer -Sandbox $valid -Uninstall
+  $uninstall = Invoke-Installer -Sandbox $valid -Uninstall -WireHook
   if ($uninstall.TimedOut -or $uninstall.ExitCode -ne 0) {
     throw "Valid uninstall failed: $($uninstall.Stdout) $($uninstall.Stderr)"
   }
@@ -171,7 +236,7 @@ try {
   if ($uninstalledSettings.env.KEEP -ne 'yes' -or $uninstalledSettings.permissions.allow[0] -ne 'Read' -or
       @($remainingCommands | Where-Object { $_ -eq 'echo foreign-user-hook' }).Count -ne 1 -or
       @($remainingCommands | Where-Object { $_ -eq 'echo foreign-stop-hook' }).Count -ne 1 -or
-      @($remainingCommands | Where-Object { $_ -match 'BLOCK_ON_HIGH=on|ALIGN_HOOK_PHASE=stop' }).Count -ne 0) {
+      @($remainingCommands | Where-Object { $_ -match 'ALIGN_SESSION_ACTIVATION=on|BLOCK_ON_HIGH=on|ALIGN_HOOK_PHASE=stop' }).Count -ne 0) {
     throw 'Uninstall did not preserve foreign settings while removing owned hooks.'
   }
   $runtimeRemains = Test-Path -LiteralPath (Join-Path $valid '.prompt-optimizer')

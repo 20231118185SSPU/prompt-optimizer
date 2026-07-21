@@ -27,14 +27,14 @@ macOS / Linux：
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash
 ```
 
-默认安装到 Claude Code、Codex 和 `~/.agents` 三个 skills 目录，并自动接线 Claude Code hook。
+默认安装到 Claude Code、Codex 和 `~/.agents` 三个 skills 目录，不修改 Claude Code 的现有 hook。需要 Claude Code 在当前会话内持续拦截普通请求时，显式使用 `--wire-hook`（PowerShell 为 `-WireHook`）；详见 [安装说明](docs/usage/INSTALL.md)。
 
 ### 2. 接入项目
 
 进入你的项目目录，运行：
 
 ```text
-/align-init
+/align setup
 ```
 
 接入后检查接线状态：
@@ -47,13 +47,17 @@ bash "$HOME/.prompt-optimizer/bin/align-doctor" --json "$PWD"
 
 ### 3. 正常干活
 
-接入后直接开发。对齐在后台静默发生，你不需要说"优化："：
+所有宿主都可以在每个新会话使用 `/align <请求>` 生成可独立交接的 Agent Brief。`/align setup` 只接入项目，不会启用会话。
+
+Claude Code 只有在显式安装 `--wire-hook` 后，才会在本会话首次 `/align` 后把后续普通请求送入强会话路径；打开新会话必须重新运行一次 `/align`。未接线的 Claude Code、Codex 和 Cursor 保持显式调用模式。
+
+对齐后的请求会按风险和完整度处理：
 
 - 简单指令（如"改个变量名"）→ **直接执行**，零感知
 - 有缺口的指令（如"加个搜索功能"）→ **最多 3 行补全回执后直接执行**
 - 高风险且信息不足（如只说"清空数据库"）→ **停下问一个问题**
 
-想看完整优化结果时：`优化：帮我做一个用户登录功能`
+例如：`/align 帮我做一个用户登录功能`
 
 详见 [INSTALL.md](docs/usage/INSTALL.md) 和 [USAGE.md](docs/usage/USAGE.md)。
 
@@ -170,7 +174,7 @@ prompt-optimizer/
 
 | 宿主 | prompt ingress | 机械阻断 | completion | 显式调用 | 证据等级 |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code | enforced | enforced | self_reported | supported | E3（沙箱集成） |
+| Claude Code（已 `--wire-hook` 且会话已激活） | enforced | enforced | self_reported | supported | E3（沙箱集成） |
 | Codex CLI | advisory | advisory | unavailable | supported | E3（沙箱集成） |
 | Cursor | project-rule | unavailable | unavailable | supported | E2（确定性 corpus） |
 | Universal System Prompt | copy-paste | unavailable | unavailable | supported | E2（确定性 corpus） |
@@ -194,9 +198,11 @@ prompt-optimizer/
 - **completion**：宿主是否支持在执行完成后回报结果
 - **显式调用**：不依赖 hook 的显式 skill 调用路径（所有宿主均支持）
 
+未接线或未激活的 Claude Code 与其他宿主必须通过 `/align <请求>` 显式进入对齐器；不得据此宣称普通消息会被机械拦截。
+
 ### 兼容性说明
 
-- **/align**：统一 router，所有请求消费同一个 Decision Kernel。`/align setup` 为首次接入入口。
+- **/align**：统一 router，所有请求消费同一个 Decision Kernel。`/align setup` 为首次接入入口；已接线 Claude Code 的会话激活由首次非 setup 的 `/align` 完成。
 - **optimize-prompt**：已收敛为 `/align` 的内部 full alignment profile。触发名称在兼容期内保持不变。
 - **align-init**：已收敛为 `/align setup` 的内部 setup profile。触发名称在兼容期内保持不变。
 - **optimize-prompt-lite**：已收敛为 `/align` 的内部 fallback profile。触发名称在兼容期内保持不变。
@@ -251,7 +257,7 @@ A: 在冻结的 W8 v8 corpus（40 条）上，evidence 报告高风险漏放率 
 
 ### Q: 我需要每次都手动触发吗？
 
-A: 不需要。接入项目后，对齐在后台静默发生。简单指令直接执行，有缺口的指令自动补全，只有高风险或模糊请求才会停下问你。
+A: 每个新会话需要先用一次 `/align <请求>`。只有 Claude Code 已显式安装 `--wire-hook`（PowerShell 为 `-WireHook`）且当前会话已 `/align` 时，后续普通请求才会自动经过对齐；打开新会话后必须重新激活。Codex、Cursor 和未接线的 Claude Code 保持显式调用。
 
 ### Q: 支持哪些 AI 工具？
 

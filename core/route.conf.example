@@ -1,0 +1,32 @@
+# hook-router.sh 通用配置（白名单解析，绝不 source）
+#
+# ── 基础配置 ──
+#
+# HOOK_MODE: hook 输出模式
+#   block  - 高风险时阻断提交（exit 2）
+#   warn   - 高风险时注入警告文本（默认）
+#   silent - 静默模式，只在高风险时输出
+HOOK_MODE=warn
+#
+# HOOK_MIN_SCORE: 最低有效分数阈值（0-10）
+# 低于此分数的请求会被标记为需要澄清
+HOOK_MIN_SCORE=6
+#
+# HOOK_MODULES: 知识源模块（逗号分隔）
+# 用于从 .align/ 目录加载项目上下文
+HOOK_MODULES=lessons,spec,facts,glossary,state
+#
+# ── 高级配置 ──
+#
+# ARBITER: 仲裁模式
+#   auto - 灰区请求可选调用 LLM 仲裁
+#   off  - 纯机械评分，不调用 LLM
+ARBITER=auto
+#
+# ARBITER_TIMEOUT: 仲裁超时（秒）
+ARBITER_TIMEOUT=5
+#
+# BLOCK_ON_HIGH: 高风险阻断（兼容旧配置）
+#   on  - 高风险时阻断提交
+#   off - 高风险时仅注入警告
+BLOCK_ON_HIGH=off

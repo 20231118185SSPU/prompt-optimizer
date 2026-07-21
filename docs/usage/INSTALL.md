@@ -1,6 +1,6 @@
 # 安装说明
 
-> 推荐使用一键安装。安装器会同时安装 skills、runtime 和 Claude Code hook。没有 Node.js 时仍可使用 shell 路由，但能力会明确降级。
+> 推荐使用一键安装。安装器默认只安装 skills 和 runtime，不修改 Claude Code hook。没有 Node.js 时仍可使用 shell 路由，但能力会明确降级。
 
 ## 方式 1：一键安装（推荐）
 
@@ -12,7 +12,7 @@
 - **align-init**：项目接入器，生成 `.align/` 运行时
 - **optimize-prompt-lite**：轻量协议，面向弱模型或不支持 hook 的宿主
 - **runtime**：`~/.prompt-optimizer/` 下的 doctor、CLI 和 adapter
-- **Claude Code hook**：自动接线 UserPromptSubmit 和 Stop hook
+- **Claude Code hook**：仅在显式 `--wire-hook` / `-WireHook` 时接线 UserPromptSubmit 和 Stop hook
 
 ### Windows PowerShell
 
@@ -56,6 +56,22 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s agents
 ```
 
+### 可选：启用 Claude Code 会话模式
+
+默认安装不会修改 `~/.claude/settings.json`。需要 Claude Code 在一次会话内首次 `/align` 后持续处理普通请求时，显式安装 hook：
+
+```powershell
+iwr https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.ps1 -OutFile install-skill.ps1
+.\install-skill.ps1 -Target claude -WireHook
+Remove-Item .\install-skill.ps1
+```
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/main/scripts/install-skill.sh | bash -s -- claude --wire-hook
+```
+
+这项接线只属于 Claude Code。每个新会话仍须先运行一次 `/align <请求>`；`/align setup` 只接入项目，不会启用会话。
+
 安装内容按目标工具选择对应 adapter：
 
 - Codex / OpenAI Agents：来自 [dist/codex/](../../dist/codex/)
@@ -72,10 +88,11 @@ curl -fsSL https://raw.githubusercontent.com/20231118185SSPU/prompt-optimizer/ma
 
 | 宿主 | 等级 | 入口约束 | 阻断 | Completion |
 | --- | --- | --- | --- | --- |
-| Claude Code | L3 Native Hook | enforced | enforced | Stop receipt 后生成脱敏 evidence（synthetic adapter integration E3） |
-| Codex | L2 CLI wrapper / instruction-backed | enforced | advisory | unavailable |
+| Claude Code（已 `--wire-hook` 且当前会话已 `/align`） | L3 Native Hook | enforced | enforced | Stop receipt 后生成脱敏 evidence（synthetic adapter integration E3） |
+| Claude Code（未接线或新会话） | 显式 skill | `/align <请求>` | unavailable | unavailable |
+| Codex | L2 CLI wrapper / instruction-backed | `/align <请求>` | advisory | unavailable |
 
-Codex 不具备 Claude Code 的 native hook parity。禁止把 L2 描述为强制阻断。
+Codex 不具备 Claude Code 的 native hook parity。Codex/Cursor 只能报告 advisory 显式路径，禁止把 wrapper 或项目规则描述为机械强制阻断。
 Claude Code 的真实宿主 E4 尚未验证；当前证据不得表述为真实 Claude Code 端到端闭环。
 
 ### 预览和版本

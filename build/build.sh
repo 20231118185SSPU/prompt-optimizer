@@ -41,6 +41,27 @@ host_root="$core_root/host"
 policy_projection_helper="$script_dir/policy-projection.js"
 node_command="${ALIGN_NODE_COMMAND:-node}"
 npm_command="${ALIGN_NPM_COMMAND:-npm}"
+active_generated_temp=""
+build_lock_dir="$repo_root/.build.lock"
+build_lock_held=0
+
+cleanup_build() {
+  local status=$?
+  [[ -z "$active_generated_temp" ]] || rm -f -- "$active_generated_temp" || true
+  if [[ "$build_lock_held" -eq 1 ]]; then
+    rmdir -- "$build_lock_dir" || true
+  fi
+  return "$status"
+}
+
+if ! mkdir -- "$build_lock_dir"; then
+  printf 'Another build is already running for this project: %s\n' "$build_lock_dir" >&2
+  exit 1
+fi
+build_lock_held=1
+trap cleanup_build EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 emit_template_map() {
   cat <<'MAP'
@@ -144,8 +165,18 @@ write_generated_file() {
 
   mkdir -p "$(dirname "$path")"
   local tmp="${path}.tmp.$$"
-  "$@" > "$tmp"
-  mv "$tmp" "$path"
+  active_generated_temp="$tmp"
+  if ! "$@" > "$tmp"; then
+    rm -f "$tmp"
+    active_generated_temp=""
+    return 1
+  fi
+  if ! mv -f "$tmp" "$path"; then
+    rm -f "$tmp"
+    active_generated_temp=""
+    return 1
+  fi
+  active_generated_temp=""
 }
 
 copy_generated_asset() {
@@ -170,8 +201,18 @@ copy_generated_asset() {
 
   mkdir -p "$(dirname "$path")"
   local tmp="${path}.tmp.$$"
-  cp "$source_path" "$tmp"
-  mv "$tmp" "$path"
+  active_generated_temp="$tmp"
+  if ! cp "$source_path" "$tmp"; then
+    rm -f "$tmp"
+    active_generated_temp=""
+    return 1
+  fi
+  if ! mv -f "$tmp" "$path"; then
+    rm -f "$tmp"
+    active_generated_temp=""
+    return 1
+  fi
+  active_generated_temp=""
 }
 
 sha256_file() {
@@ -483,7 +524,7 @@ assert_dir "$align_skill_root"
 assert_dir "$spec_kit_root"
 assert_dir "$host_root"
 
-for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json task-route.schema.json alignment-brief.schema.json; do
   if [[ ! -f "$contracts_root/$contract_asset" ]]; then
     printf 'Required policy contract not found: %s\n' "$contracts_root/$contract_asset" >&2
     exit 1
@@ -594,7 +635,7 @@ else
   echo "Warning: Node.js/npm not found; preserving the existing generated structured runtime."
 fi
 
-for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json task-route.schema.json alignment-brief.schema.json; do
   copy_generated_asset "$dist_root/runtime/contracts/$contract_asset" "$contracts_root/$contract_asset"
 done
 

@@ -280,6 +280,10 @@ describe('consumed held-out regressions', () => {
       expect.objectContaining({
         criterion: expect.stringMatching(/p95.*200ms/i),
         method: { kind: 'command', value: 'npm run benchmark' }
+      }),
+      expect.objectContaining({
+        criterion: expect.stringMatching(/报表列表.*返回字段.*排序.*分页/),
+        method: expect.objectContaining({ kind: 'manual' })
       })
     ]));
   });

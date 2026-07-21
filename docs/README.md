@@ -28,6 +28,7 @@
 ## 规划文档
 
 - [V4-FOCUS-IMPROVEMENT-PLAN.md](planning/V4-FOCUS-IMPROVEMENT-PLAN.md)：v4 专精化规划 SSOT，把项目收敛为 coding agent 的执行前契约门，包含产品边界、目标架构、强制不变量、W0-W7 实施波次、兼容迁移、量化 Gate 和多会话启动指令。
+- [CORE-REFACTOR-PHASE-1-GATE.md](planning/CORE-REFACTOR-PHASE-1-GATE.md)：新主版本核心重构第一阶段的范围、完成指标和阶段出口。
 - [V4-W0-FOCUS-BASELINE.md](planning/V4-W0-FOCUS-BASELINE.md)：W0 范围冻结、案例 A/B 未修复复现、runtime hash、测试基线、公开能力和 D1-D5 blocker。
 - [V3.2-STABLE-IMPROVEMENT-PLAN.md](planning/V3.2-STABLE-IMPROVEMENT-PLAN.md)：从 `v3.2.0-rc.1` 收敛到稳定版的完整方案，覆盖单一路由 Interface、空输出保护、远程三臂评测、证据 Gate、发布工程和回滚条件。
 - [MULTI-AGENT-IMPROVEMENT-PLAN.md](planning/MULTI-AGENT-IMPROVEMENT-PLAN.md)：已完成的 G0-G6 改进规划，包含 Agent Brief、目标架构、执行波次、依赖和验收门。

@@ -54,8 +54,12 @@ CLAUDE_COMPLETION=unavailable
 CLAUDE_EXECUTION_RECEIPT=unavailable
 CLAUDE_FAILED_CANCELLED=unavailable
 CLAUDE_WIRED=0
+CLAUDE_STRONG_WIRED=0
 CLAUDE_STOP_WIRED=0
-CLAUDE_USER_HOOK_FULL='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+CLAUDE_PROMPT_HOOK_STATUS=missing
+CLAUDE_SESSION_ACTIVATION=unavailable
+CLAUDE_USER_HOOK_FULL='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
+CLAUDE_USER_HOOK_OLD_FULL='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
 CLAUDE_USER_HOOK_SHORT='BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"'
 CLAUDE_USER_HOOK_BARE='BLOCK_ON_HIGH=on bash $HOME/.prompt-optimizer/adapters/claude-code.sh'
 CLAUDE_STOP_HOOK_FULL='if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_HOOK_PHASE=stop bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; fi'
@@ -66,6 +70,7 @@ try {
   const data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
   const groups = data.hooks?.UserPromptSubmit ?? [];
   const ownedCommands = new Set([
+    'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
     'BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"',
     'BLOCK_ON_HIGH=on bash $HOME/.prompt-optimizer/adapters/claude-code.sh',
     'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
@@ -90,6 +95,7 @@ import json, sys
 try:
     data = json.load(open(sys.argv[1], encoding="utf-8"))
     owned_commands = {
+        'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi',
         'BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"',
         'BLOCK_ON_HIGH=on bash $HOME/.prompt-optimizer/adapters/claude-code.sh',
         'if [ -f "$HOME/.prompt-optimizer/adapters/claude-code.sh" ]; then BLOCK_ON_HIGH=on bash "$HOME/.prompt-optimizer/adapters/claude-code.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/align-route.sh" ]; then bash "$CLAUDE_PROJECT_DIR/.align/align-route.sh"; elif [ -f "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt" ]; then cat "$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt"; else printf "%s\\n" "[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。"; fi'
@@ -108,10 +114,55 @@ except Exception:
 PYEOF
 )"
 elif [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
-  if jq -e --arg full "$CLAUDE_USER_HOOK_FULL" --arg short "$CLAUDE_USER_HOOK_SHORT" --arg bare "$CLAUDE_USER_HOOK_BARE" \
-    '.hooks.UserPromptSubmit[]?.hooks[]? | select(.type == "command") | .command | select(. == $full or . == $short or . == $bare)' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+  if jq -e --arg full "$CLAUDE_USER_HOOK_FULL" --arg old_full "$CLAUDE_USER_HOOK_OLD_FULL" --arg short "$CLAUDE_USER_HOOK_SHORT" --arg bare "$CLAUDE_USER_HOOK_BARE" \
+    '.hooks.UserPromptSubmit[]?.hooks[]? | select(.type == "command") | .command | select(. == $full or . == $old_full or . == $short or . == $bare)' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
     CLAUDE_WIRED=1
   fi
+fi
+
+if [ "$CLAUDE_WIRED" -eq 1 ] && [ -f "$CLAUDE_SETTINGS" ] && [ "$NODE_STATUS" = available ]; then
+  CLAUDE_STRONG_WIRED="$($NODE_COMMAND - "$CLAUDE_SETTINGS" "$CLAUDE_USER_HOOK_FULL" <<'NODEEOF'
+const fs = require('fs');
+try {
+  const [settingsFile, fullCommand] = process.argv.slice(2);
+  const data = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  const wired = (data.hooks?.UserPromptSubmit ?? []).some(group =>
+    (group.hooks ?? []).some(hook => hook.type === 'command' && String(hook.command ?? '').trim() === fullCommand)
+  );
+  process.stdout.write(wired ? '1' : '0');
+} catch {
+  process.stdout.write('0');
+}
+NODEEOF
+)"
+elif [ "$CLAUDE_WIRED" -eq 1 ] && [ -f "$CLAUDE_SETTINGS" ] && command -v python3 >/dev/null 2>&1; then
+  CLAUDE_STRONG_WIRED="$(python3 - "$CLAUDE_SETTINGS" "$CLAUDE_USER_HOOK_FULL" <<'PYEOF'
+import json, sys
+try:
+    data = json.load(open(sys.argv[1], encoding="utf-8"))
+    full_command = sys.argv[2]
+    commands = [
+        hook.get("command", "")
+        for group in data.get("hooks", {}).get("UserPromptSubmit", [])
+        for hook in group.get("hooks", [])
+        if hook.get("type") == "command"
+    ]
+    print(1 if any(command.strip() == full_command for command in commands) else 0)
+except Exception:
+    print(0)
+PYEOF
+)"
+elif [ "$CLAUDE_WIRED" -eq 1 ] && [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
+  if jq -e --arg full "$CLAUDE_USER_HOOK_FULL" \
+    '.hooks.UserPromptSubmit[]?.hooks[]? | select(.type == "command") | .command | select(. == $full)' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+    CLAUDE_STRONG_WIRED=1
+  fi
+fi
+
+if [ "$CLAUDE_STRONG_WIRED" -eq 1 ]; then
+  CLAUDE_PROMPT_HOOK_STATUS=ready
+elif [ "$CLAUDE_WIRED" -eq 1 ]; then
+  CLAUDE_PROMPT_HOOK_STATUS=legacy
 fi
 
 if [ -f "$CLAUDE_SETTINGS" ] && [ "$NODE_STATUS" = available ]; then
@@ -165,9 +216,14 @@ elif [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
   fi
 fi
 if [ -f "$CLAUDE_ADAPTER" ] && [ "$NODE_STATUS" = available ] && [ "$CLAUDE_WIRED" -eq 1 ]; then
-  CLAUDE_LEVEL=L3
   CLAUDE_INGRESS=enforced
   CLAUDE_BLOCK=enforced
+  if [ "$CLAUDE_STRONG_WIRED" -eq 1 ]; then
+    CLAUDE_LEVEL=L3
+    CLAUDE_SESSION_ACTIVATION=opt_in_runtime_dependent
+  else
+    CLAUDE_LEVEL=L2
+  fi
   if [ "$CLAUDE_STOP_WIRED" -eq 1 ]; then
     CLAUDE_COMPLETION=self_reported
     CLAUDE_EXECUTION_RECEIPT=normal_stop_only
@@ -177,7 +233,7 @@ if [ -f "$CLAUDE_ADAPTER" ] && [ "$NODE_STATUS" = available ] && [ "$CLAUDE_WIRE
 fi
 
 COMPLETION_CHAIN_STATUS=missing
-if [ "$RUNTIME_STATUS" = installed ] && [ "$NODE_STATUS" = available ] && [ "$CLAUDE_WIRED" -eq 1 ] &&
+if [ "$RUNTIME_STATUS" = installed ] && [ "$NODE_STATUS" = available ] && [ "$CLAUDE_STRONG_WIRED" -eq 1 ] &&
    [ -f "$CLAUDE_ADAPTER" ] && [ "$CLAUDE_STOP_WIRED" -eq 1 ] &&
    [ "$PROJECT_CONTEXT_STATUS" = ready ] && [ "$VERIFICATION_CHAIN_STATUS" = ready ]; then
   COMPLETION_CHAIN_STATUS=ready
@@ -188,15 +244,14 @@ CODEX_INGRESS=advisory
 CODEX_BLOCK=unavailable
 if [ -f "$CODEX_ADAPTER" ]; then
   CODEX_LEVEL=L2
-  [ "${ALIGN_CODEX_WRAPPER_ACTIVE:-}" = "1" ] && CODEX_INGRESS=enforced
   CODEX_BLOCK=advisory
 fi
 
 if [ "$JSON_MODE" -eq 1 ]; then
-  printf '{"node":"%s","runtime":"%s","projectRouter":"%s","projectContext":"%s","verificationChain":"%s","hook":{"userPromptSubmit":"%s","stop":"%s"},"completionChain":"%s","hosts":{"claude-code":{"level":"%s","ingress":"%s","block":"%s","completion":"%s","executionReceipt":"%s","failedCancelled":"%s"},"codex":{"level":"%s","ingress":"%s","block":"%s","completion":"unavailable","executionReceipt":"unavailable","failedCancelled":"unavailable"}}}\n' \
+  printf '{"node":"%s","runtime":"%s","projectRouter":"%s","projectContext":"%s","verificationChain":"%s","hook":{"userPromptSubmit":"%s","stop":"%s"},"completionChain":"%s","hosts":{"claude-code":{"level":"%s","ingress":"%s","block":"%s","completion":"%s","executionReceipt":"%s","failedCancelled":"%s","sessionActivation":"%s"},"codex":{"level":"%s","ingress":"%s","block":"%s","completion":"unavailable","executionReceipt":"unavailable","failedCancelled":"unavailable","sessionActivation":"none"}}}\n' \
     "$NODE_STATUS" "$RUNTIME_STATUS" "$ROUTER_STATUS" "$PROJECT_CONTEXT_STATUS" "$VERIFICATION_CHAIN_STATUS" \
-    "$([ "$CLAUDE_WIRED" -eq 1 ] && echo ready || echo missing)" "$([ "$CLAUDE_STOP_WIRED" -eq 1 ] && echo ready || echo missing)" "$COMPLETION_CHAIN_STATUS" \
-    "$CLAUDE_LEVEL" "$CLAUDE_INGRESS" "$CLAUDE_BLOCK" "$CLAUDE_COMPLETION" "$CLAUDE_EXECUTION_RECEIPT" "$CLAUDE_FAILED_CANCELLED" \
+    "$CLAUDE_PROMPT_HOOK_STATUS" "$([ "$CLAUDE_STOP_WIRED" -eq 1 ] && echo ready || echo missing)" "$COMPLETION_CHAIN_STATUS" \
+    "$CLAUDE_LEVEL" "$CLAUDE_INGRESS" "$CLAUDE_BLOCK" "$CLAUDE_COMPLETION" "$CLAUDE_EXECUTION_RECEIPT" "$CLAUDE_FAILED_CANCELLED" "$CLAUDE_SESSION_ACTIVATION" \
     "$CODEX_LEVEL" "$CODEX_INGRESS" "$CODEX_BLOCK"
   exit 0
 fi
@@ -215,10 +270,11 @@ printf '\nClaude Code (reference host):\n'
 printf '  Level:               %s\n' "$CLAUDE_LEVEL"
 printf '  Ingress:             %s\n' "$CLAUDE_INGRESS"
 printf '  Block:               %s\n' "$CLAUDE_BLOCK"
-printf '  UserPromptSubmit:    %s\n' "$([ "$CLAUDE_WIRED" -eq 1 ] && echo '[OK] ready' || echo '[!!] missing')"
+printf '  UserPromptSubmit:    %s %s\n' "$(status_icon "$CLAUDE_PROMPT_HOOK_STATUS")" "$CLAUDE_PROMPT_HOOK_STATUS"
 printf '  Stop hook:           %s\n' "$([ "$CLAUDE_STOP_WIRED" -eq 1 ] && echo '[OK] ready' || echo '[!!] missing')"
 printf '  Completion:          %s\n' "$CLAUDE_COMPLETION"
 printf '  Execution receipt:   %s\n' "$CLAUDE_EXECUTION_RECEIPT"
+printf '  Session activation:  %s\n' "$CLAUDE_SESSION_ACTIVATION"
 printf '\nCodex:\n'
 printf '  Level:               %s\n' "$CODEX_LEVEL"
 printf '  Ingress:             %s\n' "$CODEX_INGRESS"
@@ -230,7 +286,7 @@ printf '\nCompletion chain:      %s %s\n' "$(status_icon "$COMPLETION_CHAIN_STAT
 [ "$ROUTER_STATUS" != outdated ] || exit 3
 [ "$PROJECT_CONTEXT_STATUS" = ready ] || exit 4
 [ "$VERIFICATION_CHAIN_STATUS" = ready ] || exit 5
-[ "$CLAUDE_WIRED" -eq 1 ] || exit 6
+[ "$CLAUDE_STRONG_WIRED" -eq 1 ] || exit 6
 [ -f "$CLAUDE_ADAPTER" ] || exit 7
 [ "$CLAUDE_STOP_WIRED" -eq 1 ] || exit 8
 [ "$COMPLETION_CHAIN_STATUS" = ready ] || exit 9

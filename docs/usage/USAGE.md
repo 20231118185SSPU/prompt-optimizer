@@ -1,17 +1,19 @@
 # 使用说明
 
-> 安装后两个核心动作：`/align setup` 接入项目，然后正常干活。
+> 安装后先用 `/align setup` 接入项目；每个新会话以 `/align <请求>` 作为日常入口。
 
 ## 支持矩阵
 
 | 宿主 | prompt ingress | 机械阻断 | completion | 显式调用 | 证据等级 |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code | enforced | enforced | self_reported | supported | E3 |
+| Claude Code（已 `--wire-hook` 且会话已激活） | enforced | enforced | self_reported | supported | E3 |
 | Codex CLI | advisory | advisory | unavailable | supported | E3 |
 | Cursor | project-rule | unavailable | unavailable | supported | E2 |
 | Universal | copy-paste | unavailable | unavailable | supported | E2 |
 
 运行 `bash ~/.prompt-optimizer/bin/align-doctor --json "$PWD"` 可检查当前宿主的实际 capability。
+
+未接线或刚打开新会话的 Claude Code、Codex、Cursor 和 Universal 都必须显式调用 `/align <请求>`。`/align setup` 不会启用会话。
 
 ## 1. 接入一个项目（3 分钟）
 
@@ -44,7 +46,7 @@ cd your-project
 
 ### 步骤 4：正常干活
 
-接入后直接开发。对齐在后台静默发生，你不需要说"优化："。
+所有宿主先用 `/align <请求>` 生成可独立交接的 Agent Brief。若已在 Claude Code 显式安装 `--wire-hook`，首次非 setup 的 `/align` 会启用当前会话，之后普通请求自动进入对齐路径；新会话必须重新运行 `/align`。
 
 ## 2. 从零开始一个项目
 
@@ -95,7 +97,7 @@ my-project/
 
 ## 3. 日常使用：三档路由
 
-接入后，每条开发指令自动经过三档路由。你不需要做任何事情。
+已激活的 Claude Code 会话中，普通开发指令自动经过三档路由。其他宿主和未激活会话必须把请求写为 `/align <请求>`，随后同样消费三档路由结果。
 
 ### A 档：直通（~60% 指令）
 
@@ -136,21 +138,21 @@ my-project/
 - 一次只问一个问题 + 推荐答案
 - 用户确认后才继续
 
-## 4. 显式模式（v2 兼容）
+## 4. 显式模式（主入口）
 
-想看完整优化结果时，使用显式前缀：
+主入口是 `/align <请求>`：
 
 ```text
-优化：帮我做一个用户登录功能
+/align 帮我做一个用户登录功能
 ```
 
-输出完整 Agent Brief 文档（目标、背景、范围、交付物、约束、执行策略、验收 + 路由日志 + 诊断 + 契约回验 + 改动记录）。
+输出完整 Agent Brief 文档（目标、背景、范围、交付物、约束、执行策略和验收）。诊断、来源和置信度在需要追踪时作为附录，不要求执行 Agent 消费。
 
-其他显式前缀：
+兼容前缀仍可使用：
 
 | 前缀 | 行为 |
 | --- | --- |
-| `优化：` / `/optimize-prompt` | 完整 Agent Brief 文档 |
+| `优化：` / `/optimize-prompt` | 兼容的完整 Agent Brief 入口 |
 | `[直出]` | 只输出优化后的 Prompt，不输出诊断 |
 | `[访谈]` | 强制进入澄清访谈 |
 | `[Agent Brief]` | 直接输出完整任务简报 |

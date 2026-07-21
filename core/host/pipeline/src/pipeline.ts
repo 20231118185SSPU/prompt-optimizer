@@ -5,27 +5,29 @@
  * Converts user instructions into aligned, verifiable task contracts.
  */
 
-import { enrich, AlignContext } from './enricher';
-import { getVerificationCommands } from './acceptance-plan';
-import { analyzeInstruction } from './analyzer';
-import { AlignmentDecision, buildAlignmentDecision } from './contract-builder';
-import { CompatibilityVerdict, HostProjection, projectAlignmentDecision } from './host-projection';
+import type { AlignContext } from './enricher';
+import {
+  alignInstruction,
+  AlignmentInterfaceOptions,
+  AlignmentTraceAppendix,
+  BriefHandoff
+} from './alignment-interface';
+import { ExecutionBrief } from './brief-engine';
+import { AlignmentDecision } from './contract-builder';
+import { CompatibilityVerdict, HostProjection } from './host-projection';
 import { buildMattHandoff, discoverMattEnvironment, MattHandoff } from './matt-handoff';
+import { AlignmentMode, DegradedReason, TaskRoute } from './task-route';
 
 export type PresentationMode = 'default' | 'direct_output';
 export type PipelineEcosystem = 'matt-pocock-skills';
 
-export interface PipelineOptions {
+export interface PipelineOptions extends AlignmentInterfaceOptions {
   bypass?: boolean;
   /**
    * @deprecated Use the explicit `align-cli matt` composition layer. This
    * compatibility option remains for the current minor migration window.
    */
   ecosystem?: PipelineEcosystem;
-  hostCapabilities?: {
-    adapter?: string;
-    nativeBlocking?: boolean;
-  };
 }
 
 /**
@@ -33,6 +35,12 @@ export interface PipelineOptions {
  * alignInstruction() for the Decision/host seam.
  */
 export interface PipelineResult {
+  mode: AlignmentMode;
+  degradedReasons: DegradedReason[];
+  taskRoute: TaskRoute;
+  brief: ExecutionBrief;
+  trace?: AlignmentTraceAppendix;
+  briefHandoff?: BriefHandoff;
   verdict: CompatibilityVerdict;
   presentationMode: PresentationMode;
   instructions: string;
@@ -52,62 +60,61 @@ export interface PipelineResult {
  * details. New callers should use alignInstruction().
  *
  * Steps:
- * 1. Detect presentation preference without bypassing alignment
- * 2. Enrich message with .align/ context
- * 3. Produce one Alignment Decision
- * 4. Project that decision into host instructions and compatibility fields
- * 5. Return the completion verification plan without executing it
+ * 1. Delegate to the canonical interface
+ * 2. Project its bounded evidence into deprecated compatibility fields
+ * 3. Return the completion verification plan without executing it
  */
 export function processInstruction(
   instruction: string,
   projectDir: string,
   options: PipelineOptions = {}
 ): PipelineResult {
-  const normalizedInstruction = instruction.trimStart();
-  const presentationMode: PresentationMode =
-    options.bypass || normalizedInstruction.startsWith('[直出]') || normalizedInstruction.startsWith('直出')
-      ? 'direct_output'
-      : 'default';
-
-  // Step 1: Enrich message with .align/ context
-  const { enrichedMessage, context } = enrich(instruction, projectDir);
-
-  // Step 2: Build the completion verification plan. Execution happens only
-  // after an execution receipt is registered by the lifecycle coordinator.
-  const verificationCommands = getVerificationCommands(projectDir);
-  const contextEntries = [
-    ['lessons', context.lessons],
-    ['spec', context.spec],
-    ['facts', context.facts],
-    ['glossary', context.glossary],
-    ['state', context.state],
-    ['context', context.context],
-    ['decisions.log', context.decisions]
-  ].filter(([, content]) => Boolean(content));
-  if (verificationCommands.length > 0) {
-    contextEntries.push(['check-commands', verificationCommands.join('\n')]);
-  }
-  const semanticContext = contextEntries.map(([name]) => ({
-    kind: 'project' as const,
-    ref: name === 'check-commands' ? '.align/check-commands.txt' : `.align/${name}.md`
-  }));
-  const contextText = [context.spec, context.facts, context.glossary, context.state, context.context]
-    .filter(Boolean)
-    .concat(verificationCommands)
-    .join('\n');
-  const analysis = analyzeInstruction(instruction, semanticContext, contextText);
-  const alignmentDecision = buildAlignmentDecision(analysis, {
-    verificationCommands,
-    adapter: options.hostCapabilities?.adapter,
-    nativeHook: options.hostCapabilities?.nativeBlocking
+  const coreResult = alignInstruction(instruction, projectDir, {
+    hostCapabilities: options.hostCapabilities,
+    model: options.model,
+    directOutput: options.directOutput || options.bypass,
+    includeTrace: true,
+    includeHandoff: options.includeHandoff
   });
-  const hostProjection = projectAlignmentDecision(alignmentDecision);
+  const alignmentDecision = coreResult.decision;
+  const hostProjection = coreResult.host;
+  const context: AlignContext = {
+    lessons: '',
+    spec: '',
+    facts: '',
+    glossary: '',
+    state: '',
+    context: '',
+    decisions: ''
+  };
+  const contextFieldByRef: Record<string, keyof AlignContext> = {
+    '.align/lessons.md': 'lessons',
+    '.align/spec.md': 'spec',
+    '.align/facts.md': 'facts',
+    '.align/glossary.md': 'glossary',
+    '.align/state.md': 'state',
+    '.align/context.md': 'context',
+    '.align/decisions.log.md': 'decisions'
+  };
+  for (const evidence of coreResult.trace?.evidence ?? []) {
+    const field = contextFieldByRef[evidence.source.ref];
+    if (field) context[field] = [context[field], evidence.statement].filter(Boolean).join('\n');
+  }
+  const verificationCommands = [...new Set((coreResult.trace?.evidence ?? [])
+    .filter(item => item.source.ref === '.align/check-commands.txt')
+    .map(item => item.statement))];
 
   const result: PipelineResult = {
+    mode: coreResult.mode,
+    degradedReasons: coreResult.degradedReasons,
+    taskRoute: coreResult.taskRoute,
+    brief: coreResult.brief,
+    ...(options.includeTrace && coreResult.trace ? { trace: coreResult.trace } : {}),
+    ...(coreResult.handoff ? { briefHandoff: coreResult.handoff } : {}),
     verdict: hostProjection.verdict,
-    presentationMode,
+    presentationMode: alignmentDecision.presentation.mode === 'direct_output' ? 'direct_output' : 'default',
     instructions: hostProjection.instructions,
-    enrichedMessage,
+    enrichedMessage: coreResult.brief.markdown,
     context,
     verificationCommands,
     alignmentDecision,

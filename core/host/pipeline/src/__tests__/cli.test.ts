@@ -28,6 +28,112 @@ describe('JSON CLI channel separation', () => {
     expect(result.stdout).not.toContain('[alignment]');
   });
 
+  test('exposes the host feasibility probe as a read-only JSON mode', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'host-probe-cli-'));
+    try {
+      const result = spawnSync(process.execPath, [
+        cli,
+        'probe',
+        'claude-code',
+        '--project-dir',
+        projectDir
+      ], {
+        encoding: 'utf8',
+        env: { ...process.env, ALIGN_HOST_VERSION: 'test-version' }
+      });
+      const output = JSON.parse(result.stdout);
+
+      expect(result.status).toBe(0);
+      expect(output).toEqual(expect.objectContaining({
+        kind: 'alignment.host-feasibility',
+        readOnly: true,
+        host: { name: 'claude-code', version: 'test-version', status: 'supported' },
+        plannedChanges: []
+      }));
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  test('activates and reads only the hashed Claude session reference', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-session-cli-'));
+    const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-session-state-'));
+    const sessionRef = '0123456789abcdef01234567';
+
+    try {
+      const env = {
+        ...process.env,
+        ALIGN_SESSION_REF: sessionRef,
+        PROMPT_OPTIMIZER_STATE_HOME: stateHome
+      };
+      const activate = spawnSync(process.execPath, [cli, 'claude-session', 'activate', '--project-dir', projectDir], {
+        encoding: 'utf8', env
+      });
+      const status = spawnSync(process.execPath, [cli, 'claude-session', 'status', '--project-dir', projectDir], {
+        encoding: 'utf8', env
+      });
+
+      expect(activate.status).toBe(0);
+      expect(JSON.parse(activate.stdout)).toMatchObject({ status: 'active' });
+      expect(status.status).toBe(0);
+      expect(JSON.parse(status.stdout)).toMatchObject({ status: 'active' });
+      const record = fs.readFileSync(path.join(stateHome, fs.readdirSync(stateHome)[0]), 'utf8');
+      expect(record).not.toContain(sessionRef);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+      fs.rmSync(stateHome, { recursive: true, force: true });
+    }
+  });
+
+  test('uses the Markdown Execution Brief as the Codex user-visible artifact', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-brief-cli-'));
+    const alignDir = path.join(projectDir, '.align');
+    fs.mkdirSync(alignDir);
+    fs.writeFileSync(
+      path.join(alignDir, 'spec.md'),
+      'UNRELATED_CONTEXT_MARKER product roadmap only.\n',
+      'utf8'
+    );
+
+    try {
+      const result = spawnSync(process.execPath, [
+        cli,
+        'codex',
+        '只修改 src/parser.ts 的错误文本，不改 public API；完成后运行 npm test -- parser。',
+        '--project-dir',
+        projectDir
+      ], { encoding: 'utf8' });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('# Execution Brief');
+      expect(result.stdout).not.toContain('=== Alignment Context ===');
+      expect(result.stdout).not.toContain('UNRELATED_CONTEXT_MARKER');
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  test('uses the Markdown Execution Brief as the Cursor user-visible artifact', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cursor-brief-cli-'));
+
+    try {
+      const result = spawnSync(process.execPath, [
+        cli,
+        'cursor',
+        '只修改 src/parser.ts 中的 parseUser 名称，不改 public API；完成后运行 npm test -- parser。',
+        '--project-dir',
+        projectDir
+      ], { encoding: 'utf8' });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('# Execution Brief');
+      expect(result.stdout).not.toContain('[alignment]');
+      expect(result.stderr).not.toContain('[alignment]');
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
   test('keeps json mode decision-only even when Matt skills are discoverable', () => {
     const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'matt-json-cli-'));
 

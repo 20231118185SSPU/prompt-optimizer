@@ -1,4 +1,4 @@
-import { processInstruction } from './pipeline';
+import { alignInstruction } from './alignment-interface';
 import {
   buildMattHandoff,
   discoverMattEnvironment,
@@ -10,6 +10,6 @@ import {
  * The Alignment Decision is computed first and remains the only route source.
  */
 export function createMattHandoff(instruction: string, projectDir: string): MattHandoff {
-  const result = processInstruction(instruction, projectDir);
-  return buildMattHandoff(result.alignmentDecision, discoverMattEnvironment(projectDir));
+  const result = alignInstruction(instruction, projectDir);
+  return buildMattHandoff(result.decision, discoverMattEnvironment(projectDir));
 }

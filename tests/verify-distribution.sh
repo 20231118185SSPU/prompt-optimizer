@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # G3 distribution evidence: generated runtime, doctor, Claude L3 and Codex L2.
-set -u
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist/runtime"
@@ -34,7 +34,15 @@ required=(
   contracts/decision-policy.json
   contracts/decision-policy.schema.json
   contracts/reason-registry.json
+  contracts/task-route.schema.json
+  contracts/alignment-brief.schema.json
   runtime/index.js
+  runtime/brief-engine.js
+  runtime/context-resolver.js
+  runtime/host-feasibility.js
+  runtime/privacy.js
+  runtime/session-activation.js
+  runtime/task-route.js
   runtime/shell/align-route.sh
   adapters/claude-code.sh
   adapters/codex.sh
@@ -49,7 +57,7 @@ for relative in "${required[@]}"; do
   fi
 done
 
-for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json task-route.schema.json alignment-brief.schema.json; do
   if ! cmp -s "$ROOT/core/contracts/$contract_asset" "$DIST/contracts/$contract_asset"; then
     echo "FAIL: distributed policy contract differs from core SSOT: $contract_asset"
     exit 1
@@ -68,21 +76,24 @@ if [ "$before_hash" != "$after_bash_hash" ]; then
   echo "FAIL: no-Node Bash build changed or removed the structured runtime"
   exit 1
 fi
-for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json task-route.schema.json alignment-brief.schema.json; do
   if ! cmp -s "$ROOT/core/contracts/$contract_asset" "$DIST/contracts/$contract_asset"; then
     echo "FAIL: no-Node Bash build changed policy contract $contract_asset"
     exit 1
   fi
 done
 if command -v pwsh >/dev/null 2>&1; then
-  ALIGN_NODE_COMMAND=prompt-optimizer-node-missing ALIGN_NPM_COMMAND=prompt-optimizer-npm-missing \
-    pwsh -NoProfile -File "$ROOT/build/build.ps1" >/dev/null
+  if ! ALIGN_NODE_COMMAND=prompt-optimizer-node-missing ALIGN_NPM_COMMAND=prompt-optimizer-npm-missing \
+    pwsh -NoProfile -File "$ROOT/build/build.ps1" >/dev/null; then
+    echo "FAIL: no-Node PowerShell build failed"
+    exit 1
+  fi
   after_ps_hash="$(sha256sum "$DIST/runtime/index.js" | awk '{print $1}')"
   if [ "$before_hash" != "$after_ps_hash" ]; then
     echo "FAIL: no-Node PowerShell build changed or removed the structured runtime"
     exit 1
   fi
-  for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json; do
+  for contract_asset in decision-policy.json decision-policy.schema.json reason-registry.json task-route.schema.json alignment-brief.schema.json; do
     if ! cmp -s "$ROOT/core/contracts/$contract_asset" "$DIST/contracts/$contract_asset"; then
       echo "FAIL: no-Node PowerShell build changed policy contract $contract_asset"
       exit 1
@@ -90,15 +101,17 @@ if command -v pwsh >/dev/null 2>&1; then
   done
 fi
 
-if ! grep -q 'Generated from core/' "$DIST/runtime/index.js" ||
-   ! grep -q 'Do not edit dist/ manually' "$DIST/runtime/index.js"; then
-  echo "FAIL: runtime artifact lacks generated markers"
-  exit 1
-fi
+for runtime_artifact in index.js brief-engine.js context-resolver.js host-feasibility.js privacy.js session-activation.js task-route.js; do
+  if ! grep -q 'Generated from core/' "$DIST/runtime/$runtime_artifact" ||
+     ! grep -q 'Do not edit dist/ manually' "$DIST/runtime/$runtime_artifact"; then
+    echo "FAIL: runtime artifact lacks generated markers: $runtime_artifact"
+    exit 1
+  fi
+done
 
 cp -R "$DIST" "$SANDBOX/.prompt-optimizer"
 mkdir -p "$SANDBOX/.claude"
-printf '%s\n' '{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"BLOCK_ON_HIGH=on bash $HOME/.prompt-optimizer/adapters/claude-code.sh"}]}]}}' > "$SANDBOX/.claude/settings.json"
+printf '%s\n' '{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"if [ -f \"$HOME/.prompt-optimizer/adapters/claude-code.sh\" ]; then ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on bash \"$HOME/.prompt-optimizer/adapters/claude-code.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" ]; then bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" ]; then cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\"; else printf \"%s\\n\" \"[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。\"; fi"}]}]}}' > "$SANDBOX/.claude/settings.json"
 doctor_json="$(HOME="$SANDBOX" bash "$SANDBOX/.prompt-optimizer/bin/align-doctor" --json "$ROOT")"
 printf '%s' "$doctor_json" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
@@ -138,10 +151,24 @@ d=json.load(sys.stdin)
 assert d["kind"] == "alignment.decision.projection"
 assert d["degraded"] is True'
 
-printf '%s' '{"prompt":"[直出] 删除生产库中全部 90 天未登录用户；备份和回滚条件已定义，但尚未确认执行。"}' |
-  BLOCK_ON_HIGH=on CLAUDE_PROJECT_DIR="$ROOT" bash "$SANDBOX/.prompt-optimizer/adapters/claude-code.sh" \
+claude_session_id='distribution-session'
+claude_state_home="$SANDBOX/claude-state"
+printf '%s' "{\"session_id\":\"$claude_session_id\",\"prompt\":\"/align\"}" |
+  ALIGN_SESSION_ACTIVATION=on PROMPT_OPTIMIZER_STATE_HOME="$claude_state_home" \
+  CLAUDE_PROJECT_DIR="$ROOT" bash "$SANDBOX/.prompt-optimizer/adapters/claude-code.sh" \
+  > "$SANDBOX/claude-activation" 2> "$SANDBOX/claude-activation-err"
+if ! grep -q '当前会话已启用' "$SANDBOX/claude-activation"; then
+  echo "FAIL: installed Claude adapter did not activate the explicit session"
+  exit 1
+fi
+
+set +e
+printf '%s' "{\"session_id\":\"$claude_session_id\",\"prompt\":\"[直出] 删除生产库中全部 90 天未登录用户；备份和回滚条件已定义，但尚未确认执行。\"}" |
+  ALIGN_SESSION_ACTIVATION=on BLOCK_ON_HIGH=on PROMPT_OPTIMIZER_STATE_HOME="$claude_state_home" \
+  CLAUDE_PROJECT_DIR="$ROOT" bash "$SANDBOX/.prompt-optimizer/adapters/claude-code.sh" \
   > "$SANDBOX/claude-out" 2> "$SANDBOX/claude-err"
 status=$?
+set -e
 if [ "$status" -ne 2 ]; then
   echo "FAIL: installed Claude adapter did not enforce blocking (status=$status)"
   exit 1

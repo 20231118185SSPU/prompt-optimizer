@@ -7,9 +7,20 @@ cd "$ROOT" || exit 1
 SNAPSHOT="$(mktemp -d)"
 trap 'rm -rf "$SNAPSHOT"' EXIT
 
+assert_no_generated_temp() {
+  local temp
+  temp="$(find dist -type f \( -name '*.tmp' -o -name '*.tmp.*' \) -print -quit)"
+  if [ -n "$temp" ]; then
+    echo "FAIL: generated dist contains a temporary file: $temp"
+    exit 1
+  fi
+}
+
 bash build/build.sh >/dev/null 2>&1 || { echo "FAIL: build.sh 第 1 次失败"; exit 1; }
+assert_no_generated_temp
 cp -R dist/. "$SNAPSHOT/"
 bash build/build.sh >/dev/null 2>&1 || { echo "FAIL: build.sh 第 2 次失败"; exit 1; }
+assert_no_generated_temp
 
 if diff -qr "$SNAPSHOT" dist >/dev/null 2>&1; then
   echo "PASS: build.sh idempotent (two runs produce identical dist/)"

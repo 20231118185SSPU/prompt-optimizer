@@ -15,10 +15,10 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 
 ## 触发方式
 
-- `/align-init`：扫描当前项目，生成 `.align/` 运行时 + 注入挂载区 + 机械层接线。
+- `/align-init`：扫描当前项目，生成 `.align/` 运行时 + 注入挂载区；默认不接线 hook 或启用会话。
 - `$align-init`：同上（支持 `$` 前缀的工具）。
 - `/align-init --new`：从零项目模式，走访谈决策树。
-- `/align-init --zero`：零问模式，全部采用推荐默认值，一个问题都不问，装完即用（适合无开发基础的用户）。
+- `/align-init --zero`：零问模式，全部采用推荐默认值，一个问题都不问；生成后可立即通过 `/align <请求>` 使用（适合无开发基础的用户）。
 - `/align-init --upgrade`：升级已有挂载区版本，增量更新 spec，不重置 lessons/decisions。
 
 ## 零问模式（--zero）
@@ -78,10 +78,11 @@ This skill initializes the Alignment Protocol runtime for a project. It generate
 │   ├── align-route.sh     # 信号评分路由器（从 skill 目录的 hooks/ 复制）
 │   ├── align-check.sh     # 一键交付验证 + 债务台账（同上）
 │   └── check-commands.txt # 项目验证命令清单（扫描结果生成，每行一条）
-├── .claude/settings.json  # 项目级硬拦截（deny 危险操作；已有文件则提示手动合并）
 ├── CLAUDE.md              # 注入挂载区（已有内容不覆盖）
 └── AGENTS.md              # 同上（面向 Codex）
 ```
+
+`~/.claude/settings.json` 不属于默认生成文件；只有用户明确选择 `--wire-hook`（PowerShell 为 `-WireHook`）时，安装器才会备份并更新该用户级配置。
 
 ### check-commands.txt 生成规则
 
@@ -108,9 +109,9 @@ BLOCK_ON_HIGH=off
 
 弱模型场景额外建议：把 `optimize-prompt-lite/SKILL.md` 的内容注入宿主规则文件（不支持 hooks 的宿主必须这样做，它是弱模型的全部护栏）。
 
-## Hook 接线（Claude Code）
+## 可选 Hook 接线（Claude Code）
 
-`.align/` 生成后，必须完成 hook 接线，否则协议只是被动文档、没有强制推送：
+生成 `.align/` 不会修改 `~/.claude/settings.json`，也不会启用当前会话。默认路径是每个新会话使用 `/align <请求>`；只有用户在 capability 报告后明确选择强会话模式时，才接线 hook。
 
 1. **复制机械层脚本**：从 `~/.claude/hooks/`（安装器复制）或 `~/.agents/hooks/` 或仓库 `dist/claude-code/hooks/` 复制 `align-route.sh` 和 `align-check.sh` 到 `.align/`。**找不到源文件时必须报错并指向安装文档，禁止静默生成简化版**——简化版不读 stdin、不分类，会导致对齐失效且接入报告误报"成功"。
 
@@ -123,45 +124,27 @@ BLOCK_ON_HIGH=off
    交付前必须自验证（R8 验证门不可跳过）。
    ```
 
-3. **合并 hook 进 `~/.claude/settings.json`**（用户全局配置，修改前先备份并向用户展示改动）：
+3. **显式接线强会话**：仅在用户确认后运行安装器的 `--wire-hook`（PowerShell 为 `-WireHook`）。安装器会备份并原子更新用户全局配置，归一旧/新自有 hook，且写入 `ALIGN_SESSION_ACTIVATION=on`。禁止手工粘贴旧命令。每个新会话仍须先运行 `/align`；`/align setup` 不会启用会话。
 
-   ```json
-   {
-     "hooks": {
-       "UserPromptSubmit": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "command": "if [ -f \"$HOME/.prompt-optimizer/adapters/claude-code.sh\" ]; then BLOCK_ON_HIGH=on bash \"$HOME/.prompt-optimizer/adapters/claude-code.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\" ]; then bash \"$CLAUDE_PROJECT_DIR/.align/align-route.sh\"; elif [ -f \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\" ]; then cat \"$CLAUDE_PROJECT_DIR/.align/HOOK-REMINDER.txt\"; else printf \"%s\\n\" \"[对齐] 未检测到 Prompt Optimizer runtime。请重新安装并运行 /align-init。\"; fi"
-             }
-           ]
-         }
-       ]
-     }
-   }
-   ```
+4. **可选项目级硬拦截**：仅在用户明确选择后，才展示或合并 `project-settings.fragment.json`。已有项目配置时只输出 fragment，**不自动改写用户的项目配置**。
 
-   合并规则：只增不删，保留 `env` 等既有字段；相同命令已存在时无操作（幂等）；存在旧版 `cat .align/HOOK-REMINDER.txt` 命令时原位升级。
-   命令自带降级链，未接入 `.align/` 的项目不受影响。
-
-4. **项目级硬拦截**：目标项目无 `.claude/settings.json` 时，写入 skill 附带的 `project-settings.fragment.json`（deny 改 dist、rm -rf、reset --hard、force push）；已有该文件时输出 fragment 内容请用户手动合并，**不自动改写用户的项目配置**。
-
-5. **验证接线**（必须区分完整版与简化版）：
+5. **验证**（必须区分完整版与简化版）：
    - `bash .align/align-route.sh --classify "优化一下"` 输出 `VAGUE`
    - **stdin 解析验证**：`echo '{"prompt":"删库"}' | bash .align/align-route.sh` 输出含"高风险"的差异化文本（简化版只会 cat 静态 HOOK-REMINDER，不输出"高风险"）
    - `bash .align/align-check.sh` 可执行
-   - settings.json 可被 JSON 解析且含 `hooks` 段
-   - 任一失败 → 接入报告标注"接线失败"并指向修复方式，**不得报告"接入成功"**
+    - 用户选择 `--wire-hook` 时：settings.json 可被 JSON 解析且 doctor 报告对应接线能力；任一失败 → 接入报告标注"接线失败"并指向修复方式，**不得报告强会话已启用**
+    - 保留显式模式时：报告"显式入口可用，未请求 hook 接线"，不得误报接线失败
 
 ## 挂载区注入
 
 挂载区使用标记包裹，绝不覆盖用户内容：
 
 ```markdown
-<!-- align-protocol:begin v3.0 -->
+<!-- align-protocol:begin v4.0 -->
 ## 对齐协议（Alignment Protocol）
-每条开发指令执行前，静默完成三档路由评估：
+默认模式：显式调用。每个新会话使用 `/align <请求>` 触发意图对齐；未显式调用时按宿主默认行为处理，禁止把普通消息视为自动对齐入口。
+已显式 `--wire-hook` 且当前会话已 `/align` 的 Claude Code，后续普通请求可由 hook 持续进入同一对齐路径；新会话必须重新激活。Codex、Cursor 和未激活会话保持显式调用。
+显式入口或已激活 hook 进入时：
 1. 读取 .align/lessons.md → .align/spec.md → .align/facts.md / glossary.md / state.md；三个分类文件未齐全时同时读取 context.md，全部缺失时只读 legacy
 2. 五维快评：简单且明确 → 直接执行（但交付前必须自验证）
 3. 有缺口但项目上下文可补全 → 开头展示 ≤3 行补全回执（补全内容 + 来源 + `撤销补全 <ID>`），然后直接执行
@@ -245,10 +228,10 @@ Cursor 不使用 CLAUDE.md/AGENTS.md，改为注入 `.cursor/rules/align.mdc`（
   - .align/align-route.sh + align-check.sh（机械层脚本）
   - .align/check-commands.txt（N 条验证命令 / 待补）
 - 挂载区注入：CLAUDE.md / AGENTS.md / .cursor/rules/align.mdc
-- Hook 接线：~/.claude/settings.json 已合并 UserPromptSubmit hook / 跳过（原因）
-- 硬拦截：.claude/settings.json 已写入 / 已有文件请手动合并（附 fragment）
+- Hook 接线：已按用户确认使用 `--wire-hook` / 保留显式模式（原因）
+- 硬拦截：已按用户确认处理 / 未请求（原因）
 - 澄清问题数：N（≤3 为正常）
-- 下一步：正常开发即可，每条指令会自动经过三档路由评估
+- 下一步：每个新会话先使用 `/align <请求>`；仅已接线且已激活的 Claude Code 会话会持续处理普通请求
 - 给氛围编程者：现在直接用大白话告诉 AI 你想做什么就行。指令模糊时 AI 会先问一个关键问题；高风险信息不足时先澄清，授权受阻时等待确认，信息与授权完整时按范围执行。完成后 AI 会提醒你跑验证。
 ```
 

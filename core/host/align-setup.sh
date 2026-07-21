@@ -292,14 +292,18 @@ cmd_mount() {
   local project_dir="${1:-$(pwd)}"
   local target_file="${2:-CLAUDE.md}"
   local full_path="$project_dir/$target_file"
-  local mount_version="v3.0"
+  local mount_version="v4.0"
 
   local mount_content
   mount_content=$(cat <<'MOUNTEOF'
-<!-- align-protocol:begin v3.0 -->
+<!-- align-protocol:begin v4.0 -->
 ## 对齐协议（Alignment Protocol）
 
-每条开发指令执行前，静默完成三档路由评估：
+默认模式：显式调用。每个新会话使用 `/align <请求>` 触发意图对齐；未显式调用时按宿主默认行为处理，禁止把普通消息视为自动对齐入口。
+
+已显式 `--wire-hook` 且当前会话已 `/align` 的 Claude Code，后续普通请求可由 hook 持续进入同一对齐路径；新会话必须重新激活。Codex、Cursor 和未激活会话保持显式调用。
+
+显式入口或已激活 hook 进入时：
 
 1. 读取 `.align/lessons.md → spec.md → facts.md / glossary.md / state.md`；三个分类文件未齐全时同时读取 `context.md`，全部缺失时只读 legacy
 2. 五维快评：简单且明确 → 直接执行（但交付前必须自验证）
@@ -328,6 +332,7 @@ MOUNTEOF
       # Upgrade: replace between markers
       local tmp="$full_path.tmp.$$"
       awk -v mount="$mount_content" '
+        BEGIN { printing=1 }
         /<!-- align-protocol:begin/ { printing=0; printf "%s\n", mount; next }
         /<!-- align-protocol:end/ { printing=1; next }
         printing { print }

@@ -40,7 +40,7 @@ describe('processInstruction', () => {
   });
 
   // ── Clear instruction ──
-  it('derives the compatibility verdict from an enriched decision', () => {
+  it('derives the compatibility verdict from the canonical Brief', () => {
     const result = processInstruction(
       '修复 src/index.ts 第 42 行的 TypeError',
       tmpDir
@@ -50,7 +50,8 @@ describe('processInstruction', () => {
     expect(result.verdict).toBe('GRAY');
     expect(result.instructions).toContain('[对齐]');
     expect(result.instructions).toContain('route=enrich');
-    expect(result.enrichedMessage).toContain('用户指令');
+    expect(result.enrichedMessage).toBe(result.brief.markdown);
+    expect(result.enrichedMessage).toContain('# Execution Brief');
     expect(result.context.lessons).toContain('Always check types');
     expect(result.context.spec).toContain('TypeScript strict mode');
     expect(result.verificationCommands).toContain('echo "test passed"');
@@ -121,7 +122,8 @@ describe('processInstruction', () => {
     expect(result.verdict).toBe('VAGUE');
     expect(result.instructions).toContain('[对齐]');
     expect(result.instructions).toContain('route=clarify');
-    expect(result.enrichedMessage).toContain('用户指令');
+    expect(result.enrichedMessage).toBe(result.brief.markdown);
+    expect(result.enrichedMessage).toContain('优化一下这个项目');
   });
 
   // ── High-risk instruction ──
@@ -180,20 +182,21 @@ describe('processInstruction', () => {
     expect(result.enrichedMessage).toContain('删除所有文件');
   });
 
-  // ── Enrich message with .align/ context ──
-  it('enriches message with .align/ context files', () => {
+  // ── Project bounded evidence in the canonical Brief ──
+  it('projects relevant .align/ evidence into the canonical Brief', () => {
     const result = processInstruction(
       '修复登录页面的样式问题',
       tmpDir
     );
 
-    // Should contain context from .align/ files
-    expect(result.enrichedMessage).toContain('项目经验规则');
+    expect(result.enrichedMessage).toBe(result.brief.markdown);
+    expect(result.enrichedMessage).toContain('# Execution Brief');
+    expect(result.enrichedMessage).toContain('## 相关上下文');
     expect(result.enrichedMessage).toContain('Always check types');
-    expect(result.enrichedMessage).toContain('项目规范');
     expect(result.enrichedMessage).toContain('TypeScript strict mode');
-    expect(result.enrichedMessage).toContain('用户指令');
     expect(result.enrichedMessage).toContain('修复登录页面的样式问题');
+    expect(result.enrichedMessage).not.toContain('项目经验规则');
+    expect(result.enrichedMessage).not.toContain('项目规范');
 
     // Context object should be populated
     expect(result.context.lessons).toContain('Always check types');
@@ -211,7 +214,9 @@ describe('processInstruction', () => {
       );
 
       expect(result.verdict).toBe('VAGUE');
-      expect(result.enrichedMessage).toBe('写个测试');
+      expect(result.enrichedMessage).toBe(result.brief.markdown);
+      expect(result.enrichedMessage).toContain('# Execution Brief');
+      expect(result.enrichedMessage).toContain('写个测试');
       expect(result.context.lessons).toBe('');
       expect(result.context.spec).toBe('');
       expect(result.verificationCommands).toEqual([]);
@@ -260,7 +265,7 @@ describe('processInstruction', () => {
 
     const result = processInstruction('修改 src/index.ts', tmpDir);
 
-    expect(result.verificationCommands).toHaveLength(1);
+    expect(result.verificationCommands).toEqual([]);
     expect(fs.existsSync(markerPath)).toBe(false);
   });
 

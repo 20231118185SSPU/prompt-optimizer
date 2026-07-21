@@ -2,7 +2,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { analyzeInstruction } from '../analyzer';
+import { alignInstruction } from '../alignment-interface';
 import { buildAlignmentDecision } from '../contract-builder';
+import { createMattHandoff } from '../matt-cli';
 import { buildMattHandoff, discoverMattEnvironment } from '../matt-handoff';
 
 describe('Matt Pocock Skills ecosystem handoff', () => {
@@ -22,6 +24,23 @@ describe('Matt Pocock Skills ecosystem handoff', () => {
       }]
     };
   }
+
+  test('uses the canonical alignment seam as the Matt handoff decision source', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'matt-canonical-seam-'));
+    const request = '只修改 src/parser.ts 的解析逻辑，不改 public API；实现后运行 npm test -- parser。';
+
+    try {
+      const canonical = alignInstruction(request, projectDir);
+      const handoff = createMattHandoff(request, projectDir);
+
+      expect(handoff.source).toEqual(expect.objectContaining({
+        decisionId: canonical.decision.decisionId,
+        route: canonical.decision.route
+      }));
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
 
   test('routes an executable code review contract without copying or invoking the skill', () => {
     const decision = buildAlignmentDecision(analyzeInstruction(

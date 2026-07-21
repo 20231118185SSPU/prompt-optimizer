@@ -59,7 +59,7 @@ session_ref() {
   elif command -v openssl &> /dev/null; then
     printf '%s' "$1" | openssl dgst -sha256 -r | awk '{print substr($1,1,24)}'
   else
-    printf '%s' "$1"
+    printf ''
   fi
 }
 
@@ -216,16 +216,6 @@ fi
 
 # ALIGN_BYPASS is a legacy presentation preference; routing still runs.
 
-# Check if Node.js is available
-if ! command -v "$NODE_COMMAND" &> /dev/null; then
-  echo "[对齐] Warning: Node.js not found, falling back to shell router"
-  set +e
-  run_shell_fallback
-  STATUS=$?
-  set -e
-  exit "$STATUS"
-fi
-
 # ── 输入提取：python3 → jq → sed 降级（与 align-route.sh 保持一致）──
 PROMPT=""
 if command -v python3 &> /dev/null; then
@@ -252,7 +242,96 @@ fi
 
 if [ -z "$PROMPT" ]; then
   echo "[对齐] Could not extract prompt from hook input"
+  [ "${ALIGN_SESSION_ACTIVATION:-}" = "on" ] && exit 2
   exit 0
+fi
+
+SESSION_ACTIVATION_ENABLED=false
+[ "${ALIGN_SESSION_ACTIVATION:-}" = "on" ] && SESSION_ACTIVATION_ENABLED=true
+
+is_align_setup() {
+  [[ "$1" =~ ^/align[[:space:]]+setup([[:space:]]|$) ]]
+}
+
+is_align_anchor() {
+  case "$1" in
+    /align|/align[[:space:]]*) ;;
+    *) return 1 ;;
+  esac
+  is_align_setup "$1" && return 1
+  return 0
+}
+
+run_session_cli() {
+  ALIGN_SESSION_REF="$SESSION_REF" PROMPT_OPTIMIZER_STATE_HOME="${PROMPT_OPTIMIZER_STATE_HOME:-}" \
+    run_with_hook_timeout "$NODE_COMMAND" "$RUNTIME" claude-session "$1" --project-dir "$PROJECT_DIR"
+}
+
+if [ "$SESSION_ACTIVATION_ENABLED" = true ]; then
+  if is_align_anchor "$PROMPT"; then
+    ALIGN_REQUEST="${PROMPT#/align}"
+    ALIGN_REQUEST="${ALIGN_REQUEST#"${ALIGN_REQUEST%%[![:space:]]*}"}"
+    if ! command -v "$NODE_COMMAND" &> /dev/null || [ ! -f "$RUNTIME" ]; then
+      echo "[对齐] 会话激活模式需要 Node.js runtime。请在当前会话运行 /align。"
+      [ -n "$ALIGN_REQUEST" ] && exit 2
+      exit 0
+    fi
+    if [ -z "$SESSION_REF" ]; then
+      echo "[对齐] 无法识别当前会话，未启用。请在当前会话重新运行 /align。"
+      [ -n "$ALIGN_REQUEST" ] && exit 2
+      exit 0
+    fi
+    set +e
+    ACTIVATION_RESULT="$(run_session_cli activate)"
+    ACTIVATION_STATUS=$?
+    set -e
+    if [ "$ACTIVATION_STATUS" -eq 0 ] && printf '%s' "$ACTIVATION_RESULT" | grep -q '"status":"active"'; then
+      if [ -n "$ALIGN_REQUEST" ]; then
+        PROMPT="$ALIGN_REQUEST"
+      else
+        echo "[对齐] 当前会话已启用；打开新会话后请重新运行 /align。"
+        exit 0
+      fi
+    else
+      echo "[对齐] 当前会话未启用。请在当前会话重新运行 /align。"
+      [ -n "$ALIGN_REQUEST" ] && exit 2
+      exit 0
+    fi
+  fi
+
+  if is_align_setup "$PROMPT"; then
+    echo "[对齐] /align setup 不会启用当前会话。完成后请先运行 /align。"
+    exit 0
+  fi
+
+  if ! command -v "$NODE_COMMAND" &> /dev/null || [ ! -f "$RUNTIME" ]; then
+    echo "[对齐] 会话激活模式需要 Node.js runtime。请在当前会话运行 /align。"
+    exit 2
+  fi
+
+  if [ -z "$SESSION_REF" ]; then
+    echo "[对齐] 当前会话尚未启用。请先运行 /align。"
+    exit 2
+  fi
+  set +e
+  SESSION_STATUS_RESULT="$(run_session_cli status)"
+  SESSION_STATUS=$?
+  set -e
+  if [ "$SESSION_STATUS" -ne 0 ] || ! printf '%s' "$SESSION_STATUS_RESULT" | grep -q '"status":"active"'; then
+    echo "[对齐] 当前会话尚未启用或会话状态不可用。请先运行 /align。"
+    exit 2
+  fi
+fi
+
+# Default mode retains the legacy shell fallback. Strong session activation
+# checks above must fail closed instead of reaching this branch.
+if ! command -v "$NODE_COMMAND" &> /dev/null; then
+  echo "[对齐] Warning: Node.js not found, falling back to shell router"
+  set +e
+  run_shell_fallback
+  STATUS=$?
+  set -e
+  exit "$STATUS"
 fi
 
 # Call align-cli (safe: pass args positionally, not interpolated)
@@ -262,6 +341,20 @@ set +e
 RESULT="$(ALIGN_SESSION_REF="$SESSION_REF" ALIGN_ROUTE_INNER=1 run_with_hook_timeout bash -c "$ALIGN_CMD" _ "$NODE_COMMAND" "$RUNTIME" "$PROMPT" "$PROJECT_DIR")"
 STATUS=$?
 set -e
+
+if [ "$SESSION_ACTIVATION_ENABLED" = true ]; then
+  if [ "$STATUS" -ne 0 ]; then
+    [ -n "$RESULT" ] && printf '%s\n' "$RESULT" >&2
+    [ "$STATUS" -eq 124 ] && echo "[对齐] Runtime route timeout; strong session blocked execution." >&2
+    exit 2
+  fi
+  if [ -z "$RESULT" ]; then
+    echo "[对齐] Runtime route produced no output; strong session blocked execution." >&2
+    exit 2
+  fi
+  printf '%s\n' "$RESULT"
+  exit 0
+fi
 
 if [ "$STATUS" -eq 124 ]; then
   echo "[对齐] Runtime route timeout, falling back to shell router" >&2

@@ -9,6 +9,15 @@ cd "$ROOT" || exit 1
 SNAPSHOT="$(mktemp -d)"
 trap 'rm -rf "$SNAPSHOT"' EXIT
 
+assert_no_generated_temp() {
+  local temp
+  temp="$(find dist -type f \( -name '*.tmp' -o -name '*.tmp.*' \) -print -quit)"
+  if [ -n "$temp" ]; then
+    echo "FAIL: generated dist contains a temporary file: $temp"
+    exit 1
+  fi
+}
+
 # ── 检测 PowerShell ──
 PS_BIN=""
 if command -v pwsh >/dev/null 2>&1; then
@@ -23,10 +32,12 @@ fi
 
 echo "=== Step 1: build.sh ==="
 bash build/build.sh >/dev/null 2>&1 || { echo "FAIL: build.sh failed"; exit 1; }
+assert_no_generated_temp
 cp -R dist/. "$SNAPSHOT/"
 
 echo "=== Step 2: build.ps1 ($PS_BIN) ==="
 "$PS_BIN" -NoProfile -ExecutionPolicy Bypass -File build/build.ps1 >/dev/null 2>&1 || { echo "FAIL: build.ps1 failed"; exit 1; }
+assert_no_generated_temp
 
 echo "=== Step 3: Compare dist/ ==="
 if diff -qr "$SNAPSHOT" dist >/dev/null 2>&1; then

@@ -379,13 +379,20 @@ function buildAlignmentDecision(analysis, options = {}) {
     const runCount = benchmarkRunCount(analysis);
     const acceptance = executable
         ? acceptanceCommands.length > 0
-            ? acceptanceCommands.map((command, index) => ({
-                id: `acceptance-${index + 1}`,
-                criterion: threshold && /benchmark/i.test(command)
-                    ? `${runCount ? `连续运行 ${runCount} 次且每次 ` : ''}${threshold}：${command}`
-                    : `命令通过：${command}`,
-                method: { kind: 'command', value: command }
-            }))
+            ? [
+                ...acceptanceCommands.map((command, index) => ({
+                    id: `acceptance-${index + 1}`,
+                    criterion: threshold && /benchmark/i.test(command)
+                        ? `${runCount ? `连续运行 ${runCount} 次且每次 ` : ''}${threshold}：${command}`
+                        : `命令通过：${command}`,
+                    method: { kind: 'command', value: command }
+                })),
+                ...(acceptanceSource.kind === 'project' ? [{
+                        id: `acceptance-${acceptanceCommands.length + 1}`,
+                        criterion: `人工验收：逐项满足请求中已声明的目标与边界：${analysis.text}`,
+                        method: manualAcceptanceMethod(`按原始请求逐项检查目标对象、修改结果、范围、禁止项和输出条件：${analysis.text}`)
+                    }] : [])
+            ]
             : [{
                     id: 'acceptance-1',
                     criterion: `人工验收：逐项满足请求中已声明的目标与边界：${analysis.text}`,

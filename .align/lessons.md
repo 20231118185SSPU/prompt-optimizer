@@ -59,3 +59,13 @@
 - [W8 bash ETIMEDOUT] 规则：Windows Git Bash 连续 spawn 40+ 次时偶发 ETIMEDOUT（15s 不够）→ 下次执行：`verify-w7-production-corpus.js` timeout 设 30000，或分批运行。
 - [W8 g5 hash 冻结] 规则：W8 修改 classifier/analyzer 后 runtime bundle hash 变化，g5 remediation 证据必须重新冻结 → 下次执行：改 pipeline 源码后立即重跑 `verify-g5-remediation.js` 并更新 evidence。
 - [W8 PS5.1 Get-FileHash] 规则：`Get-FileHash` 是 PS4+ cmdlet 但部分 Win10 环境仍缺失 → 下次执行：用 `CertUtil -hashfile` 做 fallback。
+- [P1 兼容入口] 规则：兼容别名调用 canonical core 后不得再调用旧 context reader → 下次执行：兼容字段只能从 bounded Trace/Brief 投影，并用无关大文件哨兵测试不泄漏。
+- [P1 证据预算] 规则：`.align/check-commands.txt` 也属于上下文证据预算，不能走旁路全量读取 → 下次执行：命令只从已采用 evidence 派生，并同时断言 evidence、acceptance 和 Brief 行数上限。
+- [P1 模型 Brief] 规则：schema 合法不代表语义获授权，模型可在执行步骤中扩权或换目标文件 → 下次执行：机器层复核新增风险、隐藏 `.align/` 引用和用户/证据之外的目标路径。
+- [P1 脱敏边界] 规则：`.env` 自由文本和赋值都要脱敏，但不能破坏 `NODE_ENV=test npm test` 等非敏感验收命令 → 下次执行：结合来源语境与敏感变量名判断，并在所有字段转换后汇总 redacted 状态。
+- [P1 Route schema] 规则：嵌套复制 Task Route schema 会与 runtime 漂移 → 下次执行：Brief schema 引用 canonical Task Route schema，并用 primary/secondary/rationale 不一致反例验证 fail closed。
+- [英文短 token] 规则：英文短 token 的裸子串会把 `ui` 命中 `require` → 下次执行：关键词使用词边界或结构化 token，并加入包含关系反例。
+- [中文硬规则] 规则：仅匹配“必须/禁止”等引导词会漏掉“不要改为”等禁止子句 → 下次执行：按禁止结构识别方向冲突，并用中文改向反例验证 fail closed。
+- [自然语言目标漂移] 规则：模型输出可在不新增路径时把原目标换成另一模块 → 下次执行：机器层比较用户目标与模型目标语义，冲突时降级并回退原始目标。
+- [hook 命令探测] 规则：配置里出现 hook 形状不等于宿主能力已验证 → 下次执行：只报告静态观察到的命令能力，未观察项保持 `unknown`，并标记并行 router 冲突。
+- [跨形态秘密脱敏] 规则：URI 凭据和英文 `password is ...` 不符合普通赋值形状也会泄密 → 下次执行：覆盖 URI userinfo 与自然语言密码模式，并逐字段汇总 `redacted=true`。

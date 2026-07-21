@@ -15,11 +15,12 @@ Generated from core/. Do not edit dist/ manually.
 
 | 入口 | 触发方式 | 说明 |
 | --- | --- | --- |
-| hook 自动 | 宿主 hook 拦截普通用户请求，注入 alignment context | 有 hook 时的默认路径 |
+| hook 自动 | 仅 Claude Code 已显式 `--wire-hook` 且当前会话已运行 `/align` | 已激活会话中的持续路径 |
 | 显式调用 | `/align <请求>`、`$align <请求>`、`align: <请求>` | 无 hook 时或用户主动使用 |
 | setup | `/align setup`、`/align-init`（兼容） | 首次接入，探测宿主并配置 hook |
 
 hook 自动入口和显式入口必须消费同一个 Decision Kernel，产生等价的 route/action。
+默认安装、未激活的 Claude Code 会话和其他宿主保持显式调用；`/align setup` 不会启用会话。
 
 ## /align setup
 

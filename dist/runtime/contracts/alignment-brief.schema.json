@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-optimizer.dev/contracts/alignment-brief/1.0.0",
+  "$comment": "Generated from core/; Do not edit dist/ manually",
+  "title": "Alignment Execution Brief v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "mode",
+    "taskRoute",
+    "decision",
+    "objective",
+    "context",
+    "scope",
+    "deliverables",
+    "constraints",
+    "execution",
+    "acceptance",
+    "markdown"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "kind": { "const": "alignment.execution-brief" },
+    "mode": { "enum": ["full", "degraded"] },
+    "taskRoute": { "$ref": "https://prompt-optimizer.dev/contracts/task-route/1.0.0" },
+    "decision": { "$ref": "#/$defs/decision" },
+    "objective": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "context": { "$ref": "#/$defs/nonEmptyStringList" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include", "exclude"],
+      "properties": {
+        "include": { "$ref": "#/$defs/nonEmptyStringList" },
+        "exclude": { "$ref": "#/$defs/nonEmptyStringList" }
+      }
+    },
+    "deliverables": { "$ref": "#/$defs/nonEmptyStringList" },
+    "constraints": { "$ref": "#/$defs/nonEmptyStringList" },
+    "execution": { "$ref": "#/$defs/nonEmptyStringList" },
+    "acceptance": {
+      "type": "array",
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/acceptance" }
+    },
+    "markdown": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 30000,
+      "not": {
+        "pattern": "\\{\\{[^}]+\\}\\}|\\[(?:TODO|TBD|PLACEHOLDER)\\]|<(?:TODO|TBD|PLACEHOLDER)>"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "type": "object",
+            "properties": { "route": { "enum": ["pass", "enrich"] } },
+            "required": ["route"]
+          }
+        },
+        "required": ["decision"]
+      },
+      "then": { "properties": { "acceptance": { "type": "array", "minItems": 1 } } }
+    }
+  ],
+  "$defs": {
+    "decision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["route", "action"],
+          "properties": { "route": { "enum": ["pass", "enrich"] }, "action": { "const": "execute" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["route", "action"],
+          "properties": { "route": { "const": "clarify" }, "action": { "const": "ask" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["route", "action"],
+          "properties": {
+            "route": { "const": "block" },
+            "action": { "enum": ["wait_confirmation", "stop"] }
+          }
+        }
+      ]
+    },
+    "nonEmptyStringList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion", "method"],
+      "properties": {
+        "criterion": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "method": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "enum": ["command", "metric", "checklist", "manual"] },
+            "value": { "type": "string", "minLength": 1, "maxLength": 2000 }
+          }
+        }
+      }
+    }
+  }
+}

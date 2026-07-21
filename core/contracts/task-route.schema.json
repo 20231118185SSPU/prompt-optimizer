@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-optimizer.dev/contracts/task-route/1.0.0",
+  "$comment": "Generated from core/; Do not edit dist/ manually",
+  "title": "Task Route v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "primary", "secondary", "rationale", "confidence", "missing"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "primary": { "enum": ["change", "inspect", "design", "produce", "operate", "unknown"] },
+    "secondary": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/taskFamily" }
+    },
+    "rationale": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["module", "reason"],
+        "properties": {
+          "module": { "$ref": "#/$defs/taskFamily" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "missing": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "objective", "context", "scope", "deliverables", "constraints",
+          "execution", "acceptance", "authorization", "recovery", "semantic_task_route"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "primary": { "const": "unknown" } },
+        "required": ["primary"]
+      },
+      "then": {
+        "properties": {
+          "secondary": { "type": "array", "maxItems": 0 },
+          "rationale": { "type": "array", "maxItems": 0 },
+          "confidence": { "type": "number", "const": 0 },
+          "missing": { "type": "array", "contains": { "const": "semantic_task_route" } }
+        }
+      },
+      "else": {
+        "properties": {
+          "rationale": { "type": "array", "minItems": 1 },
+          "missing": { "type": "array", "not": { "contains": { "const": "semantic_task_route" } } }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "secondary": { "type": "array", "maxItems": 0 },
+              "rationale": { "type": "array", "minItems": 1, "maxItems": 1 }
+            }
+          },
+          {
+            "properties": {
+              "secondary": { "type": "array", "minItems": 1, "maxItems": 1 },
+              "rationale": { "type": "array", "minItems": 2, "maxItems": 2 }
+            }
+          },
+          {
+            "properties": {
+              "secondary": { "type": "array", "minItems": 2, "maxItems": 2 },
+              "rationale": { "type": "array", "minItems": 3, "maxItems": 3 }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": { "properties": { "primary": { "const": "change" } }, "required": ["primary"] },
+      "then": { "properties": {
+        "secondary": { "type": "array", "not": { "contains": { "const": "change" } } },
+        "rationale": { "type": "array", "contains": { "$ref": "#/$defs/changeRationale" } }
+      } }
+    },
+    {
+      "if": { "properties": { "primary": { "const": "inspect" } }, "required": ["primary"] },
+      "then": { "properties": {
+        "secondary": { "type": "array", "not": { "contains": { "const": "inspect" } } },
+        "rationale": { "type": "array", "contains": { "$ref": "#/$defs/inspectRationale" } }
+      } }
+    },
+    {
+      "if": { "properties": { "primary": { "const": "design" } }, "required": ["primary"] },
+      "then": { "properties": {
+        "secondary": { "type": "array", "not": { "contains": { "const": "design" } } },
+        "rationale": { "type": "array", "contains": { "$ref": "#/$defs/designRationale" } }
+      } }
+    },
+    {
+      "if": { "properties": { "primary": { "const": "produce" } }, "required": ["primary"] },
+      "then": { "properties": {
+        "secondary": { "type": "array", "not": { "contains": { "const": "produce" } } },
+        "rationale": { "type": "array", "contains": { "$ref": "#/$defs/produceRationale" } }
+      } }
+    },
+    {
+      "if": { "properties": { "primary": { "const": "operate" } }, "required": ["primary"] },
+      "then": { "properties": {
+        "secondary": { "type": "array", "not": { "contains": { "const": "operate" } } },
+        "rationale": { "type": "array", "contains": { "$ref": "#/$defs/operateRationale" } }
+      } }
+    },
+    {
+      "if": { "properties": { "secondary": { "type": "array", "contains": { "const": "change" } } }, "required": ["secondary"] },
+      "then": { "properties": { "rationale": { "type": "array", "contains": { "$ref": "#/$defs/changeRationale" } } } }
+    },
+    {
+      "if": { "properties": { "secondary": { "type": "array", "contains": { "const": "inspect" } } }, "required": ["secondary"] },
+      "then": { "properties": { "rationale": { "type": "array", "contains": { "$ref": "#/$defs/inspectRationale" } } } }
+    },
+    {
+      "if": { "properties": { "secondary": { "type": "array", "contains": { "const": "design" } } }, "required": ["secondary"] },
+      "then": { "properties": { "rationale": { "type": "array", "contains": { "$ref": "#/$defs/designRationale" } } } }
+    },
+    {
+      "if": { "properties": { "secondary": { "type": "array", "contains": { "const": "produce" } } }, "required": ["secondary"] },
+      "then": { "properties": { "rationale": { "type": "array", "contains": { "$ref": "#/$defs/produceRationale" } } } }
+    },
+    {
+      "if": { "properties": { "secondary": { "type": "array", "contains": { "const": "operate" } } }, "required": ["secondary"] },
+      "then": { "properties": { "rationale": { "type": "array", "contains": { "$ref": "#/$defs/operateRationale" } } } }
+    }
+  ],
+  "$defs": {
+    "taskFamily": {
+      "enum": ["change", "inspect", "design", "produce", "operate"]
+    },
+    "changeRationale": { "type": "object", "properties": { "module": { "const": "change" } }, "required": ["module"] },
+    "inspectRationale": { "type": "object", "properties": { "module": { "const": "inspect" } }, "required": ["module"] },
+    "designRationale": { "type": "object", "properties": { "module": { "const": "design" } }, "required": ["module"] },
+    "produceRationale": { "type": "object", "properties": { "module": { "const": "produce" } }, "required": ["module"] },
+    "operateRationale": { "type": "object", "properties": { "module": { "const": "operate" } }, "required": ["module"] }
+  }
+}

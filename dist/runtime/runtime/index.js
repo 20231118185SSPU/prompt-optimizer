@@ -10,7 +10,7 @@
  * Converts rough user ideas into executable, verifiable, precipitable task contracts.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.writeContextProjection = exports.projectAlignmentDecision = exports.alignInstruction = exports.route = exports.classify = exports.VERSION = void 0;
+exports.readClaudeSessionActivation = exports.activateClaudeSession = exports.probeHostFeasibility = exports.writeContextProjection = exports.projectAlignmentDecision = exports.alignInstruction = exports.route = exports.classify = exports.VERSION = void 0;
 exports.VERSION = '3.2.0-rc.1';
 // Public seam: callers consume the Alignment Decision and host projection.
 // The remaining compatibility exports are intentionally kept narrow while
@@ -28,13 +28,22 @@ Object.defineProperty(exports, "projectAlignmentDecision", { enumerable: true, g
 // Legacy context projection remains an explicit CLI compatibility capability.
 var context_projection_1 = require("./context-projection");
 Object.defineProperty(exports, "writeContextProjection", { enumerable: true, get: function () { return context_projection_1.writeContextProjection; } });
+var host_feasibility_1 = require("./host-feasibility");
+Object.defineProperty(exports, "probeHostFeasibility", { enumerable: true, get: function () { return host_feasibility_1.probeHostFeasibility; } });
+var session_activation_1 = require("./session-activation");
+Object.defineProperty(exports, "activateClaudeSession", { enumerable: true, get: function () { return session_activation_1.activateClaudeSession; } });
+Object.defineProperty(exports, "readClaudeSessionActivation", { enumerable: true, get: function () { return session_activation_1.readClaudeSessionActivation; } });
 // ── CLI Entry Point ──
 // Import for CLI use
-const pipeline_1 = require("./pipeline");
 const alignment_interface_2 = require("./alignment-interface");
 const context_projection_2 = require("./context-projection");
 const reference_host_1 = require("./reference-host");
 const matt_cli_1 = require("./matt-cli");
+const host_feasibility_2 = require("./host-feasibility");
+const session_activation_2 = require("./session-activation");
+function claudeSessionStateHome() {
+    return process.env.PROMPT_OPTIMIZER_STATE_HOME || undefined;
+}
 // Tool-specific output modes
 const toolModes = {
     'claude-code': (instruction, projectDir) => {
@@ -75,52 +84,29 @@ const toolModes = {
             'failed/cancelled=enforcement_unavailable');
     },
     'codex': (instruction, projectDir) => {
-        // Codex CLI wrapper mode: inject alignment context
-        const result = (0, pipeline_1.processInstruction)(instruction, projectDir, {
+        const result = (0, alignment_interface_2.alignInstruction)(instruction, projectDir, {
             hostCapabilities: { adapter: 'codex' }
         });
-        console.log('=== Alignment Context ===');
-        console.log(result.instructions);
-        console.log('');
-        console.log('=== Original Instruction ===');
-        console.log(result.enrichedMessage);
+        console.log(result.brief.markdown);
     },
     'cursor': (instruction, projectDir) => {
-        // Cursor CLI wrapper mode: inject alignment context
-        const result = (0, pipeline_1.processInstruction)(instruction, projectDir, {
+        const result = (0, alignment_interface_2.alignInstruction)(instruction, projectDir, {
             hostCapabilities: { adapter: 'cursor' }
         });
-        console.log('=== Alignment Context ===');
-        console.log(result.instructions);
-        console.log('');
-        console.log('=== Original Instruction ===');
-        console.log(result.enrichedMessage);
+        console.log(result.brief.markdown);
     },
     'generic': (instruction, projectDir) => {
-        // Generic mode: output full alignment result
-        const result = (0, pipeline_1.processInstruction)(instruction, projectDir);
-        console.log('=== Alignment Pipeline Result ===');
-        console.log(`Verdict: ${result.verdict}`);
-        console.log('');
-        console.log('Instructions:');
-        console.log(result.instructions);
-        console.log('');
-        console.log('Enriched Message:');
-        console.log(result.enrichedMessage);
-        if (result.verificationCommands.length > 0) {
-            console.log('');
-            console.log('Verification Commands:');
-            result.verificationCommands.forEach(cmd => console.log(`  - ${cmd}`));
-        }
+        const result = (0, alignment_interface_2.alignInstruction)(instruction, projectDir);
+        console.log(result.brief.markdown);
     },
     'json': (instruction, projectDir) => {
         // Thin adapters may identify their host without creating a second route.
         const hostCapabilities = process.env.ALIGN_HOST_ADAPTER === 'codex'
             ? { adapter: 'codex' }
             : undefined;
-        const result = (0, pipeline_1.processInstruction)(instruction, projectDir, { hostCapabilities });
-        console.error(`[alignment] route=${result.alignmentDecision.route} reasons=${result.alignmentDecision.reasons.join(',')}`);
-        process.stdout.write(`${JSON.stringify(result.alignmentDecision)}\n`);
+        const result = (0, alignment_interface_2.alignInstruction)(instruction, projectDir, { hostCapabilities });
+        console.error(`[alignment] route=${result.decision.route} reasons=${result.decision.reasons.join(',')}`);
+        process.stdout.write(`${JSON.stringify(result.decision)}\n`);
     },
     'matt': (instruction, projectDir) => {
         const handoff = (0, matt_cli_1.createMattHandoff)(instruction, projectDir);
@@ -129,6 +115,24 @@ const toolModes = {
     },
     'context-project': (instruction, projectDir) => {
         const result = (0, context_projection_2.writeContextProjection)(projectDir, instruction === '--force');
+        process.stdout.write(`${JSON.stringify(result)}\n`);
+    },
+    'probe': (instruction, projectDir) => {
+        const requestedIngress = process.env.ALIGN_PROBE_INGRESS === 'hook' ? 'hook' : 'explicit';
+        const result = (0, host_feasibility_2.probeHostFeasibility)(projectDir, {
+            host: { name: instruction, version: process.env.ALIGN_HOST_VERSION },
+            requestedIngress
+        });
+        process.stdout.write(`${JSON.stringify(result)}\n`);
+    },
+    'claude-session': (instruction, projectDir) => {
+        const sessionRef = process.env.ALIGN_SESSION_REF || '';
+        const options = { stateHome: claudeSessionStateHome() };
+        const result = instruction === 'activate'
+            ? (0, session_activation_2.activateClaudeSession)(projectDir, sessionRef, options)
+            : instruction === 'status'
+                ? (0, session_activation_2.readClaudeSessionActivation)(projectDir, sessionRef, options)
+                : { status: 'inactive', reason: 'invalid_command' };
         process.stdout.write(`${JSON.stringify(result)}\n`);
     }
 };
@@ -146,6 +150,8 @@ if (require.main === module) {
         console.error('  json           Alignment Decision JSON on stdout; disclosure on stderr');
         console.error('  matt           Matt Pocock Skills handoff JSON on stdout; route/status on stderr');
         console.error('  context-project  Generate legacy context.md from classified SSOT; instruction may be --force');
+        console.error('  probe          Read-only host/project feasibility report; instruction is the host name');
+        console.error('  claude-session  Read or activate hashed Claude session state; instruction is activate|status');
         process.exit(1);
     }
     const tool = args[0];

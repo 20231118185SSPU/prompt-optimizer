@@ -336,10 +336,14 @@ bash -n scripts/install-skill.sh
 - [ ] 我是否给出了可执行验收或验证结果？
 - [ ] 我是否没有覆盖用户已有改动？
 
-<!-- align-protocol:begin v3.0 -->
+<!-- align-protocol:begin v4.0 -->
 ## 对齐协议（Alignment Protocol）
 
-每条开发指令执行前，静默完成三档路由评估：
+默认模式：显式调用。每个新会话使用 `/align <请求>` 触发意图对齐；未显式调用时按宿主默认行为处理，禁止把普通消息视为自动对齐入口。
+
+已显式 `--wire-hook` 且当前会话已 `/align` 的 Claude Code，后续普通请求可由 hook 持续进入同一对齐路径；新会话必须重新激活。Codex、Cursor 和未激活会话保持显式调用。
+
+显式入口或已激活 hook 进入时：
 
 1. 读取 `.align/lessons.md → spec.md → facts.md / glossary.md / state.md`；三个分类文件未齐全时同时读取 `context.md`，全部缺失时只读 legacy
 2. 五维快评：简单且明确 → 直接执行（但交付前必须自验证）
